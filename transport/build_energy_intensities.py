@@ -1,5 +1,5 @@
-# transport/build_energy_intensities.py
 import pandas as pd
+import numpy as np
 from build_CAGR import expand_with_piecewise_cagr, expand_constant, expand_with_cagr
 
 def read_excel_file(file_path, sheet_name):
@@ -79,43 +79,70 @@ def get_base_intensity_values():
 
 def expand_intensity(metric_name, base_value, BASE_YEAR, TARGET_YEARS, SCENARIOS, CAGR_VALUES):
     try:
-        cagr_entry = CAGR_VALUES.get(metric_name)
+        # 1. Get the raw entry from the config
+        entry = CAGR_VALUES.get(metric_name)
 
-        if not isinstance(cagr_entry, dict):
+        # --- SAFETY GUARD 1: Check Base Value ---
+        if (
+            base_value is None
+            or isinstance(base_value, (list, tuple))
+            or not isinstance(base_value, (int, float))
+        ):
+            return expand_constant(1.0, BASE_YEAR, TARGET_YEARS, SCENARIOS)
+
+        # --- SAFETY GUARD 2: Check if entry exists ---
+        if not isinstance(entry, dict):
             return expand_constant(base_value, BASE_YEAR, TARGET_YEARS, SCENARIOS)
 
-        if base_value is None or (isinstance(base_value, (int, float)) and base_value == 0):
-            base_value = 1.0
+        # --- CRITICAL FIX START: Extract 'values' sub-dictionary ---
+        # The loader returns: {'assumption_type': 'CAGR', 'values': {2030: ...}}
+        # We need to grab specifically the 'values' part.
+        cagr_data = entry.get("values", {})
+        
+        if not cagr_data:
+            # Fallback: maybe the dictionary IS the values (legacy structure check)
+            # If keys look like integers, assume it is the values dict
+            if any(isinstance(k, int) or str(k).isdigit() for k in entry.keys()):
+                cagr_data = entry
+            else:
+                # No valid data found -> return constant
+                return expand_constant(base_value, BASE_YEAR, TARGET_YEARS, SCENARIOS)
+        # --- CRITICAL FIX END ---
 
         parsed_cagr = {}
-        for year, scen_dict in cagr_entry.items():
-            # Handle string year keys like '2030'
+        for year, scen_dict in cagr_data.items():
             try:
                 year_int = int(str(year).strip("'"))
             except ValueError:
                 continue
-                
+
             parsed_cagr[year_int] = {}
             if not isinstance(scen_dict, dict):
                 continue
+
             for scen, val in scen_dict.items():
                 try:
                     parsed_cagr[year_int][scen] = float(val)
                 except Exception:
                     parsed_cagr[year_int][scen] = 0.0
 
-        results = expand_with_cagr(
+        # --- Check if we successfully parsed any years ---
+        if not parsed_cagr:
+            return expand_constant(base_value, BASE_YEAR, TARGET_YEARS, SCENARIOS)
+        
+        # Proceed to calculation with actual data
+        return expand_with_cagr(
             base_value,
             parsed_cagr,
             BASE_YEAR,
             TARGET_YEARS,
             SCENARIOS
         )
-        return results
 
     except Exception as e:
         print(f" expand_intensity error for {metric_name}: {e}")
-        return expand_constant(base_value, BASE_YEAR, TARGET_YEARS, SCENARIOS)
+        return expand_constant(1.0, BASE_YEAR, TARGET_YEARS, SCENARIOS)
+
 
 def generate_energy_intensities(
     selected_country,
@@ -123,7 +150,7 @@ def generate_energy_intensities(
     TARGET_YEARS,
     SCENARIOS,
     CAGR_VALUES,
-    BACKEND=None  # <--- Added BACKEND here to fix the crash
+    BACKEND=None
 ):
     intensity_base = get_base_intensity_values()
     result = {}

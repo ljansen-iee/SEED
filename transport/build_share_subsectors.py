@@ -293,10 +293,14 @@ def add_units_to_subsector(subsector):
 out_df['subsector_transport'] = out_df['subsector_transport'].apply(add_units_to_subsector)
 
 
-# Display the DataFrame or save it as needed
-output_folder = "output_data"
-path = os.path.join(os.getcwd(), output_folder)
-os.makedirs(path, exist_ok=True)
+import os
+from pathlib import Path
+
+# Get the folder where this script is located
+script_dir = Path(__file__).resolve().parent
+
+path = Path(__file__).resolve().parent / "output_data"
+path.mkdir(parents=True, exist_ok=True)
 
 # Save the file inside the output folder with the index
 out_df.set_index(['Country', 'subsector_transport'], inplace=True)

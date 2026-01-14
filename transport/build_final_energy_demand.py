@@ -24,16 +24,14 @@ os.makedirs(RESULTS_DIR, exist_ok=True)
 #  "South Sudan","Cabo Verde", "Congo", "Eswatini" ] 
 
 COUNTRY = [ "Algeria","Argentina","Brazil","Chile","Colombia","Egypt","Libya","Mexico",
-    ]
-        #    "Algeria","Argentina","Brazil","Chile","Colombia","Egypt","Libya","Mexico",
-        #                     "Namibia","Peru","Tunisia","Uruguay","Morocco","South Africa",
-        #                     "Angola","Benin","Botswana","Burkina Faso","Burundi","Cameroon",
-        #                     "Central African Republic","Chad","Comoros","Djibouti","Equatorial Guinea","Eritrea",
-        #                     "Ethiopia","Gabon","Gambia","Ghana","Guinea","Guinea Bissau","Kenya","Lesotho",
-        #                     "Liberia","Madagascar","Malawi","Mali","Mauritania","Mozambique","Namibia","Niger",
-        #                     "Rwanda","Senegal","Sierra Leone","Somalia","Sudan","Tanzania","Togo","Uganda",
-        #                     "Zambia","Zimbabwe","Seychelles","Cote D'Ivoire","Sao Tome and Principe",
-        #                     "South Sudan","Cabo Verde", "Congo", "Eswatini" ] 
+                             "Namibia","Peru","Tunisia","Uruguay","Morocco","South Africa",
+                            "Angola","Benin","Botswana","Burkina Faso","Burundi","Cameroon",
+                             "Central African Republic","Chad","Comoros","Djibouti","Equatorial Guinea","Eritrea",
+                             "Ethiopia","Gabon","Gambia","Ghana","Guinea","Guinea Bissau","Kenya","Lesotho",
+                             "Liberia","Madagascar","Malawi","Mali","Mauritania","Mozambique","Namibia","Niger",
+                             "Rwanda","Senegal","Sierra Leone","Somalia","Sudan","Tanzania","Togo","Uganda",
+                             "Zambia","Zimbabwe","Seychelles","Cote D'Ivoire","Sao Tome and Principe",
+                             "South Sudan","Cabo Verde", "Congo", "Eswatini" ] 
 
 
 def find_latest_dir(base_dir="output_data") -> str:

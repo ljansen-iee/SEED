@@ -12,68 +12,61 @@ from helpers import clean_column_headers, clean_missing_countries, generate_unit
 from build_load_factors import get_Load_factor_Car, Load_factor_Bus, Load_factor_two_three_occupancy, heavy_load_factor, medium_load_factor, load_factor
 from build_energy_intensities import generate_energy_intensities, expand_intensity
 from build_technology_share import Share_of_Direct_Electric_Passenger_Train, share_technology, TECHNOLOGY_OVERRIDES, enforce_share_constraints, apply_technology_overrides
-from build_CAGR import poly_project, expand_with_cagr, expand_constant, as_fraction
+from build_CAGR import poly_project, expand_with_cagr, expand_constant, as_fraction, get_cagr
 from config_loader import load_transport_config
 
 
 # === Constants ===
-BASE_YEAR = 2025  # Define the start year for the projections. 2020 by default. Years between 2020 and 2025 are available (via interpolation),
+BASE_YEAR = 2020  # Define the start year for the projections. 2020 by default. Years between 2020 and 2025 are available (via interpolation),
 
 SSP_ORDER = ["SSP2", "SSP2", "SSP1"]
-#TODO: @Rakesh, check the scenarios logic
+
 SCENARIOS = [
     "Baseline",
-    "xy", 
-    "yz"] # a max of three scenarios are possible.
+    "Er", 
+    "RL"] # a max of three scenarios are possible.
 
 from build_macro_indicators import validate_scenarios_and_ssp
 validate_scenarios_and_ssp(SCENARIOS, SSP_ORDER)
 
-TARGET_YEARS = [2035,2045]  # multiple year are possible. 
-
-
-# TODO: define two different variable, deafult_backend (saved after the first run)
-# and backend would be the modifiable. 
-# todo: let us use csv. 
+TARGET_YEARS = [2030,2040,2050]  # multiple year are possible. 
 
 # === Transport assumptions file (user can change this) ===
 TRANSPORT_CONFIG_FILE = "trans_config.xlsx"
 
 
-# === Build CAGR dictionary from build_CAGR (auto defaults) ===
+TRANSPORT_CONFIG_PATH = Path(__file__).resolve().parent / TRANSPORT_CONFIG_FILE
+print("\n===============================")
+print("Running transport sector pipeline")
+print(f"Transport assumptions file: {TRANSPORT_CONFIG_FILE}")
+print("===============================\n")
+
 
 devkopsys_countries = [ "Algeria","Argentina","Brazil","Chile","Colombia","Egypt","Libya","Mexico",
-                        ]
-                            # "Namibia","Peru","Tunisia","Uruguay","Morocco","South Africa",
-                            # "Angola","Benin","Botswana","Burkina Faso","Burundi","Cameroon",
-                            # "Central African Republic","Chad","Comoros","Djibouti","Equatorial Guinea","Eritrea",
-                            # "Ethiopia","Gabon","Gambia","Ghana","Guinea","Guinea Bissau","Kenya","Lesotho",
-                            # "Liberia","Madagascar","Malawi","Mali","Mauritania","Mozambique","Namibia","Niger",
-                            # "Rwanda","Senegal","Sierra Leone","Somalia","Sudan","Tanzania","Togo","Uganda",
-                            # "Zambia","Zimbabwe","Seychelles","Cote D'Ivoire","Sao Tome and Principe",
-                            # "South Sudan","Cabo Verde", "Congo", "Eswatini" ]
+                             "Namibia","Peru","Tunisia","Uruguay","Morocco","South Africa",
+                             "Angola","Benin","Botswana","Burkina Faso","Burundi","Cameroon",
+                            "Central African Republic","Chad","Comoros","Djibouti","Equatorial Guinea","Eritrea",
+                            "Ethiopia","Gabon","Gambia","Ghana","Guinea","Guinea Bissau","Kenya","Lesotho",
+                            "Liberia","Madagascar","Malawi","Mali","Mauritania","Mozambique","Namibia","Niger",
+                             "Rwanda","Senegal","Sierra Leone","Somalia","Sudan","Tanzania","Togo","Uganda",
+                             "Zambia","Zimbabwe","Seychelles","Cote D'Ivoire","Sao Tome and Principe",
+                            "South Sudan","Cabo Verde", "Congo", "Eswatini" ]
 
-# === Load all assumptions dynamically from YAMLs ===
+
 # === Loop through countries ===
+
+countries_to_load = devkopsys_countries + ["default"] 
+
 TRANSPORT_CONFIG = load_transport_config(
     excel_path=Path(__file__).resolve().parent / TRANSPORT_CONFIG_FILE,
-    countries=devkopsys_countries,
+    countries=countries_to_load,
     scenarios=SCENARIOS
 )
-# ================= DEBUG =================
-print("\n===== DEBUG: TRANSPORT_CONFIG structure =====")
-print("Countries loaded:", TRANSPORT_CONFIG.keys())
 
-if "Algeria" in TRANSPORT_CONFIG:
-    print("\nDEBUG CAGR KEYS for Algeria:")
-    for k in TRANSPORT_CONFIG["Algeria"].keys():
-        print("  -", k)
-else:
-    print("Algeria not found in TRANSPORT_CONFIG")
-
-print("===========================================\n")
-# ==========================================
-
+# Extract the Default values once, to use them later
+DEFAULT_VALUES = TRANSPORT_CONFIG.get("default", {})
+if not DEFAULT_VALUES:
+    print(" WARNING: No 'default' data found in trans_config.xlsx. Fallback logic might fail.")
 
 def main(base_year=None, target_years=None, scenarios=None):
     base_year = int(base_year) if base_year is not None else BASE_YEAR
@@ -89,9 +82,6 @@ def main(base_year=None, target_years=None, scenarios=None):
     except Exception as e:
         print(f"Error loading global transport data: {e}")
         return
-
-    # Countries list # TODO rename the list of countries
-    
 
     # Preprocess
     try:
@@ -128,13 +118,29 @@ def main(base_year=None, target_years=None, scenarios=None):
     for selected_country in devkopsys_countries:
         print(f"\n🔹 Processing: {selected_country}")
         years = str(BASE_YEAR)
-        # === Load country-specific CAGR assumptions ===
+
+        # === Load Data & Merge with Defaults ===
         try:
-            CAGR_VALUES = TRANSPORT_CONFIG[selected_country]
-        except KeyError:
-            raise KeyError(
-                f"No transport assumptions found for country: {selected_country}"
-            )
+            # 1. Get Country Specific Data
+            country_values = TRANSPORT_CONFIG.get(selected_country, {})
+            
+            # 2. Start with Defaults
+            # We use .copy() so we don't accidentally change the defaults for the next country
+            CAGR_VALUES = DEFAULT_VALUES.copy() 
+            
+            # 3. Update with Country Specifics (Overwrites defaults if data exists)
+            if country_values:
+                CAGR_VALUES.update(country_values)
+            
+            # 4. Final Safety Check
+            if not CAGR_VALUES:
+                raise ValueError(
+                    f"No data found (neither Default nor Country-specific) for: {selected_country}"
+                )
+
+        except Exception as e:
+            print(f" Error preparing configuration for {selected_country}: {e}")
+            continue
 
        # ------- Population -------
         try:
@@ -311,7 +317,7 @@ def main(base_year=None, target_years=None, scenarios=None):
                 # Expand with manual CAGRs
                 rail_expanded = expand_with_cagr(
                     rail_base,
-                    CAGR_VALUES["Share per Subsector - Rail Passenger = Train"],
+                    get_cagr(CAGR_VALUES, "Share per Subsector - Rail Passenger = Train"),
                     BASE_YEAR,
                     TARGET_YEARS,
                     SCENARIOS
@@ -319,11 +325,12 @@ def main(base_year=None, target_years=None, scenarios=None):
 
                 aviation_expanded = expand_with_cagr(
                     aviation_base,
-                    CAGR_VALUES["Share per Subsector - Aviation Passenger = Plane"],
+                    get_cagr(CAGR_VALUES, "Share per Subsector - Aviation Passenger = Plane"),
                     BASE_YEAR,
                     TARGET_YEARS,
                     SCENARIOS
                 )
+
 
                 # Road share = 100 - (Rail + Aviation)
                 road_expanded = {}
@@ -360,11 +367,12 @@ def main(base_year=None, target_years=None, scenarios=None):
                 })
                 mcp_expanded = expand_with_cagr(
                     scenario_baseline["Mobility per capita - Passenger"],
-                    CAGR_VALUES["Mobility per capita - Passenger"],
+                    get_cagr(CAGR_VALUES, "Mobility per capita - Passenger"),
                     BASE_YEAR,
                     TARGET_YEARS,
                     SCENARIOS
                 )
+
 
                 all_rows.append({
                     "Metric": "Mobility per capita - Passenger",
@@ -374,9 +382,9 @@ def main(base_year=None, target_years=None, scenarios=None):
             except Exception as e:
                 print(f" Skipping {selected_country}: Subsector shares error ({e})")
 
-                    # --- Subsector Shares: Freight (Road, Rail, Ship) ---
+            # --- Subsector Shares: Freight (Road, Rail, Ship) ---
 
-                        # --- Mode Shares: LDV, Bus, 2&3W ---
+            # --- Mode Shares: LDV, Bus, 2&3W ---
             try:
                 # --- Base year Bus ---
                 bus_base = poly_project(
@@ -400,15 +408,16 @@ def main(base_year=None, target_years=None, scenarios=None):
                 # --- Expand with CAGR ---
                 bus_expanded = expand_with_cagr(
                     bus_base,
-                    CAGR_VALUES["Share per Mode - Bus"],
+                    get_cagr(CAGR_VALUES, "Share per Mode - Bus"),
                     BASE_YEAR,
                     TARGET_YEARS,
                     SCENARIOS
                 )
 
+
                 two3w_expanded = expand_with_cagr(
                     two3w_base,
-                    CAGR_VALUES["Share per Mode - 2&3W"],
+                    get_cagr(CAGR_VALUES, "Share per Mode - 2&3W"),
                     BASE_YEAR,
                     TARGET_YEARS,
                     SCENARIOS
@@ -516,7 +525,7 @@ def main(base_year=None, target_years=None, scenarios=None):
 
                 freight_expanded = expand_with_cagr(
                     freight_base,
-                    CAGR_VALUES["Mobility per capita - Freight"],
+                    get_cagr(CAGR_VALUES, "Mobility per capita - Freight"),
                     BASE_YEAR,
                     TARGET_YEARS,
                     SCENARIOS
@@ -536,19 +545,21 @@ def main(base_year=None, target_years=None, scenarios=None):
                 # --- Expand Rail and Ship with CAGRs ---
                 rail_freight_expanded = expand_with_cagr(
                     rail_freight_base,
-                    CAGR_VALUES["Share per Subsector - Rail Freight = Train"],
+                    get_cagr(CAGR_VALUES, "Share per Subsector - Rail Freight = Train"),
                     BASE_YEAR,
                     TARGET_YEARS,
                     SCENARIOS
                 )
 
+
                 ship_freight_expanded = expand_with_cagr(
                     ship_freight_base,
-                    CAGR_VALUES["Share per Subsector - Navigation Freight = Ship"],
+                    get_cagr(CAGR_VALUES, "Share per Subsector - Navigation Freight = Ship"),
                     BASE_YEAR,
                     TARGET_YEARS,
                     SCENARIOS
                 )
+
 
                 # Road Freight = remainder each year
                 road_freight_expanded = {}
@@ -617,9 +628,10 @@ def main(base_year=None, target_years=None, scenarios=None):
                     # Expand HDT share with CAGR (small CAGR → small movement; change YAML if you want bigger change)
                     hdt_expanded = expand_with_cagr(
                         hdt_base,
-                        CAGR_VALUES.get("Share per Mode - Heavy-Duty Trucks", (None, 0.0, 0.0, 0.0)),
+                        get_cagr(CAGR_VALUES, "Share per Mode - Heavy-Duty Trucks"),
                         BASE_YEAR, TARGET_YEARS, SCENARIOS
                     )
+
                     # Optional: fill any missing keys produced by the backend
                     if 'interpolate_or_extrapolate' in globals():
                         hdt_expanded = interpolate_or_extrapolate(hdt_expanded, TARGET_YEARS, SCENARIOS)
@@ -851,7 +863,7 @@ def main(base_year=None, target_years=None, scenarios=None):
             tech_rows.append(row)
 
         # Apply overrides and interpolate (2030/2050 direct, 2035–2045 interpolated)
-        tech_rows = apply_technology_overrides(tech_rows, TARGET_YEARS, SCENARIOS)
+        tech_rows = apply_technology_overrides(tech_rows, TARGET_YEARS, SCENARIOS, CAGR_VALUES)
 
         # Enforce constraints (warn if >100%)
         tech_rows = enforce_share_constraints(tech_rows)

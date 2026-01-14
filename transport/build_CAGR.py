@@ -77,7 +77,7 @@ selected_sources = ["IEE", "ISI", "Khalili"]
 try:
     result_df = compute_bandwidth_cagr(df, selected_sources)
 except Exception as e:
-    print(f" Could not compute CAGR: {e}")
+    #print(f" Could not compute CAGR: {e}")
     result_df = pd.DataFrame()
 
 
@@ -303,7 +303,7 @@ try:
     from config_loader import load_expert_config
     BASE_VALUES = load_expert_config()   # <-- NO ARGUMENTS NOW
 except Exception as e:
-    print(f" Could not load base values from YAML: {e}")
+    #print(f" Could not load base values from YAML: {e}")
     BASE_VALUES = {}
 
 
@@ -314,8 +314,8 @@ except Exception:
 
 
 #print(f" build_cagr_values produced {len(CAGR_VALUES)} entries")
-if not CAGR_VALUES:
-    print(" No metrics were matched. Check METRIC_NAME_MAP or BASE_VALUES[2020].")
+#if not CAGR_VALUES:
+    #print(" No metrics were matched. Check METRIC_NAME_MAP or BASE_VALUES[2020].")
 
 
 
@@ -519,5 +519,10 @@ def as_fraction(x):
     except Exception:
         return np.nan
 
-print("Example CAGR value:")
-print(CAGR_VALUES.get("Final Energy Intensity - Diesel ICE LDV"))
+def get_cagr(CAGR_VALUES, metric):
+    entry = CAGR_VALUES.get(metric)
+    if entry is None:
+        raise KeyError(f"CAGR not found for metric: {metric}")
+    if entry.get("assumption_type") != "CAGR":
+        raise ValueError(f"{metric} is not CAGR-based")
+    return entry["values"]
