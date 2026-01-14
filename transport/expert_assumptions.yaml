@@ -1,0 +1,133 @@
+# expert_assumptions.yaml 
+# This file defines the default CAGR-based assumption set for the 
+# transport sector. These values are considered "expert assumptions".
+#
+# IMPORTANT:
+# • These CAGRs apply to ALL COUNTRIES by default.
+# • If a country-specific value is provided in transport_config.xlsx,
+#   that Excel value will override the corresponding entry here. when Backend = config
+
+# • If no override exists for a given metric / year / scenario,
+#   the model falls back automatically to the values in this file.
+
+# • Keep this YAML file as the single source of truth for default
+#   assumptions across all countries.
+# • Use the Excel file only when justified country-specific evidence
+#   exists.
+
+Mobility per capita - Passenger:
+  [null, 0.0316, 0.0256, 0.0342, 0.0229, 0.0229, 0.0256]
+Mobility per capita - Freight:
+  [null, 0.0386, 0.0318, 0.0425, 0.0286, 0.0286, 0.0327]
+
+# =======================
+# Passenger Subsector Shares
+# =======================
+Share per Subsector - Rail Passenger = Train: [null, -0.0092, -0.0088, 0.0137, -0.0075, 0.0148, 0.0221]
+Share per Subsector - Aviation Passenger = Plane: [null, 0.0228, 0.0182, 0.0120, 0.0205, 0.0149, 0.0096]
+
+# =======================
+# Passenger Mode Shares
+# =======================
+Share per Mode - Bus: [null, -0.0123, 0.0011, 0.0047, -0.0032, 0.0076, 0.0087]
+Share per Mode - 2&3W: [null, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+Share per Mode - LDV: [null, null, null, null, null, null, null]
+Share per Mode - Heavy-Duty Trucks: [None, 0.0001, 0.0, -0.0001, 0.0001, 0.0, 0.0]
+
+# =======================
+# Freight Subsector Shares
+# =======================
+Share per Subsector - Rail Freight = Train: [null, -0.0128, -0.0061, -0.0033, -0.0073, -0.0061, -0.0060]
+Share per Subsector - Navigation Freight = Ship: [null, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+# =======================
+# Final Energy Intensities
+# =======================
+
+# LDV
+Final Energy Intensity - Gasoline ICE LDV:
+  [null, -0.0108, -0.0151, -0.0190, -0.0053, -0.0122, -0.0259]
+Final Energy Intensity - Diesel ICE LDV:
+  [null, -0.0120, -0.0145, -0.0180, -0.0075, -0.0100, -0.0200]
+Final Energy Intensity - LPG ICE LDV:
+  [null, -0.0110, -0.0140, -0.0180, -0.0070, -0.0105, -0.0190]
+Final Energy Intensity - BEV LDV:
+  [null, -0.0105, -0.0151, -0.0234, -0.0053, -0.0099, -0.0154]
+Final Energy Intensity - FCEV LDV:
+  [null, -0.0032, -0.0131, -0.0213, -0.0025, -0.0079, -0.0163]
+Final Energy Intensity - Diesel Plugin Hybrid LDV:
+  [null, -0.0075, -0.0150, -0.0200, -0.0025, -0.0050, -0.0100]
+Final Energy Intensity - Gasoline Plugin Hybrid LDV:
+  [null, -0.0075, -0.0150, -0.0200, -0.0025, -0.0050, -0.0100]
+
+# Bus
+Final Energy Intensity - Diesel ICE Bus:
+  [null, -0.0034, -0.0034, -0.0034, -0.0033, -0.0033, -0.0033]
+Final Energy Intensity - BEV Bus:
+  [null, -0.0073, -0.0073, -0.0073, -0.0072, -0.0072, -0.0072]
+Final Energy Intensity - FCEV Bus:
+  [null, -0.0093, -0.0093, -0.0093, -0.0091, -0.0091, -0.0091]
+Final Energy Intensity - Diesel Plugin Hybrid Bus:
+  [null, -0.0075, -0.0150, -0.0200, -0.0025, -0.0050, -0.0100]
+
+# 2&3W
+Final Energy Intensity - Gasoline ICE 2&3W:
+  [null, -0.0075, -0.0150, -0.0200, -0.0025, -0.0050, -0.0100]
+Final Energy Intensity - BEV 2&3W:
+  [null, -0.0025, -0.0050, -0.0100, -0.0025, -0.0050, -0.0100]
+
+# Passenger Train
+Final Energy Intensity - Diesel ICE Passenger Train:
+  [null, -0.0030, -0.0050, -0.0071, -0.0032, -0.0054, -0.0077]
+Final Energy Intensity - Direct Electric Passenger Train:
+  [null, -0.0070, -0.0076, -0.0081, -0.0079, -0.0086, -0.0093]
+Final Energy Intensity - FCEV Passenger Train:
+  [null, -0.0071, -0.0071, -0.0071, -0.0077, -0.0077, -0.0077]
+
+# Passenger Plane
+Final Energy Intensity - Kerosene Passenger Plane:
+  [null, -0.0079, -0.0091, -0.0104, -0.0104, -0.0141, -0.0178]
+Final Energy Intensity - BEV Passenger Plane:
+  [null, -0.0104, -0.0104, -0.0104, -0.0104, -0.0104, -0.0104]
+Final Energy Intensity - FCEV Passenger Plane:
+  [null, -0.0104, -0.0104, -0.0104, -0.0104, -0.0104, -0.0104]
+
+# Freight LDT
+Final Energy Intensity - Diesel ICE LDT:
+  [null, -0.0122, -0.0126, -0.0129, -0.0043, -0.0086, -0.0129]
+Final Energy Intensity - BEV LDT:
+  [null, -0.0098, -0.0160, -0.0222, -0.0018, -0.0086, -0.0154]
+Final Energy Intensity - FCEV LDT:
+  [null, -0.0106, -0.0114, -0.0122, -0.0051, -0.0093, -0.0135]
+Final Energy Intensity - Diesel Plugin Hybrid LDT:
+  [null, -0.0075, -0.0150, -0.0200, -0.0025, -0.0050, -0.0100]
+
+# Freight HDT
+Final Energy Intensity - Diesel ICE HDT:
+  [null, -0.0154, -0.0155, -0.0155, -0.0071, -0.0116, -0.0161]
+Final Energy Intensity - BEV HDT:
+  [null, -0.0081, -0.0151, -0.0222, -0.0029, -0.0091, -0.0154]
+Final Energy Intensity - FCEV HDT:
+  [null, -0.0099, -0.0127, -0.0154, -0.0052, -0.0107, -0.0161]
+Final Energy Intensity - Diesel Plugin Hybrid HDT:
+  [null, -0.0075, -0.0150, -0.0200, -0.0025, -0.0050, -0.0100]
+
+# Freight Train
+Final Energy Intensity - Diesel ICE Freight Train:
+  [null, -0.0072, -0.0088, -0.0105, -0.0021, -0.0073, -0.0125]
+Final Energy Intensity - Direct Electric Freight Train:
+  [null, -0.0070, -0.0076, -0.0081, -0.0079, -0.0086, -0.0093]
+Final Energy Intensity - FCEV Freight Train:
+  [null, -0.0071, -0.0071, -0.0071, -0.0077, -0.0077, -0.0077]
+
+# Freight Ship
+Final Energy Intensity - Diesel Freight Ship:
+  [null, -0.0072, -0.0088, -0.0105, -0.0021, -0.0073, -0.0125]
+Final Energy Intensity - Methanol Freight Ship:
+  [null, -0.0072, -0.0088, -0.0105, -0.0021, -0.0073, -0.0125]
+Final Energy Intensity - Ammonia Freight Ship:
+  [null, -0.0072, -0.0088, -0.0105, -0.0021, -0.0073, -0.0125]
+Final Energy Intensity - BEV Freight Ship:
+  [null, -0.0040, -0.0080, -0.0100, -0.0040, -0.0080, -0.0100]
+Final Energy Intensity - FCEV Freight Ship:
+  [null, -0.0105, -0.0105, -0.0105, -0.0102, -0.0113, -0.0125]

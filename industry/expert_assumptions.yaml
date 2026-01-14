@@ -1,0 +1,906 @@
+# expert_assumptions.yaml
+
+industry:
+
+  # ======================================================
+  # Global fallback (index-based scenarios: [Base, Ambitious, Net])
+  # ======================================================
+  cagr:
+
+    # -------- Activity / Production --------
+    Steel production per year:
+      2030: [0.00, 0.00, 0.00]
+      2050: [0.00, 0.01, 0.01]
+
+    Activity factor of unspecified iron and steel:
+      2030: [0.00, 0.01, 0.01]
+      2050: [0.00, 0.01, 0.01]
+
+    Ammonia production per year:
+      2030: [0.02, 0.02, 0.02]
+      2050: [0.02, 0.02, 0.02]
+
+    High value chemical production per year:
+      2030: [0.02, 0.02, 0.02]
+      2050: [0.02, 0.02, 0.02]
+
+    Activity factor of unspecified chemicals:
+      2030: [0.02, 0.02, 0.02]
+      2050: [0.02, 0.02, 0.02]
+
+    Cement production per year:
+      2030: [0.02, 0.02, 0.02]
+      2050: [0.02, 0.02, 0.02]
+
+    Activity factor of unspecified non metallic minerals:
+      2030: [0.02, 0.02, 0.02]
+      2050: [0.02, 0.02, 0.02]
+
+    Activity factor of unspecified food and tobacco:
+      2030: [0.02, 0.02, 0.02]
+      2050: [0.02, 0.02, 0.02]
+
+    Activity factor of unspecified construction:
+      2030: [0.008, 0.008, 0.008]
+      2050: [0.008, 0.008, 0.008]
+
+    Activity factor of unspecified mining:
+      2030: [0.03, 0.03, 0.03]
+      2050: [0.007, 0.007, 0.007]
+
+    Activity factor of unspecified machinery:
+      2030: [0.016, 0.016, 0.016]
+      2050: [0.025, 0.025, 0.025]
+
+    Aluminium production per year:
+      2030: [0.001, 0.001, 0.001]
+      2050: [0.001, 0.001, 0.001]
+
+    Activity factor of unspecified non ferrous metals:
+      2030: [0.01, 0.01, 0.01]
+      2050: [0.018, 0.018, 0.018]
+
+    Pulp production per year:
+      2030: [-0.019, -0.019, -0.019]
+      2050: [-0.01, -0.01, -0.01]
+
+    Paper production per year:
+      2030: [0.021, 0.021, 0.021]
+      2050: [0.01, 0.01, 0.01]
+
+    Activity factor of unspecified paper and pulp:
+      2030: [0.001, 0.001, 0.001]
+      2050: [0.0, 0.0, 0.0]
+
+    Activity factor of unspecified transport equipment:
+      2030: [0.03, 0.03, 0.03]
+      2050: [0.033, 0.033, 0.033]
+
+    Activity factor of unspecified textiles and leather:
+      2030: [0.015, 0.015, 0.015]
+      2050: [-0.029, -0.029, -0.029]
+
+    Activity factor of unspecified wood:
+      2030: [0.03, 0.03, 0.03]
+      2050: [0.015, 0.015, 0.015]
+
+    Activity factor of unspecified miscellaneous:
+      2030: [0.013, 0.013, 0.013]
+      2050: [0.02, 0.02, 0.02]
+
+    # -------- Energy Intensities --------
+    Energy intensity of blast furnaces + open hearth furnaces:
+      2030: [0.0, 0.0, 0.0]
+      2050: [0.0, 0.0, 0.0]
+
+    Energy intensity of blast furnaces + basic oxygen furnaces:
+      2030: [0.0, 0.0, 0.0]
+      2050: [0.0, 0.0, 0.0]
+
+    Energy intensity of direct reduction + electric arc furnaces:
+      2030: [0.0, 0.0, -0.001]
+      2050: [0.0, 0.0, -0.001]
+
+    Energy intensity of scrap electric arc furnaces:
+      2030: [0.0, 0.0, -0.001]
+      2050: [0.0, 0.0, -0.001]
+
+    Energy intensity of casting, rolling & finishing:
+      2030: [0.0, 0.0, -0.001]
+      2050: [0.0, 0.0, -0.001]
+
+    Energy intensity of unspecified iron and steel:
+      2030: [0.0, 0.0, -0.001]
+      2050: [0.0, 0.0, -0.001]
+
+    Energy intensity of SMR + Haber-Bosch:
+      2030: [0.0, 0.0, -0.001]
+      2050: [0.0, 0.0, -0.001]
+
+    Energy intensity of Other Conventional + Haber-Bosch:
+      2030: [0.0, 0.0, -0.001]
+      2050: [0.0, 0.0, -0.001]
+
+    Energy intensity of renewable ammonia synthesis:
+      2030: [0.0, 0.0, -0.001]
+      2050: [0.0, 0.0, -0.001]
+
+    Energy intensity of Naphtha cracking:
+      2030: [0.0, 0.0, -0.001]
+      2050: [0.0, 0.0, -0.001]
+
+    Energy intensity of LPG cracking:
+      2030: [0.0, 0.0, -0.001]
+      2050: [0.0, 0.0, -0.001]
+
+    Energy intensity of Methanol route:
+      2030: [0.0, 0.0, -0.001]
+      2050: [0.0, 0.0, -0.001]
+
+    Energy intensity of unspecified chemicals:
+      2030: [0.0, 0.0, -0.001]
+      2050: [0.0, 0.0, -0.001]
+
+    Energy intensity of cement production:
+      2030: [0.0, 0.0, -0.001]
+      2050: [0.0, 0.0, -0.001]
+
+    Energy intensity of unspecified non metallic minerals:
+      2030: [0.0, 0.0, -0.001]
+      2050: [0.0, 0.0, -0.001]
+
+    Energy intensity of unspecified food and tobacco:
+      2030: [-0.002, -0.002, -0.002]
+      2050: [-0.002, -0.002, -0.002]
+
+    Energy intensity of unspecified construction:
+      2030: [-0.002, -0.002, -0.002]
+      2050: [-0.002, -0.002, -0.002]
+
+    Energy intensity of unspecified mining:
+      2030: [-0.002, -0.002, -0.002]
+      2050: [-0.002, -0.002, -0.002]
+
+    Energy intensity of unspecified machinery:
+      2030: [-0.002, -0.002, -0.002]
+      2050: [-0.002, -0.002, -0.002]
+
+    Energy intensity of primary aluminium production:
+      2030: [-0.002, -0.002, -0.002]
+      2050: [-0.002, -0.002, -0.002]
+
+    Energy intensity of secondary aluminium production:
+      2030: [-0.002, -0.002, -0.002]
+      2050: [-0.002, -0.002, -0.002]
+
+    Energy intensity of unspecified non ferrous metals:
+      2030: [-0.002, -0.002, -0.002]
+      2050: [-0.002, -0.002, -0.002]
+
+    Energy intensity of primary pulp production:
+      2030: [-0.002, -0.002, -0.002]
+      2050: [-0.002, -0.002, -0.002]
+
+    Energy intensity of secondary pulp production:
+      2030: [-0.002, -0.002, -0.002]
+      2050: [-0.002, -0.002, -0.002]
+
+    Energy intensity of paper production:
+      2030: [-0.002, -0.002, -0.002]
+      2050: [-0.002, -0.002, -0.002]
+
+    Energy intensity of unspecified paper and pulp:
+      2030: [-0.002, -0.002, -0.002]
+      2050: [-0.002, -0.002, -0.002]
+
+    Energy intensity of unspecified transport equipment:
+      2030: [-0.002, -0.002, -0.002]
+      2050: [-0.002, -0.002, -0.002]
+
+    Energy intensity of unspecified textiles and leather:
+      2030: [-0.002, -0.002, -0.002]
+      2050: [-0.002, -0.002, -0.002]
+
+    Energy intensity of unspecified wood:
+      2030: [-0.002, -0.002, -0.002]
+      2050: [-0.002, -0.002, -0.002]
+
+    Energy intensity of unspecified miscellaneous:
+      2030: [-0.002, -0.002, -0.002]
+      2050: [-0.002, -0.002, -0.002]
+
+    # -------- Non-energy use demand factors --------
+    Energy Demand factor of Bitumen for unspecified non energy use:
+      2030: [0.0, 0.0, 0.0]
+      2050: [0.0, 0.0, 0.0]
+
+    Energy Demand factor of Lubricants for unspecified non energy use:
+      2030: [0.0, 0.0, 0.0]
+      2050: [0.0, 0.0, 0.0]
+
+    Energy Demand factor of Other Oil Products for unspecified non energy use:
+      2030: [0.0, 0.0, 0.0]
+      2050: [0.0, 0.0, 0.0]
+
+    Energy Demand factor of Natural Gas for unspecified non energy use:
+      2030: [0.0, 0.0, 0.0]
+      2050: [0.0, 0.0, 0.0]
+
+    Energy Demand factor of Coal for unspecified non energy use:
+      2030: [0.0, 0.0, 0.0]
+      2050: [0.0, 0.0, 0.0]
+
+
+  # ======================================================
+  # Country-specific (explicit values for each country)
+  # ======================================================
+  cagr_by_country:
+
+    Chile:
+
+      Steel production per year:
+        2030: [0.00, 0.00, 0.00]
+        2050: [0.00, 0.01, 0.01]
+
+      Activity factor of unspecified iron and steel:
+        2030: [0.00, 0.01, 0.01]
+        2050: [0.00, 0.01, 0.01]
+
+      Ammonia production per year:
+        2030: [0.02, 0.02, 0.02]
+        2050: [0.02, 0.02, 0.02]
+
+      High value chemical production per year:
+        2030: [0.02, 0.02, 0.02]
+        2050: [0.02, 0.02, 0.02]
+
+      Activity factor of unspecified chemicals:
+        2030: [0.02, 0.02, 0.02]
+        2050: [0.02, 0.02, 0.02]
+
+      Cement production per year:
+        2030: [0.02, 0.02, 0.02]
+        2050: [0.02, 0.02, 0.02]
+
+      Activity factor of unspecified non metallic minerals:
+        2030: [0.02, 0.02, 0.02]
+        2050: [0.02, 0.02, 0.02]
+
+      Activity factor of unspecified food and tobacco:
+        2030: [0.02, 0.02, 0.02]
+        2050: [0.02, 0.02, 0.02]
+
+      Activity factor of unspecified construction:
+        2030: [0.008, 0.008, 0.008]
+        2050: [0.008, 0.008, 0.008]
+
+      Activity factor of unspecified mining:
+        2030: [0.03, 0.03, 0.03]
+        2050: [0.007, 0.007, 0.007]
+
+      Activity factor of unspecified machinery:
+        2030: [0.016, 0.016, 0.016]
+        2050: [0.025, 0.025, 0.025]
+
+      Aluminium production per year:
+        2030: [0.001, 0.001, 0.001]
+        2050: [0.001, 0.001, 0.001]
+
+      Activity factor of unspecified non ferrous metals:
+        2030: [0.01, 0.01, 0.01]
+        2050: [0.018, 0.008, 0.008]
+
+      Pulp production per year:
+        2030: [-0.019, -0.019, -0.019]
+        2050: [-0.01, -0.01, -0.01]
+
+      Paper production per year:
+        2030: [0.021, 0.013, 0.013]
+        2050: [0.01, 0.005, 0.008]
+
+      Activity factor of unspecified paper and pulp:
+        2030: [0.001, -0.003, -0.003]
+        2050: [0.0, -0.003, -0.001]
+
+      Activity factor of unspecified transport equipment:
+        2030: [0.03, 0.03, 0.03]
+        2050: [0.033, 0.033, 0.033]
+
+      Activity factor of unspecified textiles and leather:
+        2030: [0.015, 0.015, 0.015]
+        2050: [-0.029, -0.029, -0.029]
+
+      Activity factor of unspecified wood:
+        2030: [0.03, 0.03, 0.03]
+        2050: [0.015, 0.015, 0.015]
+
+      Activity factor of unspecified miscellaneous:
+        2030: [0.013, 0.013, 0.013]
+        2050: [0.02, 0.02, 0.02]
+
+      Energy intensity of blast furnaces + open hearth furnaces:
+        2030: [0.0, 0.0, 0.0]
+        2050: [0.0, 0.0, 0.0]
+
+      Energy intensity of blast furnaces + basic oxygen furnaces:
+        2030: [0.0, 0.0, 0.0]
+        2050: [0.0, 0.0, 0.0]
+
+      Energy intensity of direct reduction + electric arc furnaces:
+        2030: [0.0, 0.0, -0.001]
+        2050: [0.0, 0.0, -0.001]
+
+      Energy intensity of scrap electric arc furnaces:
+        2030: [0.0, 0.0, -0.001]
+        2050: [0.0, 0.0, -0.001]
+
+      Energy intensity of casting, rolling & finishing:
+        2030: [0.0, 0.0, -0.001]
+        2050: [0.0, 0.0, -0.001]
+
+      Energy intensity of unspecified iron and steel:
+        2030: [0.0, 0.0, -0.001]
+        2050: [0.0, 0.0, -0.001]
+
+      Energy intensity of SMR + Haber-Bosch:
+        2030: [0.0, 0.0, -0.001]
+        2050: [0.0, 0.0, -0.001]
+
+      Energy intensity of Other Conventional + Haber-Bosch:
+        2030: [0.0, 0.0, -0.001]
+        2050: [0.0, 0.0, -0.001]
+
+      Energy intensity of renewable ammonia synthesis:
+        2030: [0.0, 0.0, -0.001]
+        2050: [0.0, 0.0, -0.001]
+
+      Energy intensity of Naphtha cracking:
+        2030: [0.0, 0.0, -0.001]
+        2050: [0.0, 0.0, -0.001]
+
+      Energy intensity of LPG cracking:
+        2030: [0.0, 0.0, -0.001]
+        2050: [0.0, 0.0, -0.001]
+
+      Energy intensity of Methanol route:
+        2030: [0.0, 0.0, -0.001]
+        2050: [0.0, 0.0, -0.001]
+
+      Energy intensity of unspecified chemicals:
+        2030: [0.0, 0.0, -0.001]
+        2050: [0.0, 0.0, -0.001]
+
+      Energy intensity of cement production:
+        2030: [0.0, 0.0, -0.001]
+        2050: [0.0, 0.0, -0.001]
+
+      Energy intensity of unspecified non metallic minerals:
+        2030: [0.0, 0.0, -0.001]
+        2050: [0.0, 0.0, -0.001]
+
+      Energy intensity of unspecified food and tobacco:
+        2030: [-0.002, -0.002, -0.002]
+        2050: [-0.002, -0.002, -0.002]
+
+      Energy intensity of unspecified construction:
+        2030: [-0.002, -0.002, -0.002]
+        2050: [-0.002, -0.002, -0.002]
+
+      Energy intensity of unspecified mining:
+        2030: [0.0, 0.0, 0.005]
+        2050: [0.005, -0.002, -0.002]
+
+      Energy intensity of unspecified machinery:
+        2030: [-0.002, -0.002, -0.002]
+        2050: [-0.002, -0.002, -0.002]
+
+      Energy intensity of primary aluminium production:
+        2030: [-0.002, -0.002, -0.002]
+        2050: [-0.002, -0.002, -0.002]
+
+      Energy intensity of secondary aluminium production:
+        2030: [-0.002, -0.002, -0.002]
+        2050: [-0.002, -0.002, -0.002]
+
+      Energy intensity of unspecified non ferrous metals:
+        2030: [-0.002, -0.002, -0.002]
+        2050: [-0.002, -0.002, -0.002]
+
+      Energy intensity of primary pulp production:
+        2030: [-0.002, -0.002, -0.002]
+        2050: [-0.002, -0.002, -0.002]
+
+      Energy intensity of secondary pulp production:
+        2030: [-0.002, -0.002, -0.002]
+        2050: [-0.002, -0.002, -0.002]
+
+      Energy intensity of paper production:
+        2030: [0.0, 0.0, 0.005]
+        2050: [-0.002, -0.002, -0.002]
+
+      Energy intensity of unspecified paper and pulp:
+        2030: [-0.002, -0.002, -0.002]
+        2050: [-0.002, -0.002, -0.002]
+
+      Energy intensity of unspecified transport equipment:
+        2030: [-0.002, -0.002, -0.002]
+        2050: [-0.002, -0.002, -0.002]
+
+      Energy intensity of unspecified textiles and leather:
+        2030: [-0.002, -0.002, -0.002]
+        2050: [-0.002, -0.002, -0.002]
+
+      Energy intensity of unspecified wood:
+        2030: [-0.002, -0.002, -0.002]
+        2050: [-0.002, -0.002, -0.002]
+
+      Energy intensity of unspecified miscellaneous:
+        2030: [0.0, 0.0, 0.001]
+        2050: [-0.002, -0.002, -0.002]
+
+      Energy Demand factor of Bitumen for unspecified non energy use:
+        2030: [0.0, 0.0, 0.0]
+        2050: [0.0, 0.0, 0.0]
+
+      Energy Demand factor of Lubricants for unspecified non energy use:
+        2030: [0.0, 0.0, 0.0]
+        2050: [0.0, 0.0, 0.0]
+
+      Energy Demand factor of Other Oil Products for unspecified non energy use:
+        2030: [0.0, 0.0, 0.0]
+        2050: [0.0, 0.0, 0.0]
+
+      Energy Demand factor of Natural Gas for unspecified non energy use:
+        2030: [0.0, 0.0, 0.0]
+        2050: [0.0, 0.0, 0.0]
+
+      Energy Demand factor of Coal for unspecified non energy use:
+        2030: [0.0, 0.0, 0.0]
+        2050: [0.0, 0.0, 0.0]
+
+
+    Egypt:
+
+      Steel production per year:
+        2030: [0.00, 0.01, 0.01]
+        2050: [0.00, 0.02, 0.02]
+
+      Activity factor of unspecified iron and steel:
+        2030: [0.00, 0.01, 0.01]
+        2050: [0.00, 0.01, 0.01]
+
+      Ammonia production per year:
+        2030: [0.02, 0.02, 0.02]
+        2050: [0.02, 0.02, 0.02]
+
+      High value chemical production per year:
+        2030: [0.02, 0.02, 0.02]
+        2050: [0.02, 0.02, 0.02]
+
+      Activity factor of unspecified chemicals:
+        2030: [0.02, 0.02, 0.02]
+        2050: [0.02, 0.02, 0.02]
+
+      Cement production per year:
+        2030: [0.02, 0.02, 0.02]
+        2050: [0.02, 0.02, 0.02]
+
+      Activity factor of unspecified non metallic minerals:
+        2030: [0.02, 0.02, 0.02]
+        2050: [0.02, 0.02, 0.02]
+
+      Activity factor of unspecified food and tobacco:
+        2030: [0.02, 0.02, 0.02]
+        2050: [0.02, 0.02, 0.02]
+
+      Activity factor of unspecified construction:
+        2030: [0.008, 0.008, 0.008]
+        2050: [0.008, 0.008, 0.008]
+
+      Activity factor of unspecified mining:
+        2030: [0.03, 0.03, 0.03]
+        2050: [0.007, 0.007, 0.007]
+
+      Activity factor of unspecified machinery:
+        2030: [0.016, 0.016, 0.016]
+        2050: [0.025, 0.025, 0.025]
+
+      Aluminium production per year:
+        2030: [0.001, 0.001, 0.001]
+        2050: [0.001, 0.001, 0.001]
+
+      Activity factor of unspecified non ferrous metals:
+        2030: [0.01, 0.01, 0.01]
+        2050: [0.018, 0.018, 0.018]
+
+      Pulp production per year:
+        2030: [-0.019, -0.019, -0.019]
+        2050: [-0.01, -0.01, -0.01]
+
+      Paper production per year:
+        2030: [0.021, 0.021, 0.021]
+        2050: [0.01, 0.01, 0.01]
+
+      Activity factor of unspecified paper and pulp:
+        2030: [0.001, 0.001, 0.001]
+        2050: [0.0, 0.0, 0.0]
+
+      Activity factor of unspecified transport equipment:
+        2030: [0.03, 0.03, 0.03]
+        2050: [0.033, 0.033, 0.033]
+
+      Activity factor of unspecified textiles and leather:
+        2030: [0.015, 0.015, 0.015]
+        2050: [-0.029, -0.029, -0.029]
+
+      Activity factor of unspecified wood:
+        2030: [0.03, 0.03, 0.03]
+        2050: [0.015, 0.015, 0.015]
+
+      Activity factor of unspecified miscellaneous:
+        2030: [0.013, 0.013, 0.013]
+        2050: [0.02, 0.02, 0.02]
+
+      # Energy intensities (same pattern as global unless specified)
+      Energy intensity of blast furnaces + open hearth furnaces:
+        2030: [0.0, 0.0, 0.0]
+        2050: [0.0, 0.0, 0.0]
+
+      Energy intensity of blast furnaces + basic oxygen furnaces:
+        2030: [0.0, 0.0, 0.0]
+        2050: [0.0, 0.0, 0.0]
+
+      Energy intensity of direct reduction + electric arc furnaces:
+        2030: [0.0, 0.0, -0.001]
+        2050: [0.0, 0.0, -0.001]
+
+      Energy intensity of scrap electric arc furnaces:
+        2030: [0.0, 0.0, -0.001]
+        2050: [0.0, 0.0, -0.001]
+
+      Energy intensity of casting, rolling & finishing:
+        2030: [0.0, 0.0, -0.001]
+        2050: [0.0, 0.0, -0.001]
+
+      Energy intensity of unspecified iron and steel:
+        2030: [0.0, 0.0, -0.001]
+        2050: [0.0, 0.0, -0.001]
+
+      Energy intensity of SMR + Haber-Bosch:
+        2030: [0.0, 0.0, -0.001]
+        2050: [0.0, 0.0, -0.001]
+
+      Energy intensity of Other Conventional + Haber-Bosch:
+        2030: [0.0, 0.0, -0.001]
+        2050: [0.0, 0.0, -0.001]
+
+      Energy intensity of renewable ammonia synthesis:
+        2030: [0.0, 0.0, -0.001]
+        2050: [0.0, 0.0, -0.001]
+
+      Energy intensity of Naphtha cracking:
+        2030: [0.0, 0.0, -0.001]
+        2050: [0.0, 0.0, -0.001]
+
+      Energy intensity of LPG cracking:
+        2030: [0.0, 0.0, -0.001]
+        2050: [0.0, 0.0, -0.001]
+
+      Energy intensity of Methanol route:
+        2030: [0.0, 0.0, -0.001]
+        2050: [0.0, 0.0, -0.001]
+
+      Energy intensity of unspecified chemicals:
+        2030: [0.0, 0.0, -0.001]
+        2050: [0.0, 0.0, -0.001]
+
+      Energy intensity of cement production:
+        2030: [0.0, 0.0, -0.001]
+        2050: [0.0, 0.0, -0.001]
+
+      Energy intensity of unspecified non metallic minerals:
+        2030: [0.0, 0.0, -0.001]
+        2050: [0.0, 0.0, -0.001]
+
+      Energy intensity of unspecified food and tobacco:
+        2030: [-0.002, -0.002, -0.002]
+        2050: [-0.002, -0.002, -0.002]
+
+      Energy intensity of unspecified construction:
+        2030: [-0.002, -0.002, -0.002]
+        2050: [-0.002, -0.002, -0.002]
+
+      Energy intensity of unspecified mining:
+        2030: [-0.002, -0.002, -0.002]
+        2050: [-0.002, -0.002, -0.002]
+
+      Energy intensity of unspecified machinery:
+        2030: [-0.002, -0.002, -0.002]
+        2050: [-0.002, -0.002, -0.002]
+
+      Energy intensity of primary aluminium production:
+        2030: [-0.002, -0.002, -0.002]
+        2050: [-0.002, -0.002, -0.002]
+
+      Energy intensity of secondary aluminium production:
+        2030: [-0.002, -0.002, -0.002]
+        2050: [-0.002, -0.002, -0.002]
+
+      Energy intensity of unspecified non ferrous metals:
+        2030: [-0.002, -0.002, -0.002]
+        2050: [-0.002, -0.002, -0.002]
+
+      Energy intensity of primary pulp production:
+        2030: [-0.002, -0.002, -0.002]
+        2050: [-0.002, -0.002, -0.002]
+
+      Energy intensity of secondary pulp production:
+        2030: [-0.002, -0.002, -0.002]
+        2050: [-0.002, -0.002, -0.002]
+
+      Energy intensity of paper production:
+        2030: [-0.002, -0.002, -0.002]
+        2050: [-0.002, -0.002, -0.002]
+
+      Energy intensity of unspecified paper and pulp:
+        2030: [-0.002, -0.002, -0.002]
+        2050: [-0.002, -0.002, -0.002]
+
+      Energy intensity of unspecified transport equipment:
+        2030: [-0.002, -0.002, -0.002]
+        2050: [-0.002, -0.002, -0.002]
+
+      Energy intensity of unspecified textiles and leather:
+        2030: [-0.002, -0.002, -0.002]
+        2050: [-0.002, -0.002, -0.002]
+
+      Energy intensity of unspecified wood:
+        2030: [-0.002, -0.002, -0.002]
+        2050: [-0.002, -0.002, -0.002]
+
+      Energy intensity of unspecified miscellaneous:
+        2030: [-0.002, -0.002, -0.002]
+        2050: [-0.002, -0.002, -0.002]
+
+      Energy Demand factor of Bitumen for unspecified non energy use:
+        2030: [0.0, 0.0, 0.0]
+        2050: [0.0, 0.0, 0.0]
+
+      Energy Demand factor of Lubricants for unspecified non energy use:
+        2030: [0.0, 0.0, 0.0]
+        2050: [0.0, 0.0, 0.0]
+
+      Energy Demand factor of Other Oil Products for unspecified non energy use:
+        2030: [0.0, 0.0, 0.0]
+        2050: [0.0, 0.0, 0.0]
+
+      Energy Demand factor of Natural Gas for unspecified non energy use:
+        2030: [0.0, 0.0, 0.0]
+        2050: [0.0, 0.0, 0.0]
+
+      Energy Demand factor of Coal for unspecified non energy use:
+        2030: [0.0, 0.0, 0.0]
+        2050: [0.0, 0.0, 0.0]
+
+
+    Morocco:
+
+      Steel production per year:
+        2030: [0.00, 0.0585, 0.08]
+        2050: [0.00, 0.0585, 0.0585]
+
+      Activity factor of unspecified iron and steel:
+        2030: [0.00, 0.01, 0.01]
+        2050: [0.00, 0.01, 0.01]
+
+      Ammonia production per year:
+        2030: [0.02, 0.02, 0.02]
+        2050: [0.02, 0.02, 0.02]
+
+      High value chemical production per year:
+        2030: [0.02, 0.02, 0.02]
+        2050: [0.02, 0.02, 0.02]
+
+      Activity factor of unspecified chemicals:
+        2030: [0.02, 0.02, 0.02]
+        2050: [0.02, 0.02, 0.02]
+
+      Cement production per year:
+        2030: [0.02, 0.02, 0.02]
+        2050: [0.02, 0.02, 0.02]
+
+      Activity factor of unspecified non metallic minerals:
+        2030: [0.02, 0.02, 0.02]
+        2050: [0.02, 0.02, 0.02]
+
+      Activity factor of unspecified food and tobacco:
+        2030: [0.02, 0.02, 0.02]
+        2050: [0.02, 0.02, 0.02]
+
+      Activity factor of unspecified construction:
+        2030: [0.008, 0.008, 0.008]
+        2050: [0.008, 0.008, 0.008]
+
+      Activity factor of unspecified mining:
+        2030: [0.03, 0.03, 0.03]
+        2050: [0.007, 0.007, 0.007]
+
+      Activity factor of unspecified machinery:
+        2030: [0.016, 0.016, 0.016]
+        2050: [0.025, 0.025, 0.025]
+
+      Aluminium production per year:
+        2030: [0.001, 0.001, 0.001]
+        2050: [0.001, 0.001, 0.001]
+
+      Activity factor of unspecified non ferrous metals:
+        2030: [0.01, 0.01, 0.01]
+        2050: [0.018, 0.018, 0.018]
+
+      Pulp production per year:
+        2030: [-0.019, -0.019, -0.019]
+        2050: [-0.01, -0.01, -0.01]
+
+      Paper production per year:
+        2030: [0.021, 0.021, 0.021]
+        2050: [0.01, 0.01, 0.01]
+
+      Activity factor of unspecified paper and pulp:
+        2030: [0.001, 0.001, 0.001]
+        2050: [0.0, 0.0, 0.0]
+
+      Activity factor of unspecified transport equipment:
+        2030: [0.03, 0.03, 0.03]
+        2050: [0.033, 0.033, 0.033]
+
+      Activity factor of unspecified textiles and leather:
+        2030: [0.015, 0.015, 0.015]
+        2050: [-0.029, -0.029, -0.029]
+
+      Activity factor of unspecified wood:
+        2030: [0.03, 0.03, 0.03]
+        2050: [0.015, 0.015, 0.015]
+
+      Activity factor of unspecified miscellaneous:
+        2030: [0.013, 0.013, 0.013]
+        2050: [0.02, 0.02, 0.02]
+
+      Energy intensity of blast furnaces + open hearth furnaces:
+        2030: [0.0, 0.0, 0.0]
+        2050: [0.0, 0.0, 0.0]
+
+      Energy intensity of blast furnaces + basic oxygen furnaces:
+        2030: [0.0, 0.0, 0.0]
+        2050: [0.0, 0.0, 0.0]
+
+      Energy intensity of direct reduction + electric arc furnaces:
+        2030: [0.0, 0.0, -0.001]
+        2050: [0.0, 0.0, -0.001]
+
+      Energy intensity of scrap electric arc furnaces:
+        2030: [0.0, 0.0, -0.001]
+        2050: [0.0, 0.0, -0.001]
+
+      Energy intensity of casting, rolling & finishing:
+        2030: [0.0, 0.0, -0.001]
+        2050: [0.0, 0.0, -0.001]
+
+      Energy intensity of unspecified iron and steel:
+        2030: [0.0, 0.0, -0.001]
+        2050: [0.0, 0.0, -0.001]
+
+      Energy intensity of SMR + Haber-Bosch:
+        2030: [0.0, 0.0, -0.001]
+        2050: [0.0, 0.0, -0.001]
+
+      Energy intensity of Other Conventional + Haber-Bosch:
+        2030: [0.0, 0.0, -0.001]
+        2050: [0.0, 0.0, -0.001]
+
+      Energy intensity of renewable ammonia synthesis:
+        2030: [0.0, 0.0, -0.001]
+        2050: [0.0, 0.0, -0.001]
+
+      Energy intensity of Naphtha cracking:
+        2030: [0.0, 0.0, -0.001]
+        2050: [0.0, 0.0, -0.001]
+
+      Energy intensity of LPG cracking:
+        2030: [0.0, 0.0, -0.001]
+        2050: [0.0, 0.0, -0.001]
+
+      Energy intensity of Methanol route:
+        2030: [0.0, 0.0, -0.001]
+        2050: [0.0, 0.0, -0.001]
+
+      Energy intensity of unspecified chemicals:
+        2030: [0.0, 0.0, -0.001]
+        2050: [0.0, 0.0, -0.001]
+
+      Energy intensity of cement production:
+        2030: [0.0, 0.0, -0.001]
+        2050: [0.0, 0.0, -0.001]
+
+      Energy intensity of unspecified non metallic minerals:
+        2030: [0.0, 0.0, -0.001]
+        2050: [0.0, 0.0, -0.001]
+
+      Energy intensity of unspecified food and tobacco:
+        2030: [-0.002, -0.002, -0.002]
+        2050: [-0.002, -0.002, -0.002]
+
+      Energy intensity of unspecified construction:
+        2030: [-0.002, -0.002, -0.002]
+        2050: [-0.002, -0.002, -0.002]
+
+      Energy intensity of unspecified mining:
+        2030: [-0.002, -0.002, -0.002]
+        2050: [-0.002, -0.002, -0.002]
+
+      Energy intensity of unspecified machinery:
+        2030: [-0.002, -0.002, -0.002]
+        2050: [-0.002, -0.002, -0.002]
+
+      Energy intensity of primary aluminium production:
+        2030: [-0.002, -0.002, -0.002]
+        2050: [-0.002, -0.002, -0.002]
+
+      Energy intensity of secondary aluminium production:
+        2030: [-0.002, -0.002, -0.002]
+        2050: [-0.002, -0.002, -0.002]
+
+      Energy intensity of unspecified non ferrous metals:
+        2030: [-0.002, -0.002, -0.002]
+        2050: [-0.002, -0.002, -0.002]
+
+      Energy intensity of primary pulp production:
+        2030: [-0.002, -0.002, -0.002]
+        2050: [-0.002, -0.002, -0.002]
+
+      Energy intensity of secondary pulp production:
+        2030: [-0.002, -0.002, -0.002]
+        2050: [-0.002, -0.002, -0.002]
+
+      Energy intensity of paper production:
+        2030: [-0.002, -0.002, -0.002]
+        2050: [-0.002, -0.002, -0.002]
+
+      Energy intensity of unspecified paper and pulp:
+        2030: [-0.002, -0.002, -0.002]
+        2050: [-0.002, -0.002, -0.002]
+
+      Energy intensity of unspecified transport equipment:
+        2030: [-0.002, -0.002, -0.002]
+        2050: [-0.002, -0.002, -0.002]
+
+      Energy intensity of unspecified textiles and leather:
+        2030: [-0.002, -0.002, -0.002]
+        2050: [-0.002, -0.002, -0.002]
+
+      Energy intensity of unspecified wood:
+        2030: [-0.002, -0.002, -0.002]
+        2050: [-0.002, -0.002, -0.002]
+
+      Energy intensity of unspecified miscellaneous:
+        2030: [-0.002, -0.002, -0.002]
+        2050: [-0.002, -0.002, -0.002]
+
+      Energy Demand factor of Bitumen for unspecified non energy use:
+        2030: [0.0, 0.0, 0.0]
+        2050: [0.0, 0.0, 0.0]
+
+      Energy Demand factor of Lubricants for unspecified non energy use:
+        2030: [0.0, 0.0, 0.0]
+        2050: [0.0, 0.0, 0.0]
+
+      Energy Demand factor of Other Oil Products for unspecified non energy use:
+        2030: [0.0, 0.0, 0.0]
+        2050: [0.0, 0.0, 0.0]
+
+      Energy Demand factor of Natural Gas for unspecified non energy use:
+        2030: [0.0, 0.0, 0.0]
+        2050: [0.0, 0.0, 0.0]
+
+      Energy Demand factor of Coal for unspecified non energy use:
+        2030: [0.0, 0.0, 0.0]
+        2050: [0.0, 0.0, 0.0]
