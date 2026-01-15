@@ -69,9 +69,16 @@ def main():
 
     print(f"\nUsing configuration from: {cfg_source}")
 
-
     # ---- Countries ----
-    devkopsys_countries = ["Morocco","Egypt", "Chile"]
+    devkopsys_countries = [ "Algeria","Argentina","Brazil","Chile","Colombia","Egypt","Libya","Mexico"]
+                            # "Namibia","Peru","Tunisia","Uruguay","Morocco","South Africa",
+                            # "Angola","Benin","Burkina Faso","Burundi","Cameroon",
+                            #"Central African Republic","Chad","Comoros","Djibouti","Equatorial Guinea","Eritrea",
+                            #"Ethiopia","Gabon","Gambia","Ghana","Guinea","Guinea Bissau","Kenya","Lesotho",
+                            #"Liberia","Madagascar","Malawi","Mali","Mauritania","Mozambique","Namibia","Niger",
+                            # "Rwanda","Senegal","Sierra Leone","Somalia","Sudan","Tanzania","Togo","Uganda",
+                            # "Zambia","Zimbabwe","Seychelles","Cote D'Ivoire","Sao Tome and Principe",
+                            #"South Sudan","Cabo Verde", "Congo", "Eswatini", "Botswana"]
     
     # ---- Load input data ----
     df_steel_capacity, df_steel_production = load_and_process_both()
@@ -1557,28 +1564,53 @@ def main():
                     colname = meta.get("column")
 
                     if colname:
-                        years_full = range(int(df[ycol].min()), int(df[ycol].max()) + 1)
-                        df_interp = (
-                            df.set_index(ycol)[[colname]]
-                            .reindex(years_full)
-                            .interpolate().ffill().bfill()
-                        )
-                        by = int(base_year)
-                        base_val = float(df_interp.loc[by, colname]) if by in df_interp.index else None
-                        for y in target_years:
-                            v = float(df_interp.loc[y, colname]) if y in df_interp.index else None
-                            for sc in scenarios:
-                                scenario_vals[f"{y}_{sc}"] = v
+                        years_clean = pd.to_numeric(df[ycol], errors="coerce").dropna()
+                        
+                        # === FIX START ===
+                        if years_clean.empty:
+                            # If no valid years, treat as missing data. Do NOT return.
+                            print(f" Info: Skipping interpolation — no valid years in '{ycol}' for {name}")
+                            base_val = None
+                            scenario_vals = {f"{y}_{sc}": None for y in target_years for sc in scenarios}
+                        else:
+                            # Proceed with normal interpolation
+                            years_full = range(int(years_clean.min()), int(years_clean.max()) + 1)
+                            df_interp = (
+                                df.set_index(ycol)[[colname]]
+                                .reindex(years_full)
+                                .interpolate().ffill().bfill()
+                            )
+                            by = int(base_year)
+                            base_val = float(df_interp.loc[by, colname]) if by in df_interp.index else None
+                            for y in target_years:
+                                v = float(df_interp.loc[y, colname]) if y in df_interp.index else None
+                                for sc in scenarios:
+                                    scenario_vals[f"{y}_{sc}"] = v
                     else:
                         num_cols = df.select_dtypes(include="number").columns
                         if len(num_cols):
                             c0 = num_cols[0]
-                            years_full = range(int(df[ycol].min()), int(df[ycol].max()) + 1)
-                            df_interp = (
-                                df.set_index(ycol)[[c0]]
-                                .reindex(years_full)
-                                .interpolate().ffill().bfill()
-                            )
+                            years_clean = pd.to_numeric(df[ycol], errors="coerce").dropna()
+                            if years_clean.empty:
+                                print(f" Info: Skipping interpolation — no valid years in '{ycol}' for {name}")
+                                base_val = None
+                                scenario_vals = {f"{y}_{sc}": None for y in target_years for sc in scenarios}
+                            else:
+                                years_full = range(int(years_clean.min()), int(years_clean.max()) + 1)
+
+                                df_interp = (
+                                    df.set_index(ycol)[[c0]]
+                                    .reindex(years_full)
+                                    .interpolate().ffill().bfill()
+                                )
+
+                                by = int(base_year)
+                                base_val = float(df_interp.loc[by, c0]) if by in df_interp.index else None
+
+                                for y in target_years:
+                                    val_y = float(df_interp.loc[y, c0]) if y in df_interp.index else None
+                                    for sc in scenarios:
+                                        scenario_vals[f"{y}_{sc}"] = val_y
                             by = int(base_year)
                             base_val = float(df_interp.loc[by, c0]) if by in df_interp.index else None
                             for y in target_years:

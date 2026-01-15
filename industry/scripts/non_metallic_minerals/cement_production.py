@@ -4,6 +4,8 @@ import os
 import sys
 import pandas as pd
 from typing import List, Dict, Optional
+import numpy as np
+import re
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 from cagr_helper import interpolate_or_extrapolate
@@ -39,21 +41,69 @@ def find_cement_files(input_folder, country_name=None):
 
     return [os.path.join(cement_folder, f) for f in files]
 
+def load_cement_value(file_path, year: int) -> float:
+    """
+    Load cement production for a given year.
+    Uses exact value if available, otherwise interpolates/extrapolates.
+    Returns 0.0 if cement data is missing.
+    """
 
-def load_cement_value(file_path, year="2020") -> float:
-    df = pd.read_excel(file_path, sheet_name="Table 1", header=5)
+    # --- 1. Read file safely ---
+    try:
+        df = pd.read_excel(file_path, sheet_name="Table 1", header=5)
+    except Exception as e:
+        print(f" Warning: Failed to read {file_path}. Assuming cement = 0. ({e})")
+        return 0.0
+
     df.columns = df.columns.astype(str).str.strip()
     df["Commodity"] = df.iloc[:, 0].astype(str).str.strip()
-    mask = df["Commodity"] == "Cement, hydraulic"
+
+    # --- 2. Locate cement row ---
+    mask = df["Commodity"].str.contains("Cement, hydraulic", case=False, na=False)
     if not mask.any():
-        raise ValueError(f"'Cement, hydraulic' not found in {file_path}")
+        print(f" Warning: 'Cement, hydraulic' not found in {file_path}. Assuming 0 production.")
+        return 0.0
 
-    year_str = str(year)
-    if year_str not in df.columns:
-        raise KeyError(f"Year column {year} not found in {file_path}")
+    # --- 3. Collect year columns + values ---
+    year_value_map = {}
 
-    value = df.loc[mask, year_str].values[0]
-    return float(value)  # thousand metric tons
+    for col in df.columns:
+        match = re.fullmatch(r"(19|20)\d{2}", col)
+        if match:
+            cell = df.loc[mask, col].values[0]
+
+            if pd.isna(cell):
+                continue
+
+            if isinstance(cell, str):
+                cell = re.sub(r"[^\d.]", "", cell)
+
+            if cell != "":
+                try:
+                    year_value_map[int(col)] = float(cell)
+                except Exception:
+                    pass
+
+    if not year_value_map:
+        print(f" Warning: No usable cement data in {file_path}. Assuming 0.")
+        return 0.0
+
+    # --- 4. Exact match ---
+    if year in year_value_map:
+        return year_value_map[year]
+
+    # --- 5. Interpolation / extrapolation ---
+    years = np.array(sorted(year_value_map.keys()))
+    values = np.array([year_value_map[y] for y in years])
+
+    interpolated_value = float(np.interp(year, years, values))
+
+    print(
+        f" Info: Cement value for year {year} in {file_path} "
+        f"derived by interpolation/extrapolation."
+    )
+
+    return interpolated_value
 
 
 # cement_production.py (or wherever your original lived)
@@ -74,7 +124,23 @@ def get_cement_and_clinker(
 
     # --- Locate & load the country file the same way you already do ---
     input_folder = find_input_folder()
-    cement_file = find_cement_files(input_folder, country_name)[0]
+    try:
+        cement_files = find_cement_files(input_folder, country_name)
+        cement_file = cement_files[0]
+    except FileNotFoundError:
+        print(
+            f" Info: No cement data file found for {country_name}. "
+            f"Assuming cement production = 0."
+        )
+        # Return zeros and continue with other countries
+        all_years = [base_year] + (target_years or [])
+        zero_path = {y: {sc: 0.0 for sc in scenarios} for y in all_years}
+
+        return (
+            0.0,        # cement_value_tpy
+            zero_path,  # clinker_factors
+            zero_path,  # clinker_production
+        )
 
     # thousand t -> t
     cement_value_tpy = load_cement_value(cement_file, base_year) * 1e3
