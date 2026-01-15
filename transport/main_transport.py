@@ -14,35 +14,54 @@ from build_energy_intensities import generate_energy_intensities, expand_intensi
 from build_technology_share import Share_of_Direct_Electric_Passenger_Train, share_technology, TECHNOLOGY_OVERRIDES, enforce_share_constraints, apply_technology_overrides
 from build_CAGR import poly_project, expand_with_cagr, expand_constant, as_fraction
 from config_loader import load_transport_config
+from build_macro_indicators import validate_scenarios_and_ssp
+# === Constants DEFAULT VALUES ===
+# TODO: @rakesh, can the user change this too?
 
+# TODO. MAKE THIS A DICTIONARY
+SSP_ORDER = [
+    "SSP2", 
+    "SSP2", 
+    "SSP1"
+    ]
 
-# === Constants ===
-BASE_YEAR = 2025  # Define the start year for the projections. 2020 by default. Years between 2020 and 2025 are available (via interpolation),
-
-SSP_ORDER = ["SSP2", "SSP2", "SSP1"]
 #TODO: @Rakesh, check the scenarios logic
 SCENARIOS = [
     "Baseline",
-    "xy", 
-    "yz"] # a max of three scenarios are possible.
+    "BAU", 
+    "AT"] # a max of three scenarios are possible.
 
-from build_macro_indicators import validate_scenarios_and_ssp
+# map the scenario names with the corresponding SSP
 validate_scenarios_and_ssp(SCENARIOS, SSP_ORDER)
 
-TARGET_YEARS = [2035,2045]  # multiple year are possible. 
+TARGET_YEARS = [2035,2045,20250,2055]  # from 2030 up to 2055 in steps of 5 years possible. 
 
 
-# TODO: define two different variable, deafult_backend (saved after the first run)
-# and backend would be the modifiable. 
 # todo: let us use csv. 
 
 # === Transport assumptions file (user can change this) ===
+
+BASE_YEAR = 2025  # Define the start year for the projections. 2020 by default. Years between 2020 and 2025 are available (via interpolation),
+
 TRANSPORT_CONFIG_FILE = "trans_config.xlsx"
 
 
 # === Build CAGR dictionary from build_CAGR (auto defaults) ===
 
-devkopsys_countries = [ "Algeria","Argentina","Brazil","Chile","Colombia","Egypt","Libya","Mexico",
+selected_countries = ["Congo",
+                       "Egypt",
+                       "Ethiopia",
+                       "Ghana",
+                       "Kenya",
+                       "Namibia",
+                       "Niger",
+                       #"Algeria",
+                       "Morocco",
+                       "Tunisia",
+                       "Tanzania",
+                       "South Africa",
+                       # "Libya"
+                       # "Argentina","Brazil","Chile","Colombia",,"Mexico",
                         ]
                             # "Namibia","Peru","Tunisia","Uruguay","Morocco","South Africa",
                             # "Angola","Benin","Botswana","Burkina Faso","Burundi","Cameroon",
@@ -57,7 +76,7 @@ devkopsys_countries = [ "Algeria","Argentina","Brazil","Chile","Colombia","Egypt
 # === Loop through countries ===
 TRANSPORT_CONFIG = load_transport_config(
     excel_path=Path(__file__).resolve().parent / TRANSPORT_CONFIG_FILE,
-    countries=devkopsys_countries,
+    countries=selected_countries,
     scenarios=SCENARIOS
 )
 # ================= DEBUG =================
@@ -125,7 +144,7 @@ def main(base_year=None, target_years=None, scenarios=None):
     units_dict = generate_units_dictionary()
 
     # === Loop through countries ===
-    for selected_country in devkopsys_countries:
+    for selected_country in selected_countries:
         print(f"\n🔹 Processing: {selected_country}")
         years = str(BASE_YEAR)
         # === Load country-specific CAGR assumptions ===
