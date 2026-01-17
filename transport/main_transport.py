@@ -4,11 +4,10 @@ import numpy as np
 from datetime import datetime
 from pathlib import Path
 # === Imports from project libraries ===
-from helpers import find_input_folder, load_country_specific_data, load_global_transport_data, get_transport_constants, interpolate_or_extrapolate 
+from helpers import find_input_folder, load_country_specific_data, load_global_transport_data, get_transport_constants, interpolate_or_extrapolate, clean_column_headers, clean_missing_countries, generate_units_dictionary, reorder_and_filter_columns 
 from build_macro_indicators import process_population_data, get_ssp_for_scenario
 from build_share_subsectors import extract_country_transport_data, create_country_dfs, final_df as TRANSPORT_SUBSECTOR_FINAL
 from build_share_mode import process_bus_share_data, share_of_two_Three
-from helpers import clean_column_headers, clean_missing_countries, generate_units_dictionary, reorder_and_filter_columns
 from build_load_factors import get_Load_factor_Car, Load_factor_Bus, Load_factor_two_three_occupancy, heavy_load_factor, medium_load_factor, load_factor
 from build_energy_intensities import generate_energy_intensities, expand_intensity
 from build_technology_share import Share_of_Direct_Electric_Passenger_Train, share_technology, TECHNOLOGY_OVERRIDES, enforce_share_constraints, apply_technology_overrides
@@ -42,17 +41,16 @@ print(f"Transport assumptions file: {TRANSPORT_CONFIG_FILE}")
 print("===============================\n")
 
 
-devkopsys_countries = [ "Algeria","Argentina","Brazil","Chile","Colombia","Egypt","Libya","Mexico",
-                             "Namibia","Peru","Tunisia","Uruguay","Morocco","South Africa",
-                             "Angola","Benin","Botswana","Burkina Faso","Burundi","Cameroon",
-                            "Central African Republic","Chad","Comoros","Djibouti","Equatorial Guinea","Eritrea",
-                            "Ethiopia","Gabon","Gambia","Ghana","Guinea","Guinea Bissau","Kenya","Lesotho",
-                            "Liberia","Madagascar","Malawi","Mali","Mauritania","Mozambique","Namibia","Niger",
-                             "Rwanda","Senegal","Sierra Leone","Somalia","Sudan","Tanzania","Togo","Uganda",
-                             "Zambia","Zimbabwe","Seychelles","Cote D'Ivoire","Sao Tome and Principe",
-                            "South Sudan","Cabo Verde", "Congo", "Eswatini" ]
+devkopsys_countries =  ["Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
+                         "Algeria","Argentina","Brazil","Chile","Colombia","Mexico","Peru","Venezuela",
+                          "Morocco","Tunisia","Tanzania", "South Africa","Libya",
 
+                          #G20 countries
+                          "Argentina", "Australia", "Brazil", "Canada", "China", "France", "Germany",  
+                          "India", "Indonesia", "Italy", "Japan", "Mexico","Russia", "Saudi Arabia", 
+                          "South Africa", "South Korea", "United Kingdom", "United States"]
 
+#Turkey population data is missing in the population dataset, so excluding Turkey temporarily.
 # === Loop through countries ===
 
 countries_to_load = devkopsys_countries + ["default"] 

@@ -4,7 +4,7 @@ import glob
 import pandas as pd
 from build_transport_calc import calc_for_scenario
 from build_transport_indicators import generate_transport_indicators
-
+from helpers import get_iso2_country_code
 # Get the absolute path of this script
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 TRANSPORT_OUTPUT_DIR = os.path.join(SCRIPT_DIR, "output_data")
@@ -23,22 +23,25 @@ os.makedirs(RESULTS_DIR, exist_ok=True)
 #  "Zambia","Zimbabwe","Seychelles","Cote D'Ivoire","Sao Tome and Principe",
 #  "South Sudan","Cabo Verde", "Congo", "Eswatini" ] 
 
-COUNTRY = [ "Algeria","Argentina","Brazil","Chile","Colombia","Egypt","Libya","Mexico",
-                             "Namibia","Peru","Tunisia","Uruguay","Morocco","South Africa",
-                            "Angola","Benin","Botswana","Burkina Faso","Burundi","Cameroon",
-                             "Central African Republic","Chad","Comoros","Djibouti","Equatorial Guinea","Eritrea",
-                             "Ethiopia","Gabon","Gambia","Ghana","Guinea","Guinea Bissau","Kenya","Lesotho",
-                             "Liberia","Madagascar","Malawi","Mali","Mauritania","Mozambique","Namibia","Niger",
-                             "Rwanda","Senegal","Sierra Leone","Somalia","Sudan","Tanzania","Togo","Uganda",
-                             "Zambia","Zimbabwe","Seychelles","Cote D'Ivoire","Sao Tome and Principe",
-                             "South Sudan","Cabo Verde", "Congo", "Eswatini" ] 
+COUNTRY = [ "Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
+                         "Algeria","Argentina","Brazil","Chile","Colombia","Mexico","Peru","Venezuela",
+                          "Morocco","Tunisia","Tanzania", "South Africa","Libya",
+
+                          #G20 countries
+                          "Argentina", "Australia", "Brazil", "Canada", "China", "France", "Germany",  
+                          "India", "Indonesia", "Italy", "Japan", "Mexico","Russia", "Saudi Arabia", 
+                          "South Africa", "South Korea", "United Kingdom", "United States"]
 
 
 def find_latest_dir(base_dir="output_data") -> str:
-    dirs = [d for d in glob.glob(os.path.join(base_dir, "DKS_*")) if os.path.isdir(d)]
+    dirs = [
+        d for d in glob.glob(os.path.join(base_dir, "DKS_*"))
+        if os.path.isdir(d)
+    ]
     if not dirs:
         raise FileNotFoundError(f"No DKS_* folders found in {base_dir}")
     return max(dirs, key=os.path.getmtime)
+
 
 def list_countries(latest_dir: str):
     files = glob.glob(os.path.join(latest_dir, "output_*.xlsx"))
@@ -183,67 +186,58 @@ def build_summary(df, metrics_raw):
 
     return fuel_summary, mode_summary, subsector_summary, enduse_summary
 
-
-
 def run(country: str, base_dir: str = "output_data") -> None:
+    country_code = get_iso2_country_code(country)
+
     latest_dir = find_latest_dir(base_dir)
     print(f" Latest folder: {latest_dir}")
-    print(f"DEBUG: base_dir = {base_dir}")
+
     available = list_countries(latest_dir)
     if country not in available:
-        raise ValueError(f"{country} not found in latest folder. Available: {', '.join(available)}")
+        raise ValueError(f"{country} not found. Available: {', '.join(available)}")
 
     file_path = find_country_file(country, latest_dir)
-    print(f" Using file: {file_path}")
-
     df = load_country_dataframe(file_path)
-    # --- Standardize scenario names (_EL → _AT) ---
-    metrics_raw = dataframe_to_metrics_raw(df)
 
-    # Available scenarios
+    metrics_raw = dataframe_to_metrics_raw(df)
     scenarios = [c for c in df.columns if c not in ["Metric", "Units"]]
 
     all_results = []
     for scn in scenarios:
         df_scn = calc_for_scenario(metrics_raw, scn)
-
-        if df_scn is None or df_scn.empty:
-            print(f"  No data generated for scenario {scn}, skipping")
-            continue
-
-        all_results.append(df_scn)
+        if df_scn is not None and not df_scn.empty:
+            all_results.append(df_scn)
 
     if not all_results:
         raise ValueError(f"No valid scenarios produced for {country}")
 
     final_df = pd.concat(all_results, ignore_index=True)
 
-    # --- NEW: Build summaries ---
     fuel_summary, mode_summary, subsector_summary, enduse_summary = build_summary(final_df, metrics_raw)
 
-    # Make a subfolder for the country
     country_results_dir = os.path.join(RESULTS_DIR, country)
     os.makedirs(country_results_dir, exist_ok=True)
 
-    # Save detailed results
-    out_file = os.path.join(country_results_dir, "final_energy_demand.xlsx")
-    final_df.to_excel(out_file, index=False)
-    print(f" Saved detailed results: {out_file}")
+    # ---- SAVE FILES WITH ISO2 CODE ----
+    #final_df.to_excel(
+    ##    os.path.join(country_results_dir, f"{country_code}_final_energy_demand.xlsx"),
+    #    index=False)
 
     indicators_df = generate_transport_indicators(final_df, country)
-    indicators_file = os.path.join(country_results_dir, "transport_indicators.xlsx")
-    indicators_df.to_excel(indicators_file, index=False)
-    print(f" Saved indicators: {indicators_file}")
+    indicators_df.to_excel(
+        os.path.join(country_results_dir, f"{country_code}_final_energy_demand.xlsx"),
+        index=False
+    )
 
-    # Save summaries in one Excel with multiple sheets
-    summary_file = os.path.join(country_results_dir, "summary.xlsx")
-    with pd.ExcelWriter(summary_file) as writer:
+    with pd.ExcelWriter(
+        os.path.join(country_results_dir, f"{country_code}_summary.xlsx")
+    ) as writer:
         fuel_summary.to_excel(writer, sheet_name="Fuel")
         mode_summary.to_excel(writer, sheet_name="Mode")
         subsector_summary.to_excel(writer, sheet_name="Subsector")
         enduse_summary.to_excel(writer, sheet_name="EndUse")
 
-    print(f" Saved summaries: {summary_file}")
+    print(f" Saved results for {country} ({country_code})")
 
 
 if __name__ == "__main__":
@@ -253,4 +247,5 @@ if __name__ == "__main__":
             run(country=country, base_dir=TRANSPORT_OUTPUT_DIR)
         except Exception as e:
             print(f" Error processing {country}: {e}")
+
 

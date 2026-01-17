@@ -292,22 +292,6 @@ def add_units_to_subsector(subsector):
 
 out_df['subsector_transport'] = out_df['subsector_transport'].apply(add_units_to_subsector)
 
-
-import os
-from pathlib import Path
-
-# Get the folder where this script is located
-script_dir = Path(__file__).resolve().parent
-
-path = Path(__file__).resolve().parent / "output_data"
-path.mkdir(parents=True, exist_ok=True)
-
-# Save the file inside the output folder with the index
-out_df.set_index(['Country', 'subsector_transport'], inplace=True)
-output_file = os.path.join(path, 'updated_all_countries.xlsx')
-out_df.to_excel(output_file, index=True, float_format='%.2f')  # index=True includes the multi-index
-
-
 df_aviation_freight_share = clean_df.iloc[:, list(range(4)) + list(range(48, 59))]
 df_aviation_passenger_share  = clean_df.iloc[:, list(range(4)) + list(range(59, 70))]
 df_marine_freight_share  = clean_df.iloc[:, list(range(4)) + list(range(70, 81))]
@@ -315,13 +299,14 @@ df_marine_passenger_share  = clean_df.iloc[:, list(range(4)) + list(range(81, 92
 
 # List of countries to process (add the specific countries here)
 countries_to_process =  [ 
-        "Algeria","Argentina", "Brazil","Chile","Colombia",
-        "Egypt", "Libya","Mexico","Namibia","Peru","Tunisia","Uruguay",'Morocco',"South Africa","Angola",
-        "Benin","Botswana","Burkina Faso","Burundi","Cameroon""Central African Republic","Chad","Comoros", 
-        "Congo","Djibouti","Equatorial Guinea","Eritrea", "Eswatini","Ethiopia","Gabon","Gambia","Ghana",
-        "Guinea","Guinea Bissau","Kenya","Lesotho","Liberia","Madagascar","Malawi","Mali","Mauritania",
-        "Mozambique","Namibia","Niger","Rwanda","Senegal","Sierra Leone","Somalia","Sudan","Tanzania",
-        "Togo","Uganda","Zambia","Zimbabwe"]
+        "Republic of the Congo","Algeria","Argentina","Australia","Brazil", "Canada","China","Chile","Colombia",
+        "Egypt", "France","Germany","India", "Indonesia", "Italy", "Japan", "Russia", "Saudi Arabia", 
+        "South Korea", "Turkey", "United Kingdom", "United States","Libya","Mexico","Namibia","Peru","Tunisia",
+        "Uruguay",'Morocco',"South Africa","Angola","Benin","Botswana","Burkina Faso","Burundi","Cameroon",
+        "Central African Republic","Chad","Comoros", "Congo","Djibouti","Equatorial Guinea","Eritrea",
+        "Eswatini","Ethiopia","Gabon","Gambia","Ghana","Guinea","Guinea Bissau","Kenya","Lesotho","Liberia","Madagascar",
+        "Malawi","Mali","Mauritania","Mozambique","Namibia","Niger","Rwanda","Senegal","Sierra Leone","Somalia","Sudan",
+        "Tanzania","Togo","Uganda","Zambia","Zimbabwe", "Venezuela"]
 
 # Initialize a list to store updated rows (including total)
 updated_rows = []
@@ -545,7 +530,7 @@ def calculate_subsectors(country, df_population, country_data):
         country_data.loc[f"{country} Road Freight - Light-Duty Trucks"] = road_freight_ldt
 
     except KeyError:
-        print(f"⚠️ HDT/LDT shares not found for {country}")
+        print(f" HDT/LDT shares not found for {country}")
 
 
     # Compute Passenger Shares
@@ -592,3 +577,29 @@ def share_subsector():
 
 def save_subsector_shares(out_df, output_file):
     out_df.to_excel(output_file, index=True, float_format='%.2f')
+
+def save_intermediate_data(out_df):
+    import os
+    from pathlib import Path
+
+    # Get the folder where this script is located
+    path = Path(__file__).resolve().parent / "output_data"
+    path.mkdir(parents=True, exist_ok=True)
+
+    # Save the file inside the output folder with the index
+    # Note: We work on a copy to avoid SettingWithCopy warnings on the original df
+    df_to_save = out_df.copy()
+    df_to_save.set_index(['Country', 'subsector_transport'], inplace=True)
+    
+    output_file = os.path.join(path, 'updated_all_countries.xlsx')
+    df_to_save.to_excel(output_file, index=True, float_format='%.2f')
+    print(f"File saved to: {output_file}")
+
+# Call this function only if running directly, or explicitly call it later
+if __name__ == "__main__":
+    save_intermediate_data(out_df)    
+    
+    countries = final_df.index.get_level_values(0).unique()
+
+    print("\nCountries containing 'lib':")
+    print([c for c in countries if "lib" in c.lower()])
