@@ -43,10 +43,10 @@ print("===============================\n")
 
 devkopsys_countries =  ["Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
                          "Algeria","Argentina","Brazil","Chile","Colombia","Mexico","Peru","Venezuela",
-                          "Morocco","Tunisia","Tanzania", "South Africa","Libya",
+                          "Morocco","Tunisia","Tanzania","Libya",
 
                           #G20 countries
-                          "Argentina", "Australia", "Brazil", "Canada", "China", "France", "Germany",  
+                        "Australia", "Brazil", "Canada", "China", "France", "Germany",  
                           "India", "Indonesia", "Italy", "Japan", "Mexico","Russia", "Saudi Arabia", 
                           "South Africa", "South Korea", "United Kingdom", "United States"]
 

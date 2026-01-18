@@ -8,11 +8,11 @@ from pathlib import Path
 # === Project imports ===
 BASE_DIR = Path(__file__).resolve().parent
 from scripts.iron_and_steel.steelproduction import load_and_process_both, share_steel
-from cagr_helper import load_yaml_config, interpolate_or_extrapolate, load_and_merge_yaml, save_merged_yaml
-
+from cagr_helper import load_industry_cagr_from_excel, get_metric_cagr_cfg_from_excel
 from scripts.iron_and_steel.build_shares_steel import share_fuel_bf_ohf, share_fuel_bf_bof, share_fuel_dr_eaf, share_fuel_scrap_eaf,share_fuel_casting_rolling, share_fuel_unspecified_steel, override_steel_routes_positional
 from scripts.iron_and_steel.build_energy_intensities_steel import intensity_bf_ohf, intensity_bf_bof, intensity_dr_eaf, intensity_scrap_eaf, intensity_casting_rolling
-from helpers import extract_capacity_shares, extract_all_fuels, _build_rate_anchors_indexed,_forecast_from_history_and_sparse_cagr, _get_value_by_index, _interp_at, get_metric_cagr_cfg_layered
+from helpers import extract_capacity_shares, extract_all_fuels, _build_rate_anchors_indexed,  _forecast_from_history_and_sparse_cagr, _get_value_by_index,  _interp_at
+
 # PAPER & PULP
 from scripts.paper_and_pulp.paper_and_pulp_production import process_paper_pulp_data
 from scripts.paper_and_pulp.share_primary_pulp import share_fuel_primary_pulp, share_fuel_secondary_pulp, share_fuel_paper, share_primary_secondary_pulp, share_fuel_unspecified_paper_pulp, activity_factor_unspecified_paper_pulp
@@ -33,53 +33,29 @@ def main():
     target_years = [2030,2050]
     scenarios = ["Baseline","AP","NZ"]
 
-    print("\n===============================")
-    print("Running INDUSTRY model")
+
+    INDUSTRY_CFG_PATH = BASE_DIR / "industry_config.xlsx"
+  
+
+    print("===============================")
+    print("Industry configuration")
+    print(f"Using CAGR config file: {INDUSTRY_CFG_PATH}")
     print("===============================\n")
 
-    # --- Choose mode ---
-    # --- Choose mode ---
-    run_mode = "expert"  # "expert" | "manual" | "final"
-
-    # Load configs explicitly so we always have both layers
-    if run_mode == "expert":
-        cfg_expert = load_yaml_config(BASE_DIR / "expert_assumptions.yaml")
-        cfg_manual = {}
-        cfg = cfg_expert
-        cfg_source = "expert_assumptions.yaml"
-
-    elif run_mode == "manual":
-        cfg_expert = load_yaml_config(BASE_DIR / "expert_assumptions.yaml")
-        cfg_manual = load_yaml_config(BASE_DIR / "manual_assumptions.yaml")
-        cfg = cfg_expert
-        cfg_source = "manual overrides applied over expert (not saved)"
-
-    elif run_mode == "final":
-        cfg_expert = load_yaml_config(BASE_DIR / "expert_assumptions.yaml")
-        cfg_manual = load_yaml_config(BASE_DIR / "manual_assumptions.yaml")
-        cfg, _, _ = load_and_merge_yaml(
-            expert_path=BASE_DIR / "expert_assumptions.yaml",
-            manual_path=BASE_DIR / "manual_assumptions.yaml"
-        )
-        save_merged_yaml(cfg, BASE_DIR / "final_assumptions.yaml")
-        cfg_source = "expert + manual (merged)"
-
-    else:
-        raise ValueError("Invalid run_mode. Use 'expert', 'manual', or 'final'.")
-
-    print(f"\nUsing configuration from: {cfg_source}")
-
     # ---- Countries ----
-    devkopsys_countries = [ "Algeria","Argentina","Brazil","Chile","Colombia","Egypt","Libya","Mexico"]
-                            # "Namibia","Peru","Tunisia","Uruguay","Morocco","South Africa",
-                            # "Angola","Benin","Burkina Faso","Burundi","Cameroon",
-                            #"Central African Republic","Chad","Comoros","Djibouti","Equatorial Guinea","Eritrea",
-                            #"Ethiopia","Gabon","Gambia","Ghana","Guinea","Guinea Bissau","Kenya","Lesotho",
-                            #"Liberia","Madagascar","Malawi","Mali","Mauritania","Mozambique","Namibia","Niger",
-                            # "Rwanda","Senegal","Sierra Leone","Somalia","Sudan","Tanzania","Togo","Uganda",
-                            # "Zambia","Zimbabwe","Seychelles","Cote D'Ivoire","Sao Tome and Principe",
-                            #"South Sudan","Cabo Verde", "Congo", "Eswatini", "Botswana"]
-    
+    devkopsys_countries = ["Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
+                          "Algeria","Argentina","Brazil","Chile","Colombia","Mexico","Peru","Venezuela",
+                          "Morocco","Tunisia","Tanzania", "South Africa","Libya",
+                          #G20 countries
+                           "Australia", "Canada", "China", "France", "Germany",  
+                          "India", "Indonesia", "Italy", "Japan", "Mexico","Russia", "Saudi Arabia", 
+                          "South Africa", "South Korea", "United Kingdom","United States"]
+
+    industry_cagr_excel = load_industry_cagr_from_excel(
+    excel_path=INDUSTRY_CFG_PATH,
+    countries=devkopsys_countries,
+    scenarios=scenarios,)
+
     # ---- Load input data ----
     df_steel_capacity, df_steel_production = load_and_process_both()
     df_pulp_paper = process_paper_pulp_data() 
@@ -124,7 +100,7 @@ def main():
     # === Cement fuel shares & intensities ===
     cement_fuel_shares = share_fuel_cement_production(target_years, scenarios)
     cement_intensities = intensity_cement_production(target_years, scenarios)
-
+    
     # === Unspecified Non-metallic minerals (NMM) fuel shares ===
     unspec_nmm_fuel_shares = share_fuel_unspecified_nmm(target_years, scenarios)
 
@@ -154,9 +130,8 @@ def main():
 
 
     for country in devkopsys_countries:
-        cement_value_tpy, clinker_factors, clinker_prod_tpy = get_cement_and_clinker(country, base_year, target_years, scenarios)
-        
-        cagr_cfg_nmm = cfg["industry"]["cagr"].get("Activity factor of unspecified non metallic minerals", {})
+
+        cagr_cfg_nmm = get_metric_cagr_cfg_from_excel( industry_cagr_excel,country,"Activity factor of unspecified non metallic minerals")
         nmm_activity = activity_factor_unspecified_nmm(
             base_value=1.00,
             base_year=base_year,
@@ -169,11 +144,16 @@ def main():
         base_2020 = 10000.0,
         target_years=target_years,                 
         scenarios=scenarios,               
-        cagr_cfg=cfg["industry"]["cagr"]["High value chemical production per year"],
+        cagr_cfg = get_metric_cagr_cfg_from_excel(
+        industry_cagr_excel,
+        country,
+        "High value chemical production per year"),
         )
-        cagr_cfg_unspec_pp = cfg["industry"]["cagr"].get(
-            "Activity factor of unspecified paper and pulp", {}
-        )
+
+        cagr_cfg_unspec_pp = get_metric_cagr_cfg_from_excel(
+        industry_cagr_excel,
+        country,
+        "Activity factor of unspecified paper and pulp")
 
         act_unspec_pp = activity_factor_unspecified_paper_pulp(
             base_year=base_year,
@@ -183,7 +163,7 @@ def main():
             base_value=1.0,
             use_profile=False,
         )
-        unspec_chem_cagr = cfg["industry"]["cagr"].get("Activity factor of unspecified chemicals", {})
+        unspec_chem_cagr = get_metric_cagr_cfg_from_excel( industry_cagr_excel, country,"Activity factor of unspecified chemicals")
         act_unspec_chem = activity_factor_unspecified_chemicals(
             base_year=base_year,
             target_years=target_years,
@@ -240,7 +220,10 @@ def main():
             target_years=target_years,
             scenarios=scenarios,   
         )
-        nmm_energy_cagr_cfg = cfg["industry"]["cagr"].get("Energy intensity of unspecified non metallic minerals", {})
+        nmm_energy_cagr_cfg = get_metric_cagr_cfg_from_excel(
+        industry_cagr_excel,
+        country,
+        "Energy intensity of unspecified non metallic minerals")
         nmm_energy_use = build_unspecified_nmm_intensity(
             cement_base_tpy=cement_tpy_2020 * 0.17,                        
             cement_diesel_intensity=cement_intensities["diesel"],   
@@ -1680,7 +1663,10 @@ def main():
             # --- SPECIAL CASE: Unspecified NMM activity factor (compute & append immediately) ---
             if name == "Activity factor of unspecified non metallic minerals" and meta.get("forecast", False):
                 base_val = float(cement_tpy_2020)
-                cagr_cfg = get_metric_cagr_cfg_layered(cfg_expert, cfg_manual, country, name)
+                cagr_cfg = get_metric_cagr_cfg_from_excel(
+                industry_cagr_excel,
+                country,
+                name)
                 nmm_path = activity_factor_unspecified_nmm(
                     base_value=base_val,
                     base_year=base_year,
@@ -1706,7 +1692,7 @@ def main():
             result_expanded = {base_year: base_val}
 
             if meta.get("forecast", False) and base_val is not None:
-                metric_cfg = get_metric_cagr_cfg_layered(cfg_expert, cfg_manual, country, name)
+                metric_cfg = get_metric_cagr_cfg_from_excel(industry_cagr_excel,country,name,)
 
                 # pull a simple history if DataFrame-based
                 hist_series = None

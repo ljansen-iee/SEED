@@ -8,6 +8,13 @@ import os
 import math
 import numpy as np
 from typing import Dict, List
+import pandas as pd
+from pathlib import Path
+SCENARIO_ALIAS_MAP = {
+    "sc_a": 0,
+    "sc_b": 1,
+    "sc_c": 2,
+}
 
 
 def load_yaml_config(file_path: str = "expert_assumptions.yaml") -> Dict:
@@ -227,29 +234,81 @@ def make_effective_cfg(run_mode: str,
     return effective, src
 
 # ---------- resolving per-metric CAGR with country fallback ----------
-def get_metric_cagr_cfg(cfg: dict, country: str, metric_name: str) -> dict:
+def get_metric_cagr_cfg_from_excel(
+    cagr_cfg_excel: dict,
+    country: str,
+    metric_name: str,
+) -> dict:
     """
-    Search order:
-      1) cfg['industry']['cagr_by_country'][<country>][<metric_name>]
-      2) cfg['industry']['cagr'][<metric_name>]   (global fallback)
-      3) {}
-    Supports values as scalars, lists (index-based scenarios), or dicts per scenario name.
+    Returns:
+      {year: [v0, v1, v2]}
     """
-    ind = (cfg or {}).get("industry", {})
-    c_by_cty = (ind.get("cagr_by_country") or {}).get(country, {})
-    # exact metric first
-    if metric_name in c_by_cty:
-        return c_by_cty[metric_name]
-    # loose match (case-insensitive)
-    for k in c_by_cty.keys():
-        if k.strip().lower() == metric_name.strip().lower():
-            return c_by_cty[k]
+    country_cfg = cagr_cfg_excel.get(country, {})
 
-    global_cagr = ind.get("cagr", {})
-    if metric_name in global_cagr:
-        return global_cagr[metric_name]
-    for k in global_cagr.keys():
+    # exact match
+    if metric_name in country_cfg:
+        return country_cfg[metric_name]
+
+    # case-insensitive fallback
+    for k, v in country_cfg.items():
         if k.strip().lower() == metric_name.strip().lower():
-            return global_cagr[k]
+            return v
 
     return {}
+
+
+def load_industry_cagr_from_excel(
+    excel_path: Path,
+    countries: list,
+    scenarios: list,
+):
+    """
+    Loads CAGR assumptions from industry_config.xlsx
+    Returns:
+      cfg[country][metric][year] = [val_s0, val_s1, val_s2]
+    """
+
+    df = pd.read_excel(excel_path)
+    df.columns = df.columns.str.strip()
+
+    required = {"Assumption Type", "Metric Name", "Year", "Scenario", "default"}
+    if not required.issubset(df.columns):
+        raise ValueError(f"Missing required columns: {required}")
+
+    cfg = {c: {} for c in countries}
+
+    for _, row in df.iterrows():
+        if str(row["Assumption Type"]).strip().upper() != "CAGR":
+            continue
+
+        metric = str(row["Metric Name"]).strip()
+
+        try:
+            year = int(row["Year"])
+        except Exception:
+            continue
+
+        scen_key = str(row["Scenario"]).strip().lower()
+        if scen_key not in SCENARIO_ALIAS_MAP:
+            continue
+
+        s_idx = SCENARIO_ALIAS_MAP[scen_key]
+        if s_idx >= len(scenarios):
+            continue
+
+        for country in countries:
+
+            # ---------- THIS IS THE FALLBACK RULE ----------
+            if country in df.columns and pd.notna(row[country]):
+                val = float(row[country])
+            elif pd.notna(row["default"]):
+                val = float(row["default"])
+            else:
+                continue
+            # ---------------------------------------------
+
+            metric_cfg = cfg[country].setdefault(metric, {})
+            year_cfg = metric_cfg.setdefault(year, [None] * len(scenarios))
+            year_cfg[s_idx] = val
+
+    return cfg
