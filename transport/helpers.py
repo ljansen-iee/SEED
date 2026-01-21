@@ -2,6 +2,8 @@ import os
 import pandas as pd
 import numpy as np
 import tabula
+import pycountry
+
 
 def find_input_folder():
     start_dir = os.path.dirname(os.path.abspath(__file__))
@@ -362,6 +364,19 @@ def extract_country_data(df, countries):
             print(f"Warning: {country} not found in the dataset.")
 
     return country_data_dict
+
+
+def get_iso2_country_code(country_name: str) -> str:
+    """
+    Returns ISO-2 country code (e.g. Algeria -> DZ).
+    Falls back to a safe filename if not found.
+    """
+    try:
+        country = pycountry.countries.search_fuzzy(country_name)[0]
+        return country.alpha_2
+    except LookupError:
+        # fallback: safe filename
+        return country_name.replace(" ", "_")
 
 
 def reorder_and_filter_columns(df, base_year, target_years, scenarios):

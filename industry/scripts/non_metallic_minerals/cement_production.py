@@ -4,6 +4,8 @@ import os
 import sys
 import pandas as pd
 from typing import List, Dict, Optional
+import numpy as np
+import re
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 from cagr_helper import interpolate_or_extrapolate
@@ -27,9 +29,9 @@ def find_cement_files(input_folder, country_name=None):
     def norm(x): return x.lower().replace(" ", "").replace("-", "")
 
     files = [
-        f for f in os.listdir(cement_folder)
-        if "myb3" in f.lower() and f.endswith((".xls", ".xlsx"))
-    ]
+    f for f in os.listdir(cement_folder)
+    if f.lower().startswith("myb") and f.endswith((".xls", ".xlsx"))
+   ]
     if country_name:
         cname = norm(country_name)
         files = [f for f in files if cname in norm(f)]
@@ -39,21 +41,162 @@ def find_cement_files(input_folder, country_name=None):
 
     return [os.path.join(cement_folder, f) for f in files]
 
+def load_cement_value(file_path, year: int) -> float:
+    """
+    Load cement production (FINAL cement).
+    Includes dynamic header detection to handle USGS formatting variations
+    where headers appear on row 4, 5, or 6 instead of row 0.
+    """
+    # --------------------------------------------------
+    # 1. Read file (ROBUST HEADER DETECTION)
+    # --------------------------------------------------
+    try:
+        # Read raw data without assuming a header row
+        df_raw = pd.read_excel(file_path, sheet_name="Table 1", header=None)
+    except Exception:
+        # Fallback: try reading the first sheet if "Table 1" doesn't exist
+        try:
+            df_raw = pd.read_excel(file_path, sheet_name=0, header=None)
+        except Exception as e:
+            print(f" Warning: Failed to read {file_path}. Assuming cement = 0. ({e})")
+            return 0.0
 
-def load_cement_value(file_path, year="2020") -> float:
-    df = pd.read_excel(file_path, sheet_name="Table 1", header=5)
-    df.columns = df.columns.astype(str).str.strip()
-    df["Commodity"] = df.iloc[:, 0].astype(str).str.strip()
-    mask = df["Commodity"] == "Cement, hydraulic"
-    if not mask.any():
-        raise ValueError(f"'Cement, hydraulic' not found in {file_path}")
+    # Search first 20 rows for a row that looks like a header (contains years)
+    header_idx = 0
+    found_header = False
+    
+    for i, row in df_raw.head(20).iterrows():
+        # Count how many cells look like years (2019, 2020, etc.)
+        year_matches = sum(
+            1 for x in row.astype(str) 
+            if re.fullmatch(r"(19|20)\d{2}(\.0)?", x.strip())
+        )
+        # If we find at least 2 columns with years, this is our header
+        if year_matches >= 2: 
+            header_idx = i
+            found_header = True
+            break
+    
+    # If no header found, default to 0 (legacy behavior)
+    if not found_header:
+        header_idx = 0
 
-    year_str = str(year)
-    if year_str not in df.columns:
-        raise KeyError(f"Year column {year} not found in {file_path}")
+    # Reload/slice dataframe using the identified header row
+    df = df_raw.iloc[header_idx + 1:].copy()
+    
+    # Clean up column names: convert 2020.0 -> 2020 and strip whitespace
+    df.columns = (
+        df_raw.iloc[header_idx]
+        .astype(str)
+        .str.replace(r"\.0$", "", regex=True)
+        .str.strip()
+    )
+    
+    # Ensure the first column is named "Commodity" for consistency
+    df.rename(columns={df.columns[0]: "Commodity"}, inplace=True)
+    
+    # Clean the Commodity column (remove nan/whitespace)
+    df["Commodity"] = df["Commodity"].astype(str).str.strip()
 
-    value = df.loc[mask, year_str].values[0]
-    return float(value)  # thousand metric tons
+    # --------------------------------------------------
+    # 2. Find hydraulic cement row
+    # --------------------------------------------------
+    mask_hydraulic = df["Commodity"].str.contains(
+        r"\bhydraulic\b", case=False, na=False
+    )
+
+    if not mask_hydraulic.any():
+        print(f" Warning: No hydraulic cement found in {file_path}. Assuming 0.")
+        return 0.0
+
+    # Get the row where "hydraulic" was found
+    row = df.loc[mask_hydraulic].iloc[0]
+
+    # --------------------------------------------------
+    # 3. Check if row has numeric year data
+    # --------------------------------------------------
+    # Regex checks for columns "19XX" or "20XX"
+    year_cols = [c for c in df.columns if re.fullmatch(r"(19|20)\d{2}", str(c))]
+
+    has_numbers = any(pd.notna(row[c]) for c in year_cols)
+
+    if not has_numbers:
+        # If the "Hydraulic" row is just a category header (common in US files),
+        # check the next 8 rows for "Total" or the first row with numbers.
+        idx = df.loc[mask_hydraulic].index[0]
+        
+        # Determine integer location to slice safely
+        current_iloc = df.index.get_loc(idx)
+        sub = df.iloc[current_iloc + 1 : current_iloc + 9]
+
+        # Case A: Tunisia-style "Total"
+        mask_total = sub["Commodity"].str.fullmatch(r"total", case=False, na=False)
+
+        if mask_total.any():
+            row = sub.loc[mask_total].iloc[0]
+        else:
+            # Case B: US-style -> Take the first row that has numbers in year columns
+            found = False
+            for _, r in sub.iterrows():
+                if any(pd.notna(r[c]) for c in year_cols):
+                    row = r
+                    found = True
+                    break
+
+            if not found:
+                print(
+                    f" Warning: Hydraulic cement found but no usable numeric row in {file_path}. "
+                    "Assuming 0."
+                )
+                return 0.0
+
+    # --------------------------------------------------
+    # 4. Extract yearly values
+    # --------------------------------------------------
+    year_value_map = {}
+
+    for col in year_cols:
+        cell = row[col]
+
+        if pd.isna(cell):
+            continue
+
+        # Clean string values (e.g. "95,000 (e)" -> "95000")
+        if isinstance(cell, str):
+            cell_clean = re.sub(r"[^\d.]", "", cell)
+        else:
+            cell_clean = str(cell)
+
+        if cell_clean != "":
+            try:
+                year_value_map[int(col)] = float(cell_clean)
+            except ValueError:
+                pass
+
+    if not year_value_map:
+        print(f" Warning: No usable cement values in {file_path}. Assuming 0.")
+        return 0.0
+
+    # --------------------------------------------------
+    # 5. Exact year
+    # --------------------------------------------------
+    if year in year_value_map:
+        return year_value_map[year]
+
+    # --------------------------------------------------
+    # 6. Interpolation / extrapolation
+    # --------------------------------------------------
+    years = np.array(sorted(year_value_map.keys()))
+    values = np.array([year_value_map[y] for y in years])
+
+    interpolated = float(np.interp(year, years, values))
+
+    print(
+        f" Info: Cement value for year {year} in {file_path} "
+        f"derived by interpolation/extrapolation."
+    )
+
+    return interpolated
 
 
 # cement_production.py (or wherever your original lived)
@@ -74,8 +217,24 @@ def get_cement_and_clinker(
 
     # --- Locate & load the country file the same way you already do ---
     input_folder = find_input_folder()
-    cement_file = find_cement_files(input_folder, country_name)[0]
+    try:
+        cement_files = find_cement_files(input_folder, country_name)
+        cement_file = cement_files[0]
+    except FileNotFoundError:
+        print(
+            f" Info: No cement data file found for {country_name}. "
+            f"Assuming cement production = 0."
+        )
+        # Return zeros and continue with other countries
+        all_years = [base_year] + (target_years or [])
+        zero_path = {y: {sc: 0.0 for sc in scenarios} for y in all_years}
 
+        return (
+            0.0,        # cement_value_tpy
+            zero_path,  # clinker_factors
+            zero_path,  # clinker_production
+        )
+    #print("DEBUG cement file:", cement_file)
     # thousand t -> t
     cement_value_tpy = load_cement_value(cement_file, base_year) * 1e3
 

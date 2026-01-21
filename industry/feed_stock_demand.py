@@ -2,7 +2,7 @@ import re
 from pathlib import Path
 from typing import List, Optional
 from functools import reduce
-
+import pycountry
 import pandas as pd
 
 # -------------------------------------------------------------------
@@ -54,7 +54,14 @@ COL_ORDER = [
 ]
 
 # Countries to run – you just edit this list
-AVAILABLE_COUNTRIES = ["Egypt","Morocco"]
+AVAILABLE_COUNTRIES = ["Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
+                         "Algeria","Argentina","Brazil","Chile","Colombia","Mexico","Peru","Venezuela",
+                          "Morocco","Tunisia","Tanzania", "South Africa","Libya",
+
+                          #G20 countries
+                          "Argentina", "Australia", "Brazil", "Canada", "China", "France", "Germany",  
+                          "India", "Indonesia", "Italy", "Japan", "Mexico","Russia", "Saudi Arabia", 
+                          "South Africa", "South Korea", "United Kingdom", "United States"]
 
 # Row order for SEC sheet
 ROW_ORDER = ["Total", "Oil", "Gas", "Electricity", "Coal", "Heat", "Biomass", "Hydrogen"]
@@ -2174,40 +2181,51 @@ def build_sec_table_from_feedstock(
 
 
 
-# -------------------------------------------------------------------
-# HIGH-LEVEL PIPELINE FOR ONE COUNTRY
-# -------------------------------------------------------------------
+import pycountry
 
 def run_industry_pipeline_for_country(country: str):
     """
     1. Find latest run folder in output_data
-    2. Find that country's metrics .xlsx file (e.g. Morocco_Output.xlsx)
-    3. Create results/<Country> folder
-    4. Run:
-       - feed_stock_demand.xlsx  (sheet: Steel, NMM, Paper and pulp, Ammonia)
-       - industry_indicators.xlsx (sheet: SEC, with all sectors)
+    2. Find that country's metrics .xlsx file
+    3. Get ISO2 code (e.g. Morocco -> MA)
+    4. Create results/<Country> folder
+    5. Run pipeline with ISO2 code in filenames
     """
     latest_folder = find_latest_run_folder()
     country_file = find_country_file(latest_folder, country)
+    
+    # --- NEW STEP: Get ISO2 Code ---
+    try:
+        # fuzzy search handles "Morocco", "United States", "Vietnam" etc.
+        iso_code = pycountry.countries.search_fuzzy(country)[0].alpha_2 
+    except (LookupError, AttributeError):
+        print(f"Warning: Could not find ISO code for {country}. Defaulting to 'XX'.")
+        iso_code = "XX"
+    # -------------------------------
+
     print(f"Using latest folder: {latest_folder.name}")
     print(f"Using country file: {country_file.name}")
+    #print(f"Detected ISO code: {iso_code}")
 
     results_dir = get_results_folder(country)
 
-    feedstock_out = results_dir / "feed_stock_demand.xlsx"
-    sec_out = results_dir / "industry_indicators.xlsx"
+    # --- UPDATED: Add ISO code to filenames ---
+    feedstock_filename = f"{iso_code}_feed_stock_demand.xlsx"
+    sec_filename = f"{iso_code}_final_energy_demand.xlsx"
+
+    feedstock_out = results_dir / feedstock_filename
+    sec_out = results_dir / sec_filename
+    # ------------------------------------------
 
     build_all_feedstock_from_metrics(country_file, feedstock_out)
     build_sec_table_from_feedstock(feedstock_out, sec_out, country_name=country, sheet_name="SEC")
-
-
 
 # -------------------------------------------------------------------
 # CLI / manual run
 # -------------------------------------------------------------------
 
 if __name__ == "__main__":
-    print("Running industry pipeline (Steel + NMM + Paper & Pulp + Ammonia) for countries:")
+    #print("Running industry pipeline (Steel + NMM + Paper & Pulp + Ammonia) for countries:")
     for country in AVAILABLE_COUNTRIES:
         print(f"  - {country}")
         run_industry_pipeline_for_country(country)

@@ -6,11 +6,14 @@
 **output_data
 **post_processed_data
 **results
- 
+
 **.vscode
 **archive
  
 **README
  
 residential/test_main_residential.ipynb
+<<<<<<< HEAD
 **test.py
+=======
+>>>>>>> main

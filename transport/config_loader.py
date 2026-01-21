@@ -1,14 +1,19 @@
 # transport/config_loader.py
 import pandas as pd
 from pathlib import Path
-import os
 
 def load_transport_config(excel_path: Path, countries: list, scenarios: list):
 
     df = pd.read_excel(excel_path)
     df.columns = df.columns.str.strip()
 
-    required_cols = {"Metric Name", "Year", "Scenario", "default"}
+    required_cols = {
+        "Assumption Type",
+        "Metric Name",
+        "Year",
+        "Scenario",
+        "default"
+    }
     if not required_cols.issubset(df.columns):
         raise ValueError(f"Excel must contain columns: {required_cols}")
 
@@ -51,6 +56,26 @@ def load_transport_config(excel_path: Path, countries: list, scenarios: list):
                 continue
 
             for s in target_scenarios:
-                config[country].setdefault(metric, {}).setdefault(year, {})[s] = val
+                entry = config[country].setdefault(
+                    metric,
+                    {
+                        "assumption_type": str(row["Assumption Type"]).strip().upper(),
+                        "values": {}
+                    }
+                )
+                entry["values"].setdefault(year, {})[s] = val
 
     return config
+
+
+def get_assumption(config, metric, expected_type):
+    entry = config.get(metric)
+    if entry is None:
+        raise KeyError(f"Metric not found in config: {metric}")
+
+    if entry["assumption_type"] != expected_type:
+        raise ValueError(
+            f"{metric}: expected {expected_type}, got {entry['assumption_type']}"
+        )
+
+    return entry["values"]

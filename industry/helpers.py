@@ -364,11 +364,29 @@ def _forecast_from_history_and_sparse_cagr(
 def _get_value_by_index(v, i: int):
     if v is None:
         return None
+
+    # Handle Lists and Tuples
     if isinstance(v, (list, tuple)):
-        return float(v[i] if i < len(v) else v[-1])
+        # 1. Get the raw item first
+        item = v[i] if i < len(v) else v[-1]
+        
+        # 2. Check if it is None BEFORE converting
+        if item is None:
+            return None
+            
+        return float(item)
+
+    # Handle Dictionaries
     if isinstance(v, dict):
-        arr = list(v.values())  # ignore keys; insertion order → index-based mapping
-        return float(arr[i] if i < len(arr) else arr[-1])
+        arr = list(v.values())
+        item = arr[i] if i < len(arr) else arr[-1]
+        
+        if item is None:
+            return None
+            
+        return float(item)
+
+    # Handle single values
     return float(v)
 
 def _interp_at(series: dict, y: int):
