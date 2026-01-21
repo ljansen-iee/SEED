@@ -219,9 +219,9 @@ def run(country: str, base_dir: str = "output_data") -> None:
     os.makedirs(country_results_dir, exist_ok=True)
 
     # ---- SAVE FILES WITH ISO2 CODE ----
-    #final_df.to_excel(
-    ##    os.path.join(country_results_dir, f"{country_code}_final_energy_demand.xlsx"),
-    #    index=False)
+    final_df.to_excel(
+        os.path.join(country_results_dir, f"{country_code}_energy_demand.xlsx"),
+        index=False)
 
     indicators_df = generate_transport_indicators(final_df, country)
     indicators_df.to_excel(

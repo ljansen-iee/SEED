@@ -11,9 +11,9 @@ from build_share_mode import process_bus_share_data, share_of_two_Three
 from build_load_factors import get_Load_factor_Car, Load_factor_Bus, Load_factor_two_three_occupancy, heavy_load_factor, medium_load_factor, load_factor
 from build_energy_intensities import generate_energy_intensities, expand_intensity
 from build_technology_share import Share_of_Direct_Electric_Passenger_Train, share_technology, TECHNOLOGY_OVERRIDES, enforce_share_constraints, apply_technology_overrides
-from build_CAGR import poly_project, expand_with_cagr, expand_constant, as_fraction, get_cagr
+#from build_CAGR import poly_project, expand_with_cagr, expand_constant, as_fraction, get_cagr
 from config_loader import load_transport_config
-
+from CAGR import get_cagr, expand_with_cagr, expand_constant
 
 # === Constants ===
 BASE_YEAR = 2020  # Define the start year for the projections. 2020 by default. Years between 2020 and 2025 are available (via interpolation),
@@ -46,7 +46,7 @@ devkopsys_countries =  ["Republic of the Congo", "Egypt", "Ethiopia", "Ghana","K
                           "Morocco","Tunisia","Tanzania","Libya",
 
                           #G20 countries
-                        "Australia", "Brazil", "Canada", "China", "France", "Germany",  
+                        "Australia", "Canada", "China", "France", "Germany",  
                           "India", "Indonesia", "Italy", "Japan", "Mexico","Russia", "Saudi Arabia", 
                           "South Africa", "South Korea", "United Kingdom", "United States"]
 

@@ -44,12 +44,12 @@ def main():
 
     # ---- Countries ----
     devkopsys_countries = ["Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
-                          "Algeria","Argentina","Brazil","Chile","Colombia","Mexico","Peru","Venezuela",
+                          "Algeria","Argentina","Brazil","Chile","Colombia","Peru","Venezuela",
                           "Morocco","Tunisia","Tanzania", "South Africa","Libya",
                           #G20 countries
                            "Australia", "Canada", "China", "France", "Germany",  
                           "India", "Indonesia", "Italy", "Japan", "Mexico","Russia", "Saudi Arabia", 
-                          "South Africa", "South Korea", "United Kingdom","United States"]
+                           "South Korea", "United Kingdom","United States"]
 
     industry_cagr_excel = load_industry_cagr_from_excel(
     excel_path=INDUSTRY_CFG_PATH,

@@ -81,5 +81,5 @@ def load_factor_passenger_train(df_load_factor_car, selected_countries, years):
 def load_factor():
     passenger_plane = 100
     freight_ship = 508.00
-    passenger_ship = 99999999
+    passenger_ship = 0
     return passenger_plane, freight_ship, passenger_ship
