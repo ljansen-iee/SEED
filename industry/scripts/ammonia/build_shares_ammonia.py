@@ -7,7 +7,7 @@ import sys
 # Go up two levels (ammonia → chemicals → scripts)
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
-from cagr_helper import interpolate_or_extrapolate
+from industry.build_CAGR import interpolate_or_extrapolate
 
 
 # ============================================================

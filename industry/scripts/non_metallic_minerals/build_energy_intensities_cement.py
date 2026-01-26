@@ -4,7 +4,7 @@ from typing import Dict, List, Optional
 import os
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
-from cagr_helper import interpolate_or_extrapolate, expand_with_cagr_piecewise
+from industry.build_CAGR import interpolate_or_extrapolate, expand_with_cagr_piecewise
 from helpers import _build_rate_anchors_indexed, _forecast_from_history_and_sparse_cagr, _get_value_by_index
 
 

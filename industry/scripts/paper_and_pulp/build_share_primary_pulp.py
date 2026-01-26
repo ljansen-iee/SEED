@@ -67,7 +67,7 @@ from typing import Dict, List, Optional
 import sys
 # Allow importing helper functions from parent directories
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
-from cagr_helper import interpolate_or_extrapolate
+from industry.build_CAGR import interpolate_or_extrapolate
 
 def share_fuel_primary_pulp(
     target_years: List[int],

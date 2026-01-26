@@ -3,7 +3,22 @@ import pandas as pd
 import numpy as np
 import tabula
 import pycountry
+from pathlib import Path
+import os
 
+# === Dynamic Paths for UNSD Aggregation ===
+# This identifies the 'transport' folder where helpers.py resides
+TRANSPORT_DIR = Path(__file__).resolve().parent
+
+# Path to the folder containing individual country CSVs (Algeria-2021.csv, etc.)
+UNSD_INPUT_FOLDER = TRANSPORT_DIR / "input_data" / "unsd_country_specific"
+
+# Path to the global folder where the merged master file lives
+UNSD_GLOBAL_DIR = TRANSPORT_DIR / "input_data" / "global"
+UNSD_GLOBAL_OUTPUT = UNSD_GLOBAL_DIR / "aggregated_transport_data.xlsx"
+
+# Ensure the global directory exists immediately upon import
+os.makedirs(UNSD_GLOBAL_DIR, exist_ok=True)
 
 def find_input_folder():
     start_dir = os.path.dirname(os.path.abspath(__file__))
@@ -488,3 +503,63 @@ def generate_units_dictionary():
         "Final Energy Intensity - Kerosene Freight Plane": "kWh/vkm",
         "Final Energy Intensity - Diesel Passenger Ship": "kWh/vkm",
     }
+
+import pandas as pd
+import os
+import glob
+from pathlib import Path
+
+# ... your path constants here ...
+
+def refresh_unsd_master_data():
+    """Aggregates all country CSVs into one master Excel in the global folder."""
+    # Ensure the global directory exists before trying to save
+    UNSD_GLOBAL_OUTPUT.parent.mkdir(parents=True, exist_ok=True)
+    
+    all_data = []
+    # Using the path defined in this same file
+    csv_files = glob.glob(os.path.join(UNSD_INPUT_FOLDER, "*.csv"))
+    
+    if not csv_files:
+        print(f" No UNSD CSV files found in {UNSD_INPUT_FOLDER}")
+        return
+
+    for file_path in csv_files:
+        try:
+            filename = os.path.basename(file_path)
+            name_part = os.path.splitext(filename)[0]
+            # Split "Algeria-2021" -> "Algeria", "2021"
+            country_name, year = name_part.rsplit('-', 1) if '-' in name_part else (name_part, "2020")
+            
+            df = pd.read_csv(file_path)
+            # Process Marine and Aviation
+            for trans in ['International marine bunkers', 'International aviation bunkers']:
+                row = df[df['Transactions(down)/Commodity(right)'] == trans]
+                
+                if not row.empty:
+                    # Clean the data (TJ to TWh)
+                    raw_val = str(row['Total Energy'].values[0]).replace('*', '').replace('---', '0').strip()
+                    val_twh = abs(float(raw_val)) / 3600.0
+                else:
+                    val_twh = 0.0
+                
+                all_data.append({
+                    'Country': country_name, 
+                    'Year': str(year),
+                    'Type': 'Marine' if 'marine' in trans else 'Aviation',
+                    'Value_TWh': val_twh
+                })
+        except Exception as e:
+            print(f"Error processing {filename}: {e}")
+
+    # Create pivot table: Rows = Country/Year, Columns = Aviation/Marine
+    master_df = pd.DataFrame(all_data).pivot_table(
+        index=['Country', 'Year'], 
+        columns='Type', 
+        values='Value_TWh'
+    ).reset_index()
+    
+    # Finalize columns and save
+    master_df.columns = ['Country', 'Year', 'Aviation_Bunkers_TWh', 'Marine_Bunkers_TWh']
+    master_df.to_excel(UNSD_GLOBAL_OUTPUT, index=False)
+    #print(f" UNSD Master Data Refreshed: {UNSD_GLOBAL_OUTPUT}")

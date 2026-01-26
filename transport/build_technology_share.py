@@ -170,7 +170,7 @@ def share_technology():
     biodiesel_in_road_diesel = 0.0
     biodiesel_in_rail_diesel = 0.0
     biodiesel_in_internal_navigation_diesel = 0.0
-    biokerosene_in_internal_aviation_fuel = 0.0 
+    biokerosene_in_internal_aviation_fuel = 0.0
     ice_fuel_in_plugin_hybrid = 0.5
 
     return (

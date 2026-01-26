@@ -14,7 +14,8 @@ from build_load_factors import get_Load_factor_Car, Load_factor_Bus, Load_factor
 from build_energy_intensities import generate_energy_intensities, expand_intensity
 from build_technology_share import Share_of_Direct_Electric_Passenger_Train, share_technology, TECHNOLOGY_OVERRIDES, enforce_share_constraints, apply_technology_overrides
 from config_loader import load_transport_config
-from CAGR import poly_project, expand_with_cagr, expand_constant, as_fraction, get_cagr
+from build_CAGR import poly_project, expand_with_cagr, expand_constant, as_fraction, get_cagr
+from helpers import refresh_unsd_master_data, UNSD_GLOBAL_OUTPUT
 
 # === Constants ===
 BASE_YEAR = 2020  
@@ -39,7 +40,7 @@ devkopsys_countries = ["Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Ke
                        "Morocco","Tunisia","Tanzania","Libya",
                        "Australia", "Canada", "China", "France", "Germany",  
                        "India", "Indonesia", "Italy", "Japan", "Mexico","Russia", "Saudi Arabia", 
-                       "South Africa", "South Korea", "United Kingdom", "United States"]
+                       "South Africa", "South Korea", "United Kingdom", "United States of America"]
 
 countries_to_load = devkopsys_countries + ["default"] 
 
@@ -252,10 +253,17 @@ def main(base_year=None, target_years=None, scenarios=None):
 
             # --- Subsector Shares ---
             try:
+                # 1. Calculate Base Year Values
                 rail_base = poly_project(share_years, [val("Rail Passenger %", y) for y in share_years], [base_year])[base_year]
+                
                 aviation_base = poly_project(share_years, [val("Aviation Passenger %", y) for y in share_years], [base_year])[base_year]
-                if aviation_base is None or np.isnan(aviation_base): aviation_base = 1.12
+                if aviation_base is None or np.isnan(aviation_base): aviation_base = 1.12 # Default fallback
+                
+                # [NEW] Calculate Ship Base
+                ship_base = poly_project(share_years, [val("Navigation Passenger %", y) for y in share_years], [base_year])[base_year]
+                if ship_base is None or np.isnan(ship_base): ship_base = 0.0
 
+                # 2. Expand Futures with CAGR
                 rail_expanded = expand_with_cagr(
                     rail_base,
                     get_cagr(CAGR_VALUES, "Share per Subsector - Rail Passenger = Train"),
@@ -268,25 +276,52 @@ def main(base_year=None, target_years=None, scenarios=None):
                     base_year, target_years, scenarios
                 )
 
+                # [NEW] Expand Ship Futures
+                ship_expanded = expand_with_cagr(
+                    ship_base,
+                    get_cagr(CAGR_VALUES, "Share per Subsector - Navigation Passenger = Ship"),
+                    base_year, target_years, scenarios
+                )
+
+                # 3. Calculate Road (Residual: 100 - others)
                 road_expanded = {}
-                road_expanded[str(base_year)] = 100.0 - (rail_expanded[str(base_year)] + aviation_expanded[str(base_year)])
+                # Base year residual
+                road_expanded[str(base_year)] = 100.0 - (
+                    rail_expanded[str(base_year)] + 
+                    aviation_expanded[str(base_year)] + 
+                    ship_expanded[str(base_year)]
+                )
+
+                # Future years residual
                 for year in target_years:
                     for scenario in scenarios:
                         key = f"{year}_{scenario}"
-                        road_expanded[key] = 100.0 - (rail_expanded[key] + aviation_expanded[key])
+                        road_expanded[key] = 100.0 - (
+                            rail_expanded.get(key, 0) + 
+                            aviation_expanded.get(key, 0) + 
+                            ship_expanded.get(key, 0)
+                        )
 
-                # Normalize
+                # 4. Normalize (Ensure sum = 100%)
                 for year in [str(base_year)] + [f"{y}_{s}" for y in target_years for s in scenarios]:
-                    total = rail_expanded.get(year, 0) + aviation_expanded.get(year, 0) + road_expanded.get(year, 0)
+                    total = (rail_expanded.get(year, 0) + 
+                             aviation_expanded.get(year, 0) + 
+                             road_expanded.get(year, 0) + 
+                             ship_expanded.get(year, 0)) # Added ship to total
+                    
                     if abs(total - 100.0) > 1e-6 and total > 0:
                         scale = 100.0 / total
                         if year in rail_expanded: rail_expanded[year] *= scale
                         if year in aviation_expanded: aviation_expanded[year] *= scale
                         if year in road_expanded: road_expanded[year] *= scale
+                        if year in ship_expanded: ship_expanded[year] *= scale
 
+                # 5. Append Rows
                 all_rows.append({"Metric": "Share per Subsector - Rail Passenger = Train", **rail_expanded, "Units": "% of pkm"})
                 all_rows.append({"Metric": "Share per Subsector - Aviation Passenger = Plane", **aviation_expanded, "Units": "% of pkm"})
                 all_rows.append({"Metric": "Share per Subsector - Road Passenger", **road_expanded, "Units": "% of pkm"})
+                # [NEW] Append Ship Row
+                all_rows.append({"Metric": "Share per Subsector - Navigation Passenger = Ship", **ship_expanded, "Units": "% of pkm"})
 
                 mcp_expanded = expand_with_cagr(
                     scenario_baseline["Mobility per capita - Passenger"],
@@ -431,56 +466,58 @@ def main(base_year=None, target_years=None, scenarios=None):
             print(f" Skipping {selected_country}: Transport error ({e})")
             continue
         
-        # ==============================================================================
-        # <--- INSERT THE NEW CODE BLOCK HERE (International Aviation & Maritime) --->
-        # ==============================================================================
         try:
-            # 1. Maritime: Load Total Energy directly (converted from Mtoe to TWh in Excel)
-            maritime_energy_base = CAGR_VALUES.get("Total Energy - Int. Maritime", {}).get(base_year, 2477.0)
-            maritime_energy_expanded = expand_with_cagr(
-                maritime_energy_base,
+            # Load the Master Excel
+            if UNSD_GLOBAL_OUTPUT.exists():
+                unsd_df = pd.read_excel(UNSD_GLOBAL_OUTPUT)
+                
+                # Standardize columns for matching (strip spaces and lowercase)
+                # This ensures "Morocco " matches "morocco"
+                unsd_df['Country_Clean'] = unsd_df['Country'].astype(str).str.strip().str.lower()
+                target_country_clean = selected_country.strip().lower()
+                
+                # Filter using cleaned names
+                match = unsd_df[
+                    (unsd_df['Country_Clean'] == target_country_clean) & 
+                    (unsd_df['Year'].astype(str) == str(base_year))
+                ]
+                
+                if not match.empty:
+                    marine_base = float(match['Marine_Bunkers_TWh'].values[0])
+                    aviation_base = float(match['Aviation_Bunkers_TWh'].values[0])
+                    #print(f"   -> Found UNSD Bunkers for {selected_country}: Marine={marine_base:.2f} TWh, Aviation={aviation_base:.2f} TWh")
+                else:
+                    print(f"   -> WARNING: {selected_country} (clean: '{target_country_clean}') not found in UNSD data. Defaulting Bunkers to 0.")
+                    marine_base, aviation_base = 0.0, 0.0
+            else:
+                print("   -> WARNING: UNSD Master file not found.")
+                marine_base, aviation_base = 0.0, 0.0
+
+            # 1. Expand Marine with CAGR (Uses rows from your trans_config.xlsx)
+            marine_expanded = expand_with_cagr(
+                marine_base,
                 get_cagr(CAGR_VALUES, "Total Energy - Int. Maritime"),
                 base_year, target_years, scenarios
             )
-            all_rows.append({"Metric": "Total Energy - Int. Maritime", **maritime_energy_expanded, "Units": "TWh"})
+            all_rows.append({"Metric": "Total Energy - Int. Maritime", **marine_expanded, "Units": "TWh"})
 
-            # 2. Aviation: Load Activity Index and Efficiency Index
-            av_act_base = CAGR_VALUES.get("Activity Index - Int. Aviation", {}).get(base_year, 1.0)
-            av_act_expanded = expand_with_cagr(
-                av_act_base,
-                get_cagr(CAGR_VALUES, "Activity Index - Int. Aviation"),
+            # 2. Expand Aviation with CAGR
+            aviation_expanded = expand_with_cagr(
+                aviation_base,
+                get_cagr(CAGR_VALUES, "Total Energy - Int. Aviation"),
                 base_year, target_years, scenarios
             )
-            all_rows.append({"Metric": "Activity Index - Int. Aviation", **av_act_expanded, "Units": "Index (2020=1.0)"})
+            all_rows.append({"Metric": "Total Energy - Int. Aviation", **aviation_expanded, "Units": "TWh"})
 
-            av_eff_base = CAGR_VALUES.get("Efficiency Index - Int. Aviation", {}).get(base_year, 1.0)
-            av_eff_expanded = expand_with_cagr(
-                av_eff_base,
-                get_cagr(CAGR_VALUES, "Efficiency Index - Int. Aviation"),
-                base_year, target_years, scenarios
-            )
-            all_rows.append({"Metric": "Efficiency Index - Int. Aviation", **av_eff_expanded, "Units": "Index (2020=1.0)"})
-
-            # 3. Technology Shares
-            intl_tech_vars = [
-                "Share - Int. Aviation E-fuel",
-                "Share - Int. Maritime Ammonia",
-                "Share - Int. Maritime E-fuel"
-            ]
-
-            for tech in intl_tech_vars:
+            # 3. Add Activity/Technology variables for Bunkers
+            intl_tech = ["Share - Int. Aviation E-fuel", "Share - Int. Maritime Ammonia", "Share - Int. Maritime E-fuel"]
+            for tech in intl_tech:
                 t_base = CAGR_VALUES.get(tech, {}).get(base_year, 0.0)
-                t_expanded = expand_with_cagr(
-                    t_base,
-                    get_cagr(CAGR_VALUES, tech),
-                    base_year, target_years, scenarios
-                )
+                t_expanded = expand_with_cagr(t_base, get_cagr(CAGR_VALUES, tech), base_year, target_years, scenarios)
                 all_rows.append({"Metric": tech, **t_expanded, "Units": "Fraction"})
 
         except Exception as e:
-            print(f" Skipping International Bunkers for {selected_country}: {e}")
-        # ==============================================================================
-        # <--- END OF INSERTION --->
+            print(f" Error processing International Bunkers for {selected_country}: {e}")
         # ==============================================================================
 
         # ------- Final Energy Intensities -------
@@ -581,7 +618,7 @@ def main(base_year=None, target_years=None, scenarios=None):
             "Share of Biodiesel in Road Diesel": biodiesel_in_road_diesel,
             "Share of Biodiesel in Rail Diesel": biodiesel_in_rail_diesel,
             "Share of Biodiesel in Internal Navigation Diesel": biodiesel_in_internal_navigation_diesel,
-            "Share of Biokerosene in Internal Aviation Diesel": biokerosene_in_internal_aviation_fuel,
+            "Share of Biokerosene in Internal Aviation Fuel": biokerosene_in_internal_aviation_fuel,
             "Share of ICE Fuel in Plugin Hybrid": ice_fuel_in_plugin_hybrid,
         }
 
@@ -625,4 +662,5 @@ def main(base_year=None, target_years=None, scenarios=None):
             continue
 
 if __name__ == "__main__":
+    refresh_unsd_master_data() # Add this
     main()

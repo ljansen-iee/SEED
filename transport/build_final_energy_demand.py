@@ -1,37 +1,333 @@
-# build_final_energy_demand.py
 import os
 import glob
 import pandas as pd
-from build_transport_calc import calc_for_scenario
-from build_transport_indicators import generate_transport_indicators
-from helpers import get_iso2_country_code
+import numpy as np
+
+# =============================================================================
+# 1. SETUP & CONFIGURATION
+# =============================================================================
+
 # Get the absolute path of this script
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 TRANSPORT_OUTPUT_DIR = os.path.join(SCRIPT_DIR, "output_data")
-# Base results folder
 RESULTS_DIR = os.path.join(SCRIPT_DIR, "results")
 os.makedirs(RESULTS_DIR, exist_ok=True)
 
-# Choose here add list of countries 
-#[ "Algeria","Argentina","Brazil","Chile","Colombia","Egypt","Libya","Mexico",
-#  "Namibia","Peru","Tunisia","Uruguay","Morocco","South Africa",
-#  "Angola","Benin","Botswana","Burkina Faso","Burundi","Cameroon",
-#  "Central African Republic","Chad","Comoros","Djibouti","Equatorial Guinea","Eritrea",
-#  "Ethiopia","Gabon","Gambia","Ghana","Guinea","Guinea Bissau","Kenya","Lesotho",
-#  "Liberia","Madagascar","Malawi","Mali","Mauritania","Mozambique","Namibia","Niger",
-#  "Rwanda","Senegal","Sierra Leone","Somalia","Sudan","Tanzania","Togo","Uganda",
-#  "Zambia","Zimbabwe","Seychelles","Cote D'Ivoire","Sao Tome and Principe",
-#  "South Sudan","Cabo Verde", "Congo", "Eswatini" ] 
+# List of countries to process
+COUNTRY = [ 
+    "Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
+    "Algeria","Argentina","Brazil","Chile","Colombia","Mexico","Peru","Venezuela",
+    "Morocco","Tunisia","Tanzania", "South Africa","Libya",
+    "Australia", "Canada", "China", "France", "Germany",  
+    "India", "Indonesia", "Italy", "Japan", "Russia", "Saudi Arabia", 
+    "South Korea", "United Kingdom", "United States"
+]
 
-COUNTRY = [ "Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
-                         "Algeria","Argentina","Brazil","Chile","Colombia","Mexico","Peru","Venezuela",
-                          "Morocco","Tunisia","Tanzania", "South Africa","Libya",
+def get_iso2_country_code(c):
+    mapping = {
+        "Morocco": "MA", "South Africa": "ZA", "United Kingdom": "UK", 
+        "United States": "US", "Saudi Arabia": "SA", "South Korea": "KR"
+    }
+    return mapping.get(c, c[:2].upper())
 
-                          #G20 countries
-                          "Argentina", "Australia", "Brazil", "Canada", "China", "France", "Germany",  
-                          "India", "Indonesia", "Italy", "Japan", "Mexico","Russia", "Saudi Arabia", 
-                          "South Africa", "South Korea", "United Kingdom", "United States"]
+# =============================================================================
+# 2. INDICATOR GENERATION FUNCTION (ALL TWh)
+# =============================================================================
 
+def generate_transport_indicators(final_df: pd.DataFrame, country: str) -> pd.DataFrame:
+    """
+    Generates aggregated transport indicators in wide-format (TWh).
+    Matches the specific column structure required for the final output.
+    """
+    df = final_df.copy()
+    # Ensure numeric
+    df["Final Energy Demand (TWh)"] = pd.to_numeric(df["Final Energy Demand (TWh)"], errors="coerce").fillna(0)
+
+    # Helper: Filter and sum energy (Already in TWh, so no division needed)
+    def sum_filter(subsector=None, mode=None, fuels=None):
+        d = df.copy()
+        if subsector:
+            d = d[d["Subsector"].isin(subsector if isinstance(subsector, list) else [subsector])]
+        if mode:
+            d = d[d["Mode"].isin(mode if isinstance(mode, list) else [mode])]
+        if fuels:
+            d = d[d["Fuel"].isin(fuels if isinstance(fuels, list) else [fuels])]
+        return d.groupby("Scenario")["Final Energy Demand (TWh)"].sum()
+
+    # Fuel groups
+    oil_fuels = ["Gasoline", "Diesel", "LPG", "Kerosene", "Fuel Oil", "E-Diesel", "E-Kerosene"]
+    bio_fuels = ["Bio Diesel", "Bio Ethanol", "Bio Kerosene"]
+    elec_fuels = ["Electricity"]
+    hydro_fuels = ["Hydrogen"]
+    gas_fuels = ["Gas", "LPG"]
+
+    # --- RAIL ---
+    elec_rail = sum_filter(mode=["Rail", "Passenger Train", "Freight Train"], fuels=["Electricity"])
+    total_rail = sum_filter(mode=["Rail", "Passenger Train", "Freight Train"])
+
+    # --- ROAD ---
+    road_modes = ["Road", "LDV", "Bus", "2&3 Wheelers", "Light-Duty Trucks", "Heavy-Duty Trucks"]
+    road_biomass = sum_filter(mode=road_modes, fuels=["Bio Diesel", "Bio Ethanol"])
+    road_electricity = sum_filter(mode=road_modes, fuels=elec_fuels)
+    road_gas = sum_filter(mode=road_modes, fuels=["LPG", "Gas"])
+    road_oil = sum_filter(mode=road_modes, fuels=["Gasoline", "Diesel", "Kerosene", "Fuel Oil"])
+    total_road = sum_filter(mode=road_modes)
+    
+    road_ev = road_electricity
+    road_fcev = sum_filter(mode=road_modes, fuels=["Hydrogen"])
+    road_ice = total_road - road_ev - road_fcev
+
+    # --- AVIATION ---
+    intl_avn = sum_filter(mode="International Aviation")
+    dom_avn = sum_filter(mode=["Aviation", "Passenger Planes", "Freight Planes"])
+
+    # --- NAVIGATION ---
+    intl_nav = sum_filter(mode="International Navigation")
+    dom_nav = sum_filter(mode=["Navigation", "Passenger Ships", "Freight Ships"])
+
+    # --- BUILD RESULT ---
+    all_scenarios = df["Scenario"].unique()
+    result = pd.DataFrame({"scenario": all_scenarios, "country": country}).set_index("scenario")
+
+    result["transport electricity rail"] = elec_rail
+    result["transport total rail"] = total_rail
+    result["transport road biomass"] = road_biomass
+    result["transport road electricity"] = road_electricity
+    result["transport road gas"] = road_gas
+    result["transport road oil"] = road_oil
+    result["transport total road"] = total_road
+    result["transport total road ev"] = road_ev
+    result["transport total road fcev"] = road_fcev
+    result["transport total road ice"] = road_ice
+    result["transport total domestic aviation"] = dom_avn
+    result["transport total domestic navigation"] = dom_nav
+    result["transport total international aviation"] = intl_avn
+    result["transport total international navigation"] = intl_nav
+
+    result = result.fillna(0).reset_index()
+
+    # Normalize scenario names
+    def normalize_scenario(s):
+        s = str(s).strip()
+        if s.lower() in ["2020", "base", "baseline"]: return "base"
+        return s
+    result["scenario"] = result["scenario"].map(normalize_scenario)
+
+    # Order columns
+    cols = [
+        "scenario", "country",
+        "transport electricity rail", "transport total rail",
+        "transport road biomass", "transport road electricity",
+        "transport road gas", "transport road oil", "transport total road",
+        "transport total road ev", "transport total road fcev", "transport total road ice",
+        "transport total domestic aviation", "transport total domestic navigation",
+        "transport total international aviation", "transport total international navigation"
+    ]
+    result = result.reindex(columns=cols, fill_value=0)
+    return result
+
+# =============================================================================
+# 3. HELPER FUNCTIONS
+# =============================================================================
+
+def get_metric(metrics_raw, key: str, scenario: str, default=0.0) -> float:
+    if key not in metrics_raw:
+        return float(default)
+    val = metrics_raw[key].get(scenario, default)
+    try:
+        return float(val)
+    except Exception:
+        return float(default)
+
+def pct(metrics_raw, key: str, scenario: str, default=0.0) -> float:
+    return get_metric(metrics_raw, key, scenario, default) / 100.0
+
+def safe_div(n, d):
+    if d in (None, 0): return 0.0
+    if d == 99999999: return 0.0
+    return n / d
+
+def add_row(rows, sector, subsector, mode, enduse, tech, fuel, scn, vkm, share, inten):
+    fed_kwh = vkm * share * inten
+    # CHANGE: Divide by 1e9 for TWh (instead of 1e6 for GWh)
+    fed_twh = fed_kwh / 1e9  
+    rows.append([sector, subsector, mode, enduse, tech, fuel, scn, fed_twh])
+
+# =============================================================================
+# 4. MAIN CALCULATION LOGIC (TWh)
+# =============================================================================
+
+def calc_for_scenario(metrics_raw: dict, scenario: str) -> pd.DataFrame:
+    rows = []
+
+    # === Population and totals ===
+    pop = get_metric(metrics_raw, "Population", scenario, 0.0) * 1e6
+    pkm_pc = get_metric(metrics_raw, "Mobility per capita - Passenger", scenario, 0.0)
+    tkm_pc = get_metric(metrics_raw, "Mobility per capita - Freight", scenario, 0.0)
+    total_pkm = pop * pkm_pc
+    total_tkm = pop * tkm_pc
+
+    # === Passenger subsector split ===
+    road_pass = total_pkm * pct(metrics_raw, "Share per Subsector - Road Passenger", scenario)
+    rail_pass = total_pkm * pct(metrics_raw, "Share per Subsector - Rail Passenger = Train", scenario)
+    air_pass  = total_pkm * pct(metrics_raw, "Share per Subsector - Aviation Passenger = Plane", scenario)
+    ship_pass = total_pkm * pct(metrics_raw, "Share per Subsector - Navigation Passenger = Ship", scenario)
+
+    # === Passenger road mode split ===
+    sh_ldv = pct(metrics_raw, "Share per Mode - LDV", scenario)
+    sh_bus = pct(metrics_raw, "Share per Mode - Bus", scenario)
+    sh_23w = pct(metrics_raw, "Share per Mode - 2&3W", scenario)
+
+    ldv_pkm = road_pass * sh_ldv
+    bus_pkm = road_pass * sh_bus
+    w23_pkm = road_pass * sh_23w
+
+    # === Passenger vkm conversion ===
+    vkm_ldv = safe_div(ldv_pkm, get_metric(metrics_raw, "Load Factor - LDV", scenario, 1.0))
+    vkm_bus = safe_div(bus_pkm, get_metric(metrics_raw, "Load Factor - Bus", scenario, 1.0))
+    vkm_23w = safe_div(w23_pkm, get_metric(metrics_raw, "Load Factor - 2&3W", scenario, 1.0))
+    vkm_ptr = safe_div(rail_pass, get_metric(metrics_raw, "Load Factor - Passenger Train", scenario, 1.0))
+    vkm_ppl = safe_div(air_pass,  get_metric(metrics_raw, "Load Factor - Passenger Plane", scenario, 1.0))
+    vkm_psh = safe_div(ship_pass, get_metric(metrics_raw, "Load Factor - Passenger Ship", scenario, 99999999))
+
+    # === PASSENGER: LDV ===
+    for tech, fuel in [
+        ("Gasoline ICE", "Gasoline"), ("Diesel ICE", "Diesel"),
+        ("BEV", "Electricity"), ("FCEV", "Hydrogen"),
+    ]:
+        add_row(rows, "Transport","Passenger","Road","LDV", tech, fuel, scenario,
+                vkm_ldv,
+                pct(metrics_raw, f"Share of Technology - {tech} LDV", scenario),
+                get_metric(metrics_raw, f"Final Energy Intensity - {tech} LDV", scenario))
+
+    # === PASSENGER: Bus ===
+    for tech, fuel in [
+        ("Diesel ICE", "Diesel"), ("BEV", "Electricity"), ("FCEV", "Hydrogen"),
+    ]:
+        add_row(rows, "Transport","Passenger","Road","Bus", tech, fuel, scenario,
+                vkm_bus,
+                pct(metrics_raw, f"Share of Technology - {tech} Bus", scenario),
+                get_metric(metrics_raw, f"Final Energy Intensity - {tech} Bus", scenario))
+
+    # === PASSENGER: 2&3 Wheelers ===
+    for tech, fuel in [
+        ("Gasoline ICE", "Gasoline"), ("BEV", "Electricity"),
+    ]:
+        add_row(rows, "Transport","Passenger","Road","2&3 Wheelers", tech, fuel, scenario,
+                vkm_23w,
+                pct(metrics_raw, f"Share of Technology - {tech} 2&3W", scenario),
+                get_metric(metrics_raw, f"Final Energy Intensity - {tech} 2&3W", scenario))
+
+    # === PASSENGER: Rail ===
+    for tech, fuel in [
+        ("Diesel ICE", "Diesel"), ("Direct Electric", "Electricity"), ("FCEV", "Hydrogen"),
+    ]:
+        add_row(rows, "Transport","Passenger","Rail","Passenger Train", tech, fuel, scenario,
+                vkm_ptr,
+                pct(metrics_raw, f"Share of Technology - {tech} Passenger Train", scenario),
+                get_metric(metrics_raw, f"Final Energy Intensity - {tech} Passenger Train", scenario))
+
+    # === PASSENGER: Aviation ===
+    for tech, fuel in [
+        ("Kerosene", "Kerosene"), ("BEV", "Electricity"), ("FCEV", "Hydrogen"),
+    ]:
+        add_row(rows, "Transport","Passenger","Aviation","Passenger Planes", tech, fuel, scenario,
+                vkm_ppl,
+                pct(metrics_raw, f"Share of Technology - {tech} Passenger Plane", scenario),
+                get_metric(metrics_raw, f"Final Energy Intensity - {tech} Passenger Plane", scenario))
+
+    # === PASSENGER: Ships ===
+    add_row(rows, "Transport","Passenger","Navigation","Passenger Ships", "Diesel", "Diesel", scenario,
+            vkm_psh,
+            pct(metrics_raw, "Share of Technology - Diesel Passenger Ship", scenario),
+            get_metric(metrics_raw, "Final Energy Intensity - Diesel Passenger Ship", scenario))
+
+    # === FREIGHT subsectors ===
+    road_frt = total_tkm * pct(metrics_raw, "Share per Subsector - Road Freight", scenario)
+    rail_frt = total_tkm * pct(metrics_raw, "Share per Subsector - Rail Freight = Train", scenario)
+    ship_frt = total_tkm * pct(metrics_raw, "Share per Subsector - Navigation Freight = Ship", scenario)
+
+    sh_ldt = pct(metrics_raw, "Share per Mode - Light-Duty Trucks", scenario)
+    sh_hdt = pct(metrics_raw, "Share per Mode - Heavy-Duty Trucks", scenario)
+
+    ldt_tkm = road_frt * sh_ldt
+    hdt_tkm = road_frt * sh_hdt
+
+    vkm_ldt = safe_div(ldt_tkm, get_metric(metrics_raw, "Load Factor - LDT", scenario, 1.0))
+    vkm_hdt = safe_div(hdt_tkm, get_metric(metrics_raw, "Load Factor - HDT", scenario, 1.0))
+    vkm_ftr = safe_div(rail_frt, get_metric(metrics_raw, "Load Factor - Freight Train", scenario, 1.0))
+    vkm_fsh = safe_div(ship_frt, get_metric(metrics_raw, "Load Factor - Freight Ship", scenario, 1.0))
+
+    # === FREIGHT: Light-Duty Trucks ===
+    for tech, fuel in [
+        ("Diesel ICE", "Diesel"), ("BEV", "Electricity"), ("FCEV", "Hydrogen"),
+    ]:
+        add_row(rows, "Transport","Freight","Road","Light-Duty Trucks", tech, fuel, scenario,
+                vkm_ldt,
+                pct(metrics_raw, f"Share of Technology - {tech} LDT", scenario),
+                get_metric(metrics_raw, f"Final Energy Intensity - {tech} LDT", scenario))
+
+    # === FREIGHT: Heavy-Duty Trucks ===
+    for tech, fuel in [
+        ("Diesel ICE", "Diesel"), ("BEV", "Electricity"), ("FCEV", "Hydrogen"),
+    ]:
+        add_row(rows, "Transport","Freight","Road","Heavy-Duty Trucks", tech, fuel, scenario,
+                vkm_hdt,
+                pct(metrics_raw, f"Share of Technology - {tech} HDT", scenario),
+                get_metric(metrics_raw, f"Final Energy Intensity - {tech} HDT", scenario))
+
+    # === FREIGHT: Rail ===
+    for tech, fuel in [
+        ("Diesel ICE", "Diesel"), ("Direct Electric", "Electricity"), ("FCEV", "Hydrogen"),
+    ]:
+        add_row(rows, "Transport","Freight","Rail","Freight Train", tech, fuel, scenario,
+                vkm_ftr,
+                pct(metrics_raw, f"Share of Technology - {tech} Freight Train", scenario),
+                get_metric(metrics_raw, f"Final Energy Intensity - {tech} Freight Train", scenario))
+
+    # === FREIGHT: Navigation Ships ===
+    for tech, fuel in [
+        ("Diesel ICE", "Diesel"), ("Methanol", "Methanol"), ("Ammonia", "Ammonia"),
+        ("BEV", "Electricity"), ("FCEV", "Hydrogen"),
+    ]:
+        add_row(rows, "Transport","Freight","Navigation","Freight Ships", tech, fuel, scenario,
+                vkm_fsh,
+                pct(metrics_raw, f"Share of Technology - {tech} Freight Ship", scenario),
+                get_metric(metrics_raw, f"Final Energy Intensity - {tech} Freight Ship", scenario))
+
+    # === FREIGHT: Aviation ===
+    add_row(rows, "Transport","Freight","Aviation","Freight Planes","Kerosene","Kerosene", scenario,
+            safe_div(total_tkm * pct(metrics_raw, "Share per Subsector - Aviation Freight = Plane", scenario),
+                     get_metric(metrics_raw, "Load Factor - Freight Plane", scenario, 99999999)),
+            pct(metrics_raw, "Share of Technology - Kerosene Freight Plane", scenario),
+            get_metric(metrics_raw, "Final Energy Intensity - Kerosene Freight Plane", scenario))
+
+    # === INTERNATIONAL BUNKERS (SIMPLIFIED) ===
+    # 1. MARITIME
+    if "Total Energy - Int. Maritime" in metrics_raw:
+        val_twh = get_metric(metrics_raw, "Total Energy - Int. Maritime", scenario, 0.0)
+        # CHANGE: Already in TWh, use directly
+        if val_twh > 0:
+            rows.append(["Transport", "International Transport", "International Navigation", "Bunkers", "Conventional", "Fuel Oil", scenario, val_twh])
+
+    # 2. AVIATION
+    if "Total Energy - Int. Aviation" in metrics_raw:
+        val_twh = get_metric(metrics_raw, "Total Energy - Int. Aviation", scenario, 0.0)
+        # CHANGE: Already in TWh, use directly
+        if val_twh > 0:
+            rows.append(["Transport", "International Transport", "International Aviation", "Bunkers", "Conventional", "Kerosene", scenario, val_twh])
+
+    # === TOTAL ===
+    total_twh = sum(r[-1] for r in rows)
+    rows.append(["Transport", "TOTAL", "", "", "", "TOTAL", scenario, total_twh])
+
+    # CHANGE: Renamed column to (TWh)
+    return pd.DataFrame(rows, columns=[
+        "Sector","Subsector","Mode","End-Use","Technology","Fuel","Scenario","Final Energy Demand (TWh)"])
+
+# =============================================================================
+# 5. ORCHESTRATION & SUMMARY
+# =============================================================================
 
 def find_latest_dir(base_dir="output_data") -> str:
     dirs = [
@@ -41,7 +337,6 @@ def find_latest_dir(base_dir="output_data") -> str:
     if not dirs:
         raise FileNotFoundError(f"No DKS_* folders found in {base_dir}")
     return max(dirs, key=os.path.getmtime)
-
 
 def list_countries(latest_dir: str):
     files = glob.glob(os.path.join(latest_dir, "output_*.xlsx"))
@@ -56,84 +351,45 @@ def find_country_file(country: str, latest_dir: str) -> str:
 def load_country_dataframe(path: str) -> pd.DataFrame:
     df = pd.read_excel(path)
     df["Metric"] = df["Metric"].astype(str).str.replace("\xa0", " ").str.strip()
-    # numeric columns only
     numeric_cols = [c for c in df.columns if c not in ["Metric", "Units"]]
     for c in numeric_cols:
         df[c] = pd.to_numeric(df[c], errors="coerce")
-    # drop duplicates on Metric
-    df = df.drop_duplicates(subset=["Metric"], keep="first")
-    return df
+    return df.drop_duplicates(subset=["Metric"], keep="first")
 
 def dataframe_to_metrics_raw(df: pd.DataFrame) -> dict:
     return df.set_index("Metric").to_dict(orient="index")
 
 def build_summary(df, metrics_raw):
-    """
-    Build summaries by Fuel/Mode/Subsector/End-Use.
-    - Drops any blank 'Fuel' totals coming from detail DF
-    - Renames *_EL to *_AT
-    - Applies biofuel blending for Gasoline/Diesel/Kerosene into Bio Ethanol/Bio Diesel/Bio Kerosene
-    - Reorders columns and rows and adds Sum
-    """
-    # 0) Remove rows that have an empty Fuel label (e.g., manual TOTAL rows)
     df = df[df["Fuel"].astype(str).str.strip() != ""]
 
-    # 1) Base summaries
-    fuel_summary = (
-        df.groupby(["Fuel", "Scenario"])["Final Energy Demand (GWh)"]
-          .sum()
-          .unstack(fill_value=0)
-    )
-    mode_summary = (
-        df.groupby(["Mode", "Scenario"])["Final Energy Demand (GWh)"]
-          .sum()
-          .unstack(fill_value=0)
-    )
-    subsector_summary = (
-        df.groupby(["Subsector", "Scenario"])["Final Energy Demand (GWh)"]
-          .sum()
-          .unstack(fill_value=0)
-    )
-    enduse_summary = (
-        df.groupby(["End-Use", "Scenario"])["Final Energy Demand (GWh)"]
-          .sum()
-          .unstack(fill_value=0)
-    )
+    # CHANGE: Grouping by (TWh) column now
+    fuel_summary = df.groupby(["Fuel", "Scenario"])["Final Energy Demand (TWh)"].sum().unstack(fill_value=0)
+    mode_summary = df.groupby(["Mode", "Scenario"])["Final Energy Demand (TWh)"].sum().unstack(fill_value=0)
+    subsector_summary = df.groupby(["Subsector", "Scenario"])["Final Energy Demand (TWh)"].sum().unstack(fill_value=0)
+    enduse_summary = df.groupby(["End-Use", "Scenario"])["Final Energy Demand (TWh)"].sum().unstack(fill_value=0)
 
-    # 2) Rename columns (_EL -> _AT)
+    # Clean column names
     def rename_cols(wide_df):
         wide_df.columns = [c.replace("_EL", "_AT") for c in wide_df.columns]
         return wide_df
-
+    
     fuel_summary = rename_cols(fuel_summary)
     mode_summary = rename_cols(mode_summary)
     subsector_summary = rename_cols(subsector_summary)
     enduse_summary = rename_cols(enduse_summary)
 
-    # 3) Apply biofuel blending on the FUEL summary ONLY (doesn't touch the detailed rows)
+    # Biofuel blending logic
     def share(metric_name, scn):
-        """
-        Return blend share as a FRACTION (0..1).
-        Works whether Excel has 2 (=> 2%) or 0.02.
-        Also falls back 2030_AT → 2030_EL if needed.
-        """
         d = metrics_raw.get(metric_name, {})
-
-        # scenario fallback: AT columns may be called EL in inputs
         scn_key = scn if scn in d else scn.replace("_AT", "_EL")
-
         try:
             val = float(d.get(scn_key, 0.0) or 0.0)
         except Exception:
             val = 0.0
-
-        # If it's >1, it’s a percent number; convert to fraction
         return val / 100.0 if val > 1 else val
 
-    # ensure Bio rows and LPG exist
     for idx in ["Bio Ethanol", "Bio Diesel", "Bio Kerosene", "LPG"]:
-        if idx not in fuel_summary.index:
-            fuel_summary.loc[idx] = 0.0
+        if idx not in fuel_summary.index: fuel_summary.loc[idx] = 0.0
 
     for scn in list(fuel_summary.columns):
         be = share("Share of Bioethanol in Road Gasoline", scn)
@@ -141,7 +397,7 @@ def build_summary(df, metrics_raw):
         bk = share("Share of Biokerosene in Internal Aviation Fuel", scn)
 
         gas = fuel_summary.at["Gasoline", scn] if "Gasoline" in fuel_summary.index else 0.0
-        die = fuel_summary.at["Diesel", scn]   if "Diesel" in fuel_summary.index   else 0.0
+        die = fuel_summary.at["Diesel", scn]    if "Diesel" in fuel_summary.index    else 0.0
         ker = fuel_summary.at["Kerosene", scn] if "Kerosene" in fuel_summary.index else 0.0
 
         gas_bio = gas * be
@@ -152,43 +408,27 @@ def build_summary(df, metrics_raw):
         fuel_summary.at["Bio Diesel", scn]   = die_bio
         fuel_summary.at["Bio Kerosene", scn] = ker_bio
 
-        # reduce fossil parts accordingly (and prevent negatives)
-        if "Gasoline" in fuel_summary.index:
-            fuel_summary.at["Gasoline", scn] = max(0.0, gas - gas_bio)
-        if "Diesel" in fuel_summary.index:
-            fuel_summary.at["Diesel", scn]   = max(0.0, die - die_bio)
-        if "Kerosene" in fuel_summary.index:
-            fuel_summary.at["Kerosene", scn] = max(0.0, ker - ker_bio)
+        if "Gasoline" in fuel_summary.index: fuel_summary.at["Gasoline", scn] = max(0.0, gas - gas_bio)
+        if "Diesel" in fuel_summary.index:   fuel_summary.at["Diesel", scn]   = max(0.0, die - die_bio)
+        if "Kerosene" in fuel_summary.index: fuel_summary.at["Kerosene", scn] = max(0.0, ker - ker_bio)
 
-
-    # 4) Keep only the columns you want and order them
+    # Sorting
     def scenario_sort_key(s):
         digits = "".join(filter(str.isdigit, s))
         return int(digits) if digits else 9999
 
-    fuel_summary = fuel_summary[
-        sorted(fuel_summary.columns, key=scenario_sort_key)
-    ]
+    fuel_summary = fuel_summary[sorted(fuel_summary.columns, key=scenario_sort_key)]
 
-
-    # 5) Order rows like your reference
-    fuels_order = [
-        "Ammonia",
-        "Bio Diesel", "Bio Ethanol", "Bio Kerosene",
-        "Diesel", "Electricity", "Gasoline", "Hydrogen", "Kerosene", "LPG",
-        "Methanol"
-    ]
-    fuel_summary = fuel_summary.reindex([f for f in fuels_order if f in fuel_summary.index])
-
-    # 6) Add Sum row and round
+    fuels_order = ["Ammonia", "Bio Diesel", "Bio Ethanol", "Bio Kerosene", "Diesel", "E-Diesel", "E-Kerosene", 
+                   "Electricity", "Fuel Oil", "Gasoline", "Hydrogen", "Kerosene", "LPG", "Methanol"]
+    existing_fuels = [f for f in fuels_order if f in fuel_summary.index]
+    fuel_summary = fuel_summary.reindex(existing_fuels)
     fuel_summary.loc["Sum"] = fuel_summary.sum(numeric_only=True, axis=0)
-    fuel_summary = fuel_summary.round(2)
 
-    return fuel_summary, mode_summary, subsector_summary, enduse_summary
+    return fuel_summary.round(4), mode_summary, subsector_summary, enduse_summary
 
 def run(country: str, base_dir: str = "output_data") -> None:
     country_code = get_iso2_country_code(country)
-
     latest_dir = find_latest_dir(base_dir)
     print(f" Latest folder: {latest_dir}")
 
@@ -218,20 +458,23 @@ def run(country: str, base_dir: str = "output_data") -> None:
     country_results_dir = os.path.join(RESULTS_DIR, country)
     os.makedirs(country_results_dir, exist_ok=True)
 
-    # ---- SAVE FILES WITH ISO2 CODE ----
+    # 1. Save detailed Energy Demand (TWh)
     final_df.to_excel(
         os.path.join(country_results_dir, f"{country_code}_energy_demand.xlsx"),
         index=False)
 
-    indicators_df = generate_transport_indicators(final_df, country)
-    indicators_df.to_excel(
-        os.path.join(country_results_dir, f"{country_code}_final_energy_demand.xlsx"),
-        index=False
-    )
+    # 2. Generate Indicators (TWh)
+    try:
+        indicators_df = generate_transport_indicators(final_df, country)
+        indicators_df.to_excel(
+            os.path.join(country_results_dir, f"{country_code}_final_energy_demand.xlsx"),
+            index=False
+        )
+    except Exception as e:
+        print(f"  Warning: Could not generate indicators: {e}")
 
-    with pd.ExcelWriter(
-        os.path.join(country_results_dir, f"{country_code}_summary.xlsx")
-    ) as writer:
+    # 3. Save Summaries (TWh)
+    with pd.ExcelWriter(os.path.join(country_results_dir, f"{country_code}_summary.xlsx")) as writer:
         fuel_summary.to_excel(writer, sheet_name="Fuel")
         mode_summary.to_excel(writer, sheet_name="Mode")
         subsector_summary.to_excel(writer, sheet_name="Subsector")
@@ -247,5 +490,3 @@ if __name__ == "__main__":
             run(country=country, base_dir=TRANSPORT_OUTPUT_DIR)
         except Exception as e:
             print(f" Error processing {country}: {e}")
-
-

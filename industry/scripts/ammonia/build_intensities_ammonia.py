@@ -6,7 +6,7 @@ import numpy as np
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 from typing import List, Optional
-from cagr_helper import interpolate_or_extrapolate
+from industry.build_CAGR import interpolate_or_extrapolate
 
 
 from typing import List, Dict, Optional

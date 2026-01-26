@@ -8,23 +8,17 @@ import pandas as pd
 # -------------------------------------------------------------------
 # CONFIG
 # -------------------------------------------------------------------
-# Map country names to ISO codes for the "country" column
-COUNTRY_ISO = {
-    "Morocco": "MA",
-    "Algeria": "DZ",
-    "Argentina": "AR",
-    "Brazil": "BR",
-    "Chile": "CL",
-    "Colombia": "CO",
-    "Egypt": "EG",
-    "Libya": "LY",
-    "Mexico": "MX",
-    "Namibia": "NA",
-    "Peru": "PE",
-    "Tunisia": "TN",
-    "Uruguay": "UY",
-    "South Africa": "ZA",
-}
+
+# Countries to run – you just edit this list
+AVAILABLE_COUNTRIES = ["Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
+                         "Algeria","Argentina","Brazil","Chile","Colombia","Mexico","Peru","Venezuela",
+                          "Morocco","Tunisia","Tanzania", "South Africa","Libya",
+
+                          #G20 countries
+                          "Argentina", "Australia", "Brazil", "Canada", "China", "France", "Germany",  
+                          "India", "Indonesia", "Italy", "Japan", "Mexico","Russia", "Saudi Arabia", 
+                          "South Africa", "South Korea", "United Kingdom", "United States"]
+
 
 # Order of carriers in the new "carrier" sheet
 CARRIER_ORDER = [
@@ -50,18 +44,8 @@ COL_ORDER = [
     "Total Production / Value Added", "Share per Process", "Production per Process",
     "Share per Technology", "Production per Process and Technology",
     "Share per Fuel", "Production per Process, Technology and Fuel",
-    "Specific fuel intensity", "fuel/feedstock demand", "Scenario_col"
+    "Specific fuel intensity", "final energy demand", "Scenario_col"
 ]
-
-# Countries to run – you just edit this list
-AVAILABLE_COUNTRIES = ["Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
-                         "Algeria","Argentina","Brazil","Chile","Colombia","Mexico","Peru","Venezuela",
-                          "Morocco","Tunisia","Tanzania", "South Africa","Libya",
-
-                          #G20 countries
-                          "Argentina", "Australia", "Brazil", "Canada", "China", "France", "Germany",  
-                          "India", "Indonesia", "Italy", "Japan", "Mexico","Russia", "Saudi Arabia", 
-                          "South Africa", "South Korea", "United Kingdom", "United States"]
 
 # Row order for SEC sheet
 ROW_ORDER = ["Total", "Oil", "Gas", "Electricity", "Coal", "Heat", "Biomass", "Hydrogen"]
@@ -104,6 +88,21 @@ AMMONIA_SEC_COLS = [
 # -------------------------------------------------------------------
 # PATH HELPERS
 # -------------------------------------------------------------------
+def get_iso_code(country_name: str) -> str:
+    """
+    Dynamically finds the ISO 2-letter code for a given country name.
+    Returns 'XX' if not found.
+    """
+    try:
+        # search_fuzzy is robust; handles "South Korea", "Republic of the Congo", etc.
+        result = pycountry.countries.search_fuzzy(country_name)
+        if result:
+            return result[0].alpha_2
+    except (LookupError, AttributeError):
+        pass
+    
+    print(f"Warning: Could not find ISO code for '{country_name}'. Defaulting to 'XX'.")
+    return "XX"
 
 def get_industry_root() -> Path:
     """
@@ -242,7 +241,7 @@ def _add(
         "Share per Fuel": share_fuel if share_fuel is not None else "",
         "Production per Process, Technology and Fuel": prod_fuel if prod_fuel is not None else "",
         "Specific fuel intensity": spec_intensity if spec_intensity is not None else "",
-        "fuel/feedstock demand": fuel_demand if fuel_demand is not None else "",
+        "final energy demand": fuel_demand if fuel_demand is not None else "",
         "Scenario_col": scenario_col,
     })
 
@@ -343,7 +342,7 @@ def build_iron_steel(df: pd.DataFrame, col: str) -> pd.DataFrame:
     Assumptions:
       - 'Steel production per year' in input is in 100 t/year → we multiply by 100 → t/year.
       - All 'Energy intensity ...' metrics are in MWh/t.
-      - Resulting 'fuel/feedstock demand' is in MWh/year.
+      - Resulting 'final energy demand' is in MWh/year.
     """
     year = _first_year_in_string(col)
     scenario_col = col
@@ -661,7 +660,7 @@ def build_steel_tidy_feedstock(full_df: pd.DataFrame) -> pd.DataFrame:
             "Process",
             "Technology",
             "Fuel/Feedstock",
-            "fuel/feedstock demand",
+            "final energy demand",
         ]
     ]
 
@@ -714,16 +713,16 @@ def build_sec_steel_from_tidy(df: pd.DataFrame) -> pd.DataFrame:
     df["SEC_Fuel"] = df["Fuel/Feedstock"].map(FUEL_TO_SEC)
     df = df[df["SEC_Fuel"].notna()].copy()
 
-    df["fuel/feedstock demand"] = pd.to_numeric(df["fuel/feedstock demand"], errors="coerce").fillna(0.0)
+    df["final energy demand"] = pd.to_numeric(df["final energy demand"], errors="coerce").fillna(0.0)
 
     grp = (
-        df.groupby(["Year_extracted", "Scenario_label", "SEC_Fuel", "Bucket"], dropna=False)["fuel/feedstock demand"]
+        df.groupby(["Year_extracted", "Scenario_label", "SEC_Fuel", "Bucket"], dropna=False)["final energy demand"]
         .sum()
         .reset_index()
     )
 
     total = (
-        df.groupby(["Year_extracted", "Scenario_label", "Bucket"], dropna=False)["fuel/feedstock demand"]
+        df.groupby(["Year_extracted", "Scenario_label", "Bucket"], dropna=False)["final energy demand"]
         .sum()
         .reset_index()
     )
@@ -735,7 +734,7 @@ def build_sec_steel_from_tidy(df: pd.DataFrame) -> pd.DataFrame:
         comb.pivot_table(
             index=["Year_extracted", "Scenario_label", "SEC_Fuel"],
             columns="Bucket",
-            values="fuel/feedstock demand",
+            values="final energy demand",
             aggfunc="sum",
             fill_value=0,
         )
@@ -957,7 +956,7 @@ def build_nmm_tidy_feedstock(full_df: pd.DataFrame) -> pd.DataFrame:
             "Process",
             "Technology",
             "Fuel/Feedstock",
-            "fuel/feedstock demand",
+            "final energy demand",
         ]
     ]
 
@@ -995,16 +994,16 @@ def build_sec_nmm_from_tidy(df: pd.DataFrame) -> pd.DataFrame:
     df["SEC_Fuel"] = df["Fuel/Feedstock"].map(FUEL_TO_SEC)
     df = df[df["SEC_Fuel"].notna()].copy()
 
-    df["fuel/feedstock demand"] = pd.to_numeric(df["fuel/feedstock demand"], errors="coerce").fillna(0.0)
+    df["final energy demand"] = pd.to_numeric(df["final energy demand"], errors="coerce").fillna(0.0)
 
     grp = (
-        df.groupby(["Year_extracted", "Scenario_label", "SEC_Fuel", "Bucket"], dropna=False)["fuel/feedstock demand"]
+        df.groupby(["Year_extracted", "Scenario_label", "SEC_Fuel", "Bucket"], dropna=False)["final energy demand"]
         .sum()
         .reset_index()
     )
 
     total = (
-        df.groupby(["Year_extracted", "Scenario_label", "Bucket"], dropna=False)["fuel/feedstock demand"]
+        df.groupby(["Year_extracted", "Scenario_label", "Bucket"], dropna=False)["final energy demand"]
         .sum()
         .reset_index()
     )
@@ -1016,7 +1015,7 @@ def build_sec_nmm_from_tidy(df: pd.DataFrame) -> pd.DataFrame:
         comb.pivot_table(
             index=["Year_extracted", "Scenario_label", "SEC_Fuel"],
             columns="Bucket",
-            values="fuel/feedstock demand",
+            values="final energy demand",
             aggfunc="sum",
             fill_value=0,
         )
@@ -1337,7 +1336,7 @@ def build_paper_pulp_tidy_feedstock(full_df: pd.DataFrame) -> pd.DataFrame:
             "Process",
             "Technology",
             "Fuel/Feedstock",
-            "fuel/feedstock demand",
+            "final energy demand",
         ]
     ]
     tidy["Units"] = "MWh"
@@ -1375,16 +1374,16 @@ def build_sec_paper_pulp_from_tidy(df: pd.DataFrame) -> pd.DataFrame:
     df["SEC_Fuel"] = df["Fuel/Feedstock"].map(FUEL_TO_SEC)
     df = df[df["SEC_Fuel"].notna()].copy()
 
-    df["fuel/feedstock demand"] = pd.to_numeric(df["fuel/feedstock demand"], errors="coerce").fillna(0.0)
+    df["final energy demand"] = pd.to_numeric(df["final energy demand"], errors="coerce").fillna(0.0)
 
     grp = (
-        df.groupby(["Year_extracted", "Scenario_label", "SEC_Fuel", "Bucket"], dropna=False)["fuel/feedstock demand"]
+        df.groupby(["Year_extracted", "Scenario_label", "SEC_Fuel", "Bucket"], dropna=False)["final energy demand"]
         .sum()
         .reset_index()
     )
 
     total = (
-        df.groupby(["Year_extracted", "Scenario_label", "Bucket"], dropna=False)["fuel/feedstock demand"]
+        df.groupby(["Year_extracted", "Scenario_label", "Bucket"], dropna=False)["final energy demand"]
         .sum()
         .reset_index()
     )
@@ -1396,7 +1395,7 @@ def build_sec_paper_pulp_from_tidy(df: pd.DataFrame) -> pd.DataFrame:
         comb.pivot_table(
             index=["Year_extracted", "Scenario_label", "SEC_Fuel"],
             columns="Bucket",
-            values="fuel/feedstock demand",
+            values="final energy demand",
             aggfunc="sum",
             fill_value=0,
         )
@@ -1875,7 +1874,7 @@ def build_ammonia_tidy_feedstock(full_df: pd.DataFrame) -> pd.DataFrame:
             "Process",
             "Technology",
             "Fuel/Feedstock",
-            "fuel/feedstock demand",
+            "final energy demand",
         ]
     ]
 
@@ -1941,18 +1940,18 @@ def build_sec_ammonia_from_tidy(df: pd.DataFrame) -> pd.DataFrame:
     df["SEC_Fuel"] = df["Fuel/Feedstock"].map(FUEL_TO_SEC)
     df = df[df["SEC_Fuel"].notna()].copy()
 
-    df["fuel/feedstock demand"] = pd.to_numeric(df["fuel/feedstock demand"], errors="coerce").fillna(0.0)
+    df["final energy demand"] = pd.to_numeric(df["final energy demand"], errors="coerce").fillna(0.0)
 
     # Sum by bucket and fuel
     grp = (
-        df.groupby(["Year_extracted", "Scenario_label", "SEC_Fuel", "Bucket"], dropna=False)["fuel/feedstock demand"]
+        df.groupby(["Year_extracted", "Scenario_label", "SEC_Fuel", "Bucket"], dropna=False)["final energy demand"]
         .sum()
         .reset_index()
     )
 
     # Total row per bucket (all fuels)
     total = (
-        df.groupby(["Year_extracted", "Scenario_label", "Bucket"], dropna=False)["fuel/feedstock demand"]
+        df.groupby(["Year_extracted", "Scenario_label", "Bucket"], dropna=False)["final energy demand"]
         .sum()
         .reset_index()
     )
@@ -1964,7 +1963,7 @@ def build_sec_ammonia_from_tidy(df: pd.DataFrame) -> pd.DataFrame:
         comb.pivot_table(
             index=["Year_extracted", "Scenario_label", "SEC_Fuel"],
             columns="Bucket",
-            values="fuel/feedstock demand",
+            values="final energy demand",
             aggfunc="sum",
             fill_value=0,
         )
@@ -1999,7 +1998,7 @@ def build_carrier_table_from_sec(sec_all: pd.DataFrame, country_name: str) -> pd
       plus placeholder rows for ammonia, steel, methanol, process emissions, low-temperature heat.
     """
 
-    iso = COUNTRY_ISO.get(country_name, country_name[:2].upper())
+    iso = get_iso_code(country_name)
 
     # Which columns belong to which big sector
     steel_cols = [c for c in sec_all.columns if c.startswith("Industry Steel ")]
@@ -2116,7 +2115,7 @@ def build_all_feedstock_from_metrics(input_path: Path, output_path: Path):
         pp_tidy.to_excel(writer, sheet_name="Paper and pulp", index=False)
         ammo_tidy.to_excel(writer, sheet_name="Ammonia", index=False)
 
-    print(f"[FEEDSTOCK] Saved feedstock tables (Steel + NMM + Paper&Pulp + Ammonia) → {output_path}")
+    print(f" Saved final energy demand → {output_path}")
 
 
 def build_sec_table_from_feedstock(
@@ -2126,7 +2125,7 @@ def build_sec_table_from_feedstock(
     sheet_name: str = "SEC",
 ):
     """
-    Read feed_stock_demand.xlsx and build:
+    Read energy_demand_summary.xlsx and build:
       - SEC sheet (Steel + NMM + Paper & Pulp + Ammonia)
       - Carrier sheet with aggregated sectors per carrier
     """
@@ -2176,10 +2175,8 @@ def build_sec_table_from_feedstock(
         # Carrier sheet (second sheet in the same file)
         carriers_df.to_excel(writer, sheet_name="carrier_energy", index=False)
 
-    print(f"[SEC] Saved combined SEC table → {output_xlsx}")
-    print(f"[CARRIERS] Saved carrier-level table → {output_xlsx} (sheet: 'carrier_energy')")
-
-
+    print(f"Saved combined SEC table → {output_xlsx}")
+    print(f"Saved carrier-level table → {output_xlsx}")
 
 import pycountry
 
@@ -2187,35 +2184,29 @@ def run_industry_pipeline_for_country(country: str):
     """
     1. Find latest run folder in output_data
     2. Find that country's metrics .xlsx file
-    3. Get ISO2 code (e.g. Morocco -> MA)
+    3. Get ISO2 code dynamically
     4. Create results/<Country> folder
     5. Run pipeline with ISO2 code in filenames
     """
     latest_folder = find_latest_run_folder()
     country_file = find_country_file(latest_folder, country)
     
-    # --- NEW STEP: Get ISO2 Code ---
-    try:
-        # fuzzy search handles "Morocco", "United States", "Vietnam" etc.
-        iso_code = pycountry.countries.search_fuzzy(country)[0].alpha_2 
-    except (LookupError, AttributeError):
-        print(f"Warning: Could not find ISO code for {country}. Defaulting to 'XX'.")
-        iso_code = "XX"
-    # -------------------------------
+    # --- USE THE HELPER FUNCTION HERE ---
+    iso_code = get_iso_code(country)
+    # ------------------------------------
 
     print(f"Using latest folder: {latest_folder.name}")
     print(f"Using country file: {country_file.name}")
-    #print(f"Detected ISO code: {iso_code}")
+    #print(f"Detected ISO code: {iso_code}") # Helpful for debugging
 
     results_dir = get_results_folder(country)
 
-    # --- UPDATED: Add ISO code to filenames ---
-    feedstock_filename = f"{iso_code}_feed_stock_demand.xlsx"
+    # Filenames using the dynamic ISO code
+    feedstock_filename = f"{iso_code}_energy_demand_summary.xlsx"
     sec_filename = f"{iso_code}_final_energy_demand.xlsx"
 
     feedstock_out = results_dir / feedstock_filename
     sec_out = results_dir / sec_filename
-    # ------------------------------------------
 
     build_all_feedstock_from_metrics(country_file, feedstock_out)
     build_sec_table_from_feedstock(feedstock_out, sec_out, country_name=country, sheet_name="SEC")
