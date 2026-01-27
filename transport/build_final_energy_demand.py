@@ -3,6 +3,8 @@ import glob
 import pandas as pd
 import numpy as np
 
+import pycountry
+
 # =============================================================================
 # 1. SETUP & CONFIGURATION
 # =============================================================================
@@ -23,12 +25,16 @@ COUNTRY = [
     "South Korea", "United Kingdom", "United States"
 ]
 
+
 def get_iso2_country_code(c):
-    mapping = {
-        "Morocco": "MA", "South Africa": "ZA", "United Kingdom": "UK", 
-        "United States": "US", "Saudi Arabia": "SA", "South Korea": "KR"
-    }
-    return mapping.get(c, c[:2].upper())
+    try:
+        # search_fuzzy handles common names like "South Korea", "Russia", "USA"
+        match = pycountry.countries.search_fuzzy(c)[0]
+        return match.alpha_2
+    except (LookupError, AttributeError):
+        # Fallback for very specific naming mismatches if pycountry fails
+        print(f"Warning: Could not find ISO code for '{c}'. Using fallback.")
+        return c[:2].upper()
 
 # =============================================================================
 # 2. INDICATOR GENERATION FUNCTION (ALL TWh)
@@ -43,7 +49,7 @@ def generate_transport_indicators(final_df: pd.DataFrame, country: str) -> pd.Da
     # Ensure numeric
     df["Final Energy Demand (TWh)"] = pd.to_numeric(df["Final Energy Demand (TWh)"], errors="coerce").fillna(0)
 
-    # Helper: Filter and sum energy (Already in TWh, so no division needed)
+    # Helper: Filter and sum energy (Already in TWh)
     def sum_filter(subsector=None, mode=None, fuels=None):
         d = df.copy()
         if subsector:
@@ -89,6 +95,7 @@ def generate_transport_indicators(final_df: pd.DataFrame, country: str) -> pd.Da
     all_scenarios = df["Scenario"].unique()
     result = pd.DataFrame({"scenario": all_scenarios, "country": country}).set_index("scenario")
 
+    # Assign values (temporary names)
     result["transport electricity rail"] = elec_rail
     result["transport total rail"] = total_rail
     result["transport road biomass"] = road_biomass
@@ -113,16 +120,37 @@ def generate_transport_indicators(final_df: pd.DataFrame, country: str) -> pd.Da
         return s
     result["scenario"] = result["scenario"].map(normalize_scenario)
 
-    # Order columns
+    # --- UPDATE NAMES WITH UNITS ---
+    # We rename the columns to include (TWh)
+    rename_map = {
+        "transport electricity rail": "transport electricity rail (TWh)",
+        "transport total rail": "transport total rail (TWh)",
+        "transport road biomass": "transport road biomass (TWh)",
+        "transport road electricity": "transport road electricity (TWh)",
+        "transport road gas": "transport road gas (TWh)",
+        "transport road oil": "transport road oil (TWh)",
+        "transport total road": "transport total road (TWh)",
+        "transport total road ev": "transport total road ev (TWh)",
+        "transport total road fcev": "transport total road fcev (TWh)",
+        "transport total road ice": "transport total road ice (TWh)",
+        "transport total domestic aviation": "transport total domestic aviation (TWh)",
+        "transport total domestic navigation": "transport total domestic navigation (TWh)",
+        "transport total international aviation": "transport total international aviation (TWh)",
+        "transport total international navigation": "transport total international navigation (TWh)"
+    }
+    result.rename(columns=rename_map, inplace=True)
+
+    # Order columns (Update this list to match the new names)
     cols = [
         "scenario", "country",
-        "transport electricity rail", "transport total rail",
-        "transport road biomass", "transport road electricity",
-        "transport road gas", "transport road oil", "transport total road",
-        "transport total road ev", "transport total road fcev", "transport total road ice",
-        "transport total domestic aviation", "transport total domestic navigation",
-        "transport total international aviation", "transport total international navigation"
+        "transport electricity rail (TWh)", "transport total rail (TWh)",
+        "transport road biomass (TWh)", "transport road electricity (TWh)",
+        "transport road gas (TWh)", "transport road oil (TWh)", "transport total road (TWh)",
+        "transport total road ev (TWh)", "transport total road fcev (TWh)", "transport total road ice (TWh)",
+        "transport total domestic aviation (TWh)", "transport total domestic navigation (TWh)",
+        "transport total international aviation (TWh)", "transport total international navigation (TWh)"
     ]
+    
     result = result.reindex(columns=cols, fill_value=0)
     return result
 
