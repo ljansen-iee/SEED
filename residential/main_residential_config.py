@@ -87,7 +87,7 @@ if __name__=="__main__":
     growth_pathway = "SSP2"
 
     # Country options
-    devkopsys_countries = [
+    selected_countries = [
         # "Algeria",
         # "Argentina",
         # "Brazil",
@@ -105,7 +105,7 @@ if __name__=="__main__":
     ]
 
     # TODO -->  Create option for African continent!
-    for selected_country in devkopsys_countries:
+    for selected_country in selected_countries:
         try:
             scenario = "baseline"
             year = 2018 # NOTE: default for now
@@ -139,7 +139,7 @@ if __name__=="__main__":
             # For CARG there are three options, for african countries and DEVKOPSYS or a default (base on Morocco HYPAT information).
             df_africa_regions, df_africa_subregions = build_cagr.build_Africa_regions()
             
-            if selected_country not in devkopsys_countries and selected_country not in df_africa_regions.index:
+            if selected_country not in selected_countries and selected_country not in df_africa_regions.index:
                 CAGR_region = "Default"
             elif selected_country in df_africa_regions.index:
                 CAGR_region = df_africa_regions.loc[selected_country].values[0]

@@ -34,14 +34,14 @@ print("Running transport sector pipeline")
 print(f"Transport assumptions file: {TRANSPORT_CONFIG_FILE}")
 print("===============================\n")
 
-devkopsys_countries = ["Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
+selected_countries = ["Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
                        "Algeria","Argentina","Brazil","Chile","Colombia","Mexico","Peru","Venezuela",
                        "Morocco","Tunisia","Tanzania","Libya",
                        "Australia", "Canada", "China", "France", "Germany",  
                        "India", "Indonesia", "Italy", "Japan", "Mexico","Russia", "Saudi Arabia", 
                        "South Africa", "South Korea", "United Kingdom", "United States"]
 
-countries_to_load = devkopsys_countries + ["default"] 
+countries_to_load = selected_countries + ["default"] 
 
 TRANSPORT_CONFIG = load_transport_config(
     excel_path=TRANSPORT_CONFIG_PATH,
@@ -96,7 +96,7 @@ def main(base_year=None, target_years=None, scenarios=None):
     units_dict = generate_units_dictionary()
 
     # === Loop through countries ===
-    for selected_country in devkopsys_countries:
+    for selected_country in selected_countries:
         print(f"\n🔹 Processing: {selected_country}")
         
         # === Load Data & Merge with Defaults ===

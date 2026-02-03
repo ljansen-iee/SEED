@@ -42,7 +42,7 @@ def main():
     print("===============================\n")
 
     # ---- Countries ----
-    devkopsys_countries = ["Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
+    selected_countries = ["Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
                           "Algeria","Argentina","Brazil","Chile","Colombia","Peru","Venezuela",
                           "Morocco","Tunisia","Tanzania", "South Africa","Libya",
                           #G20 countries
@@ -52,7 +52,7 @@ def main():
 
     industry_cagr_excel = load_industry_cagr_from_excel(
     excel_path=INDUSTRY_CFG_PATH,
-    countries=devkopsys_countries,
+    countries=selected_countries,
     scenarios=scenarios,)
 
     # ---- Load input data ----
@@ -128,7 +128,7 @@ def main():
     output_root.mkdir(parents=True, exist_ok=True)
 
 
-    for country in devkopsys_countries:
+    for country in selected_countries:
 
         cagr_cfg_nmm = get_metric_cagr_cfg_from_excel( industry_cagr_excel,country,"Activity factor of unspecified non metallic minerals")
         nmm_activity = activity_factor_unspecified_nmm(
