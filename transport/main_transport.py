@@ -33,51 +33,46 @@ print("\n===============================")
 print(f"Transport configuration file: {TRANSPORT_CONFIG_FILE}")
 print("===============================\n")
 
-SELECTED_COUNTRY = ["Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
-                       "Algeria","Argentina","Brazil","Chile","Colombia","Mexico","Peru","Venezuela",
-                       "Morocco","Tunisia","Tanzania","Libya",
-                       "Australia", "Canada", "China", "France", "Germany",  
-                       "India", "Indonesia", "Italy", "Japan", "Mexico","Russia", "Saudi Arabia", 
-                       "South Africa", "South Korea", "United Kingdom", "United States of America"]
-              
-            #    "Republic of the Congo", 
-            #     "Egypt", 
-            #     "Ethiopia", 
-            #     "Ghana",
-            #     "Kenya",
-            #     "Namibia",
-            #     "Niger",
-            #     "Algeria",
-            #     "Argentina",
-            #     "Brazil",
-            #     "Chile","
-            #     Colombia",
-            #     "Mexico",
-            #     "Peru",
-            #     "Venezuela",
-            #     "Morocco",
-            #     "Tunisia",
-            #     "Tanzania",
-            #     "Libya",
-            #     "Australia", 
-            #     "Canada", 
-            #     "China", 
-            #     "France", 
-            #     "Germany", 
-            #     "India", 
-            #     "Indonesia", 
-            #     "Italy", 
-            #     "Japan", 
-            #     "Mexico",
-            #     "Russia", 
-            #     "Saudi Arabia",
-            #     "South Africa", 
-            #     "South Korea", 
-            #     "United Kingdom",
-            #     "United States of America"
+# Todo: add requirements to add more countries, what needs to be downloaded
+# todo: change the name of the variable to "countries"
+selected_countries = ["Republic of the Congo", 
+                      "Egypt", 
+                      "Ethiopia", 
+                      "Ghana",
+                      "Kenya",
+                      "Namibia",
+                      "Nigeria",
+                      "Algeria",
+                      "Argentina",
+                      "Brazil",
+                      "Chile",
+                      "Colombia",
+                      "Mexico",
+                      "Peru",
+                      "Venezuela",
+                      "Morocco",
+                      "Tunisia",
+                      "Tanzania",
+                      "Libya",
+                      "Australia",
+                      "Canada",
+                      "China",
+                      "France",
+                      "Germany",
+                      "India",
+                      "Indonesia",
+                      "Italy",
+                      "Japan",
+                      "Mexico",
+                      "Russia", 
+                      "Saudi Arabia",
+                      "South Africa",
+                      "South Korea", 
+                      "United Kingdom", 
+                      "United States of America"
+                      ]
 
-
-countries_to_load = SELECTED_COUNTRY + ["default"] 
+countries_to_load = selected_countries + ["default"] 
 
 TRANSPORT_CONFIG = load_transport_config(
     excel_path=TRANSPORT_CONFIG_PATH,
@@ -133,7 +128,7 @@ def main(base_year=None, target_years=None, SCENARIO_NAME=None):
     units_dict = generate_units_dictionary()
 
     # === Loop through countries ===
-    for selected_country in SELECTED_COUNTRY:
+    for selected_country in selected_countries:
         print(f"\n🔹 Processing: {selected_country}")
         
         # === Load Data & Merge with Defaults ===
