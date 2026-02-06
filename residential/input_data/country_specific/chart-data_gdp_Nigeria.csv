@@ -1,0 +1,15 @@
+ ,Unit,2018,2030,2040,2050,2060,2070
+SSP1,billion US$2005/yr,566.6264000000001,1290.378,2634.129,5039.996,8860.876,14217.57
+SSP2,billion US$2005/yr,572.2868000000001,1192.728,2117.563,3701.918,6331.149,10377.841
+SSP3,billion US$2005/yr,578.912,1131.59,1757.603,2601.8,3815.099,5530.633
+SSP4,billion US$2005/yr,577.7522000000001,1100.243,1626.397,2275.957,3148.242,4298.227
+SSP5,billion US$2005/yr,567.7584000000002,1400.569,3191.685,6494.052,11957.237,20057.026
+
+
+"When using the datasets, please cite as detailed below."
+
+"Hazards, impacts, and exposure data:"
+"Michaela Werning, Stefan Frank, Bing Nguyen, Peter Rafaj, Yusuke Satoh, Volker Krey, Keywan Riahi, Bas von Ruivjen, Edward Byers. 2023 Climate Solutions Explorer - hazard, impacts and exposure data. Doi: 10.5281/zenodo.7971430"
+
+"Downscaled country-level IAM scenarios:"
+"Fabio Sferra, Oliver Fricko, Edward Byers, Michaela Werning, Volker Krey, Keywan Riahi, Bas von Ruijven. 2023 Climate Solutions Explorer - downscaled country-level IAM scenarios. Doi: 10.5281/zenodo.7971574"
