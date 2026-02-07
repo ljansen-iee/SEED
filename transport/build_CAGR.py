@@ -561,88 +561,50 @@ def get_cagr(CAGR_VALUES, metric):
 
 def expand_with_cagr(base_value, cagr_table, base_year, target_years, scenarios):
     """
-    Expands a base value into future years using piecewise CAGRs.
-    
-    CRITICAL LOGIC:
-    1. If the config has a rate for Year X, that rate applies to the period 
-       ending at Year X (from the previous milestone).
-    2. If a target year (e.g. 2035) exists in the config, we use that specific rate.
-    3. If a target year is MISSING from config, we find the NEXT available milestone 
-       and use its rate (effectively interpolating the growth trend).
+    Expands a base value into future years using YEAR-BY-YEAR smooth CAGR interpolation.
     """
     if base_value is None:
         base_value = 0.0
         
     out = {str(base_year): float(base_value)}
     
-    # 1. Gather all milestones defined in the Excel config (e.g. 2030, 2035, 2040, 2050)
+    # 1. Gather all milestones (2030, 2050, etc.)
     config_milestones = sorted([int(k) for k in cagr_table.keys() if str(k).isdigit()])
     
     if not config_milestones:
-        # No CAGR data? Return constant base value for all years
         for y in target_years:
             for s in scenarios:
                 out[f"{y}_{s}"] = float(base_value)
         return out
 
-    def get_rate(year, scenario):
-        """Helper to get rate for a specific milestone year and scenario."""
-        if year not in cagr_table:
-            return 0.0
-        yr_data = cagr_table[year]
-        
-        # Priority: Specific Scenario -> Default/Baseline -> First Available
-        if scenario in yr_data: return as_fraction(yr_data[scenario])
-        if "default" in yr_data: return as_fraction(yr_data["default"])
-        if "Baseline" in yr_data: return as_fraction(yr_data["Baseline"])
-        if len(yr_data) > 0: return as_fraction(list(yr_data.values())[0])
-        return 0.0
+    # We need a starting point for the rate interpolation (the rate at base_year)
+    # If not provided, we assume the growth rate starts at the 2030 rate.
+    first_milestone = config_milestones[0]
 
-    # Calculate for each scenario independently
     for scenario in scenarios:
         current_value = float(base_value)
-        current_year = int(base_year)
         
-        # 2. Build the full timeline of years we need to hit
-        # We merge the config milestones with the requested target years
-        # Example: Config has [2030, 2050]. Target is [2030, 2035, 2040, 2050].
-        # Timeline becomes: 2020 -> 2030 -> 2035 -> 2040 -> 2050
-        timeline = sorted(list(set(target_years) | set(config_milestones)))
-        
-        # Filter out years before base year
-        timeline = [t for t in timeline if t > current_year]
+        # 2. Extract rates for every milestone to use in interpolation
+        # We add the base_year to the rates timeline so the 'slide' starts immediately
+        mile_years = [base_year] + config_milestones
+        mile_rates = [get_rate(first_milestone, scenario)] + [get_rate(m, scenario) for m in config_milestones]
 
-        # Iterate through time
-        for t_year in timeline:
-            # 3. Determine which rate applies to this segment (current_year -> t_year)
+        # 3. Calculate year-by-year to ensure the rate 'slides' smoothly
+        max_target = max(target_years)
+        temp_val = current_value
+        
+        for y in range(base_year + 1, max_target + 1):
+            # LINEAR INTERPOLATION OF THE RATE
+            # Instead of a sharp jump, the rate changes slightly every year
+            # 
+            current_annual_rate = np.interp(y, mile_years, mile_rates)
             
-            # CASE A: If t_year is explicitly in the config, use its rate.
-            # (e.g. If calculating 2035 and 2035 is in config, use 2035 rate)
-            if t_year in config_milestones:
-                applicable_milestone = t_year
+            # Compound the value by one year at a time
+            temp_val = temp_val * (1 + current_annual_rate)
             
-            # CASE B: If t_year is NOT in config (e.g. 2035 is missing, next is 2050),
-            # use the rate of the NEXT milestone.
-            else:
-                applicable_milestone = next((m for m in config_milestones if m >= t_year), None)
-                
-                # If beyond the last config milestone (e.g. 2060), extrapolate with the last known rate
-                if applicable_milestone is None:
-                    applicable_milestone = config_milestones[-1]
-            
-            rate = get_rate(applicable_milestone, scenario)
-            
-            # Apply CAGR formula
-            years_diff = t_year - current_year
-            next_value = current_value * ((1 + rate) ** years_diff)
-            
-            # Store if this is a requested target year
-            if t_year in target_years:
-                out[f"{t_year}_{scenario}"] = next_value
-            
-            # Update state for next segment
-            current_value = next_value
-            current_year = t_year
+            # Store the result only if it's one of our target years
+            if y in target_years:
+                out[f"{y}_{scenario}"] = temp_val
 
     return out
 

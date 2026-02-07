@@ -7,11 +7,14 @@ from pathlib import Path
 
 # === Project imports ===
 BASE_DIR = Path(__file__).resolve().parent
+UNSD_PATH = BASE_DIR / "input_data" / "country_specific"
 from industry.scripts.iron_and_steel.build_steel_production import load_and_process_both, share_steel
-from industry.build_CAGR import load_industry_cagr_from_excel, get_metric_cagr_cfg_from_excel
+from industry.build_CAGR import load_industry_config, interpolate_or_extrapolate, get_metric_cagr_cfg_from_excel, expand_with_cagr_smooth
+
+# === Steel ===
 from scripts.iron_and_steel.build_shares_steel import share_fuel_bf_ohf, share_fuel_bf_bof, share_fuel_dr_eaf, share_fuel_scrap_eaf,share_fuel_casting_rolling, share_fuel_unspecified_steel, override_steel_routes_positional
 from scripts.iron_and_steel.build_energy_intensities_steel import intensity_bf_ohf, intensity_bf_bof, intensity_dr_eaf, intensity_scrap_eaf, intensity_casting_rolling
-from helpers import extract_capacity_shares, extract_all_fuels, _build_rate_anchors_indexed,  _forecast_from_history_and_sparse_cagr, _get_value_by_index,  _interp_at
+from helpers import extract_capacity_shares, extract_all_fuels, _build_rate_anchors_indexed,  _forecast_from_history_and_sparse_cagr, _get_value_by_index,  _interp_at, get_mapped_config_name, poly_project, get_historical_sector_data
 # PAPER & PULP
 from industry.scripts.paper_and_pulp.build_paper_and_pulp_production import process_paper_pulp_data
 from industry.scripts.paper_and_pulp.build_share_primary_pulp import share_fuel_primary_pulp, share_fuel_secondary_pulp, share_fuel_paper, share_primary_secondary_pulp, share_fuel_unspecified_paper_pulp, activity_factor_unspecified_paper_pulp
@@ -21,10 +24,23 @@ from scripts.non_metallic_minerals.build_energy_intensities_cement import intens
 from scripts.non_metallic_minerals.build_shares_cement import share_fuel_cement_production, share_fuel_unspecified_nmm
 from industry.scripts.non_metallic_minerals.build_cement_production import get_cement_and_clinker
 # === Ammonia ===
-from scripts.ammonia.build_ammonia import ammonia_production, build_hvc_production_series, extract_for_countries_from_loader
-from scripts.ammonia.build_shares_ammonia import share_fuel_ammonia_smr_hb, share_fuel_ammonia_renewable, share_fuel_hvc_naphtha_cracking, share_fuel_hvc_lpg_cracking, share_fuel_hvc_methanol_route, share_fuel_unspecified_chemicals, share_HVC_production
-from scripts.ammonia.build_intensities_ammonia import intensity_ammonia_smr_hb, intensity_ammonia_renewable, intensity_hvc_naphtha_cracking, intensity_hvc_lpg_cracking, intensity_hvc_methanol_route, activity_factor_unspecified_chemicals
-
+from scripts.chemical_and_petrochemical.ammonia.build_ammonia import ammonia_production, build_hvc_production_series, extract_for_countries_from_loader
+from scripts.chemical_and_petrochemical.ammonia.build_shares_ammonia import share_fuel_ammonia_smr_hb, share_fuel_ammonia_renewable, share_fuel_hvc_naphtha_cracking, share_fuel_hvc_lpg_cracking, share_fuel_hvc_methanol_route, share_fuel_unspecified_chemicals, share_HVC_production
+from scripts.chemical_and_petrochemical.ammonia.build_intensities_ammonia import intensity_ammonia_smr_hb, intensity_ammonia_renewable, intensity_hvc_naphtha_cracking, intensity_hvc_lpg_cracking, intensity_hvc_methanol_route, activity_factor_unspecified_chemicals
+# === Food & Tobacco ===
+from scripts.food_and_tobacco.build_shares_food_and_tobacco import get_unsd_fuel_shares
+# === Wood & wood products ===
+from scripts.wood_and_wood_products.build_wood_shares import get_wood_fuel_shares
+# === Machinery ===
+from scripts.machinery.build_machinery_shares import get_machinery_fuel_shares
+# === Mining & Quarrying ===
+from scripts.mining_and_quarrying.build_mining_and_quarrying_shares import get_mining_fuel_shares
+# === Textile & Leather ===
+from scripts.textile_and_leather.build_textile_and_leather_shares import get_textiles_fuel_shares
+# === Transport Equipment ===
+from scripts.transport_equipment.build_shares_transport_equipment import get_transport_equipment_fuel_shares
+# == construction ===
+from scripts.construction.build_construction_shares import get_construction_fuel_shares
 
 def main():
     # ---- USER SETTINGS ----
@@ -42,17 +58,19 @@ def main():
     print("===============================\n")
 
     # ---- Countries ----
-    devkopsys_countries = ["Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
-                          "Algeria","Argentina","Brazil","Chile","Colombia","Peru","Venezuela",
-                          "Morocco","Tunisia","Tanzania", "South Africa","Libya",
+    countries_to_process = ["Morocco"
+                          #"Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
+                          #"Algeria","Argentina","Brazil","Chile","Colombia","Peru","Venezuela",
+                          #"Morocco","Tunisia","Tanzania", "South Africa","Libya",
                           #G20 countries
-                           "Australia", "Canada", "China", "France", "Germany",  
-                          "India", "Indonesia", "Italy", "Japan", "Mexico","Russia", "Saudi Arabia", 
-                           "South Korea", "United Kingdom","United States of America"]
+                          # "Australia", "Canada", "China", "France", "Germany",  
+                          #"India", "Indonesia", "Italy", "Japan", "Mexico","Russia", "Saudi Arabia", 
+                           #"South Korea", "United Kingdom","United States of America"
+                           ]
 
-    industry_cagr_excel = load_industry_cagr_from_excel(
+    industry_cagr_excel = load_industry_config(
     excel_path=INDUSTRY_CFG_PATH,
-    countries=devkopsys_countries,
+    countries=countries_to_process,
     scenarios=scenarios,)
 
     # ---- Load input data ----
@@ -104,8 +122,8 @@ def main():
     unspec_nmm_fuel_shares = share_fuel_unspecified_nmm(target_years, scenarios)
 
     # === Ammonia fuel shares ===
-    fuel_shares_ammonia_smrhb   = extract_all_fuels(share_fuel_ammonia_smr_hb,        target_years, scenarios)
-    fuel_shares_ammonia_renew   = extract_all_fuels(share_fuel_ammonia_renewable,     target_years, scenarios)
+    fuel_shares_ammonia_smrhb   = extract_all_fuels(share_fuel_ammonia_smr_hb, target_years, scenarios)
+    fuel_shares_ammonia_renew   = extract_all_fuels(share_fuel_ammonia_renewable, target_years, scenarios)
     df_ammonia = ammonia_production() 
     # Ammonia intensities (by route)
     intens_ammonia_smrhb   = extract_all_fuels(intensity_ammonia_smr_hb,       target_years, scenarios)
@@ -121,14 +139,16 @@ def main():
     intens_hvc_meth    = extract_all_fuels(intensity_hvc_methanol_route,   target_years, scenarios)
     
     hvc_route_shares = share_HVC_production(target_years, scenarios)
-
+    
     share_fuel_unspecified = extract_all_fuels(share_fuel_unspecified_chemicals, target_years, scenarios)
-    today_str = datetime.today().strftime("%Y%m%d")
-    output_root = BASE_DIR / "output_data" / f"DKS_{today_str}"
+    # Extract the name of the config file without extension (e.g., "industry_config")
+    config_filename = INDUSTRY_CFG_PATH.stem 
+    # Create output path using the config filename instead of the date
+    output_root = BASE_DIR / "output_data" / config_filename
     output_root.mkdir(parents=True, exist_ok=True)
 
 
-    for country in devkopsys_countries:
+    for country in countries_to_process:
 
         cagr_cfg_nmm = get_metric_cagr_cfg_from_excel( industry_cagr_excel,country,"Activity factor of unspecified non metallic minerals")
         nmm_activity = activity_factor_unspecified_nmm(
@@ -148,7 +168,7 @@ def main():
         country,
         "High value chemical production per year"),
         )
-
+ 
         cagr_cfg_unspec_pp = get_metric_cagr_cfg_from_excel(
         industry_cagr_excel,
         country,
@@ -211,7 +231,103 @@ def main():
             share_dr_eaf=share_dr_eaf,
             base_year=base_year,
         )
+        # food and tobacco fuel shares & total energy
+        food_total_GWh = get_historical_sector_data(UNSD_PATH, country, "Food and tobacco")
+        food_shares = get_unsd_fuel_shares(UNSD_PATH, country, base_year)
+        # wood and wood products fuel shares & total energy
+        wood_total_GWh = get_historical_sector_data(UNSD_PATH, country, "Wood and wood products")
+        wood_shares = get_wood_fuel_shares(UNSD_PATH, country, base_year)
+        # machinery fuel shares & total energy
+        machinery_total_GWh = get_historical_sector_data(UNSD_PATH, country, "Machinery")
+        machinery_shares = get_machinery_fuel_shares(UNSD_PATH, country, base_year)
+        # mining and quarrying fuel shares & total energy
+        mining_total_GWh = get_historical_sector_data(UNSD_PATH, country, "Mining and quarrying")
+        mining_shares = get_mining_fuel_shares(UNSD_PATH, country, base_year)
+        # textile and leather fuel shares & total energy
+        textile_total_GWh = get_historical_sector_data(UNSD_PATH, country, "Textile and leather")
+        textile_shares = get_textiles_fuel_shares(UNSD_PATH, country, base_year)
+        # transport equipment fuel shares & total energy        
+        transport_equipment_total_GWh = get_historical_sector_data(UNSD_PATH, country, "Transport equipment")
+        transport_equipment_shares = get_transport_equipment_fuel_shares(UNSD_PATH, country, base_year)
+        # construction fuel shares & total energy   
+        construction_total_GWh = get_historical_sector_data(UNSD_PATH, country, "Construction")
+        construction_shares = get_construction_fuel_shares(UNSD_PATH, country, base_year)
+        # --- NEW: Process Excel Overrides ---
+        # --- CORRECTED: Process Excel Overrides & Auto-Balancer ---
+        for sector_name, shares_var in [
+            ("construction", construction_shares),
+            ("mining and quarrying", mining_shares),
+            ("machinery", machinery_shares),
+            ("textile and leather", textile_shares),
+            ("transport equipment", transport_equipment_shares),
+            ("wood and wood products", wood_shares),
+            ("food and tobacco", food_shares)
+        ]:
+            # 1. Clean lookup map for current country
+            country_metrics = {k.strip().lower(): v for k, v in industry_cagr_excel.get(country, {}).items()}
+            
+            all_fuels = ['electricity', 'oil', 'gas', 'coal', 'biomass', 'hydrogen', 'ammonia', 'methanol', 'steel']
+            
+            # 2. UNIFY DATA STRUCTURE
+            # We convert EVERY fuel into a scenario-aware dict: { year: [val_Baseline, val_AP, val_NZ] }
+            for fuel in all_fuels:
+                lookup_name = f"share of {fuel} for unspecified {sector_name}".lower()
+                metric_entry = country_metrics.get(lookup_name)
+                
+                new_scenario_dict = {}
+                for y in target_years:
+                    vals_for_year = []
+                    for idx, sc in enumerate(scenarios):
+                        excel_val = None
+                        if metric_entry:
+                            # Pull from Excel if available
+                            excel_val = metric_entry.get("values", {}).get(y, {}).get(sc)
+                        
+                        # Fallback: if Excel is empty, use the original value from CSV
+                        # We use .get(fuel, 0.0) to avoid KeyErrors
+                        base_val = shares_var.get(fuel, 0.0)
+                        
+                        # IMPORTANT: If base_val is already a dict (from a previous step), 
+                        # we need to extract the specific value for this year/scenario
+                        if isinstance(base_val, dict):
+                            # Try to get the value for this specific scenario index
+                            actual_val = excel_val if excel_val is not None else base_val.get(y, [0.0, 0.0, 0.0])[idx]
+                        else:
+                            actual_val = excel_val if excel_val is not None else base_val
+                            
+                        vals_for_year.append(float(actual_val))
+                    new_scenario_dict[y] = vals_for_year
+                
+                # Overwrite the variable with the unified dictionary format
+                shares_var[fuel] = new_scenario_dict
 
+            # 3. AUTO-BALANCER (Now all types match, so sum() will work)
+            for y in target_years:
+                for idx, sc in enumerate(scenarios):
+                    # Calculate current total for this specific year and scenario index
+                    current_total = sum(shares_var[f][y][idx] for f in all_fuels if f in shares_var)
+                    
+                    if current_total > 100.1: # Allow tiny rounding margin
+                        diff = current_total - 100.0
+                        # Reduce Oil first
+                        if 'oil' in shares_var:
+                            shares_var['oil'][y][idx] = max(0, shares_var['oil'][y][idx] - diff)
+                        
+                        # Recalculate and reduce Gas if still over 100
+                        new_total = sum(shares_var[f][y][idx] for f in all_fuels if f in shares_var)
+                        if new_total > 100.1:
+                            diff_gas = new_total - 100.0
+                            if 'gas' in shares_var:
+                                shares_var['gas'][y][idx] = max(0, shares_var['gas'][y][idx] - diff_gas)
+            # 4. VALIDATION
+            for y in target_years:
+                for idx, sc in enumerate(scenarios):
+                    final_sum = sum(shares_var[f][y][idx] for f in all_fuels if f in shares_var)
+                    if abs(final_sum - 100) > 0.1 and final_sum > 0:
+                        print(f" WARNING: {sector_name} for {y}_{sc} totals {final_sum}%")
+
+        # === Define metrics dictionary follows here ===
+        metrics: Dict[str, Dict[str, Any]] = { ... }
         # --- Get cement base value (t/y), clinker ratio path, clinker production path
         cement_tpy_2020, clinker_ratio, clinker_prod = get_cement_and_clinker(
             country_name=country,
@@ -459,37 +575,37 @@ def main():
             "Energy intensity of diesel in blast furnaces + open hearth furnace": {
                 "source": intensities_bf_ohf["diesel"],
                 "unit": "MWh/t",
-                "forecast": False,
+                "forecast": True,
             },
             "Energy intensity of natural gas in blast furnaces + open hearth furnace": {
                 "source": intensities_bf_ohf["natural_gas"],
                 "unit": "MWh/t",
-                "forecast": False,
+                "forecast": True,
             },
             "Energy intensity of electricity in blast furnaces + open hearth furnace": {
                 "source": intensities_bf_ohf["electricity"],
                 "unit": "MWh/t",
-                "forecast": False,
+                "forecast": True,
             },
             "Energy intensity of coal in blast furnaces + open hearth furnace": {
                 "source": intensities_bf_ohf["coal"],
                 "unit": "MWh/t",
-                "forecast": False,
+                "forecast": True,
             },
             "Energy intensity of heat in blast furnaces + open hearth furnace": {
                 "source": intensities_bf_ohf["heat"],
                 "unit": "MWh/t",
-                "forecast": False,
+                "forecast": True,
             },
             "Energy intensity of biomass in blast furnaces + open hearth furnace": {
                 "source": intensities_bf_ohf["biomass"],
                 "unit": "MWh/t",
-                "forecast": False,
+                "forecast": True,
             },
             "Energy intensity of hydrogen in blast furnaces + open hearth furnace": {
                 "source": intensities_bf_ohf["hydrogen"],
                 "unit": "MWh/t",
-                "forecast": False,
+                "forecast": True,
             },
 
              # === BF + BOF (fuel shares)
@@ -1519,12 +1635,377 @@ def main():
                 "source": share_fuel_unspecified["hydrogen"],
                 "unit": "% of fuel consumption",
                 "forecast": False,},
+
+            # === Food and tobacco (unspecified) ===
+            "Final Energy of food and tobacco": {
+                "source": food_total_GWh, 
+                "unit": "GWh/-",
+                "forecast": True
+            },
+            "Share of oil for unspecified food and tobacco": {
+                "source": food_shares.get('oil', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+            "Share of gas for unspecified food and tobacco": {
+                "source": food_shares.get('gas', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+            "Share of electricity for unspecified food and tobacco": {
+                "source": food_shares.get('electricity', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+            "Share of coal for unspecified food and tobacco": {
+                "source": food_shares.get('coal', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+            "Share of biomass for unspecified food and tobacco": {
+                "source": food_shares.get('biomass', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+            "Share of hydrogen for unspecified food and tobacco": {
+                "source": food_shares.get('hydrogen', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+            "Share of ammonia for unspecified food and tobacco": {
+                "source": food_shares.get('ammonia', 0.0),
+                "unit": "% of fuel consumption",
+                "forecast": False
+            },
+            "Share of methanol for unspecified food and tobacco": {
+                "source": food_shares.get('methanol', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+             "Share of steel for unspecified food and tobacco": {
+                "source": food_shares.get('steel', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+             },
+
+            # construction 
+            "Final Energy of construction": {
+                "source": construction_total_GWh, 
+                "unit": "GWh",
+                "forecast": True
+            },
+            "Share of oil for unspecified construction": {
+                "source": construction_shares.get('oil', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },      
+            "Share of gas for unspecified construction": {
+                "source": construction_shares.get('gas', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+            "Share of electricity for unspecified construction": {
+                "source": construction_shares.get('electricity', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+            "Share of coal for unspecified construction": {
+                "source": construction_shares.get('coal', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+            "Share of biomass for unspecified construction": {
+                "source": construction_shares.get('biomass', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+            "Share of hydrogen for unspecified construction": {
+                "source": construction_shares.get('hydrogen', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+            "Share of ammonia for unspecified construction": {
+                "source": construction_shares.get('ammonia', 0.0),
+                "unit": "% of fuel consumption",
+                "forecast": False
+            },
+            "Share of methanol for unspecified construction": {
+                "source": construction_shares.get('methanol', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+            "share of steel for unspecified construction": {
+                "source": construction_shares.get('steel', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+
+            # machinery
+            "Final Energy of machinery": {
+                "source": machinery_total_GWh, 
+                "unit": "GWh",
+                "forecast": True
+            },
+            "Share of oil for unspecified machinery": {
+                "source": machinery_shares.get('oil', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+            "Share of gas for unspecified machinery": {
+                "source": machinery_shares.get('gas', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+            "Share of electricity for unspecified machinery": {
+                "source": machinery_shares.get('electricity', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+            "Share of coal for unspecified machinery": {
+                "source": machinery_shares.get('coal', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+            "Share of biomass for unspecified machinery": {
+                "source": machinery_shares.get('biomass', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+            "Share of hydrogen for unspecified machinery": {
+                "source": machinery_shares.get('hydrogen', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+            "Share of ammonia for unspecified machinery": {
+                "source": machinery_shares.get('ammonia', 0.0),
+                "unit": "% of fuel consumption",
+                "forecast": False
+            },
+            "Share of methanol for unspecified machinery": {
+                "source": machinery_shares.get('methanol', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+            "Share of steel for unspecified machinery": {
+                "source": machinery_shares.get('steel', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+
+            # mining and quarrying
+            "Final Energy of mining and quarrying": {
+                "source": mining_total_GWh, 
+                "unit": "GWh",
+                "forecast": True
+            },
+            "Share of oil for unspecified mining and quarrying": {
+                "source": mining_shares.get('oil', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+            "Share of gas for unspecified mining and quarrying": {
+                "source": mining_shares.get('gas', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            }, 
+            "Share of electricity for unspecified mining and quarrying": {
+                "source": mining_shares.get('electricity', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+            "Share of coal for unspecified mining and quarrying": {
+                "source": mining_shares.get('coal', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+            "Share of biomass for unspecified mining and quarrying": {
+                "source": mining_shares.get('biomass', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+            "Share of hydrogen for unspecified mining and quarrying": {
+                "source": mining_shares.get('hydrogen', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+            "Share of ammonia for unspecified mining and quarrying": {
+                "source": mining_shares.get('ammonia', 0.0),
+                "unit": "% of fuel consumption",
+                "forecast": False
+            },
+            "Share of methanol for unspecified mining and quarrying": {
+                "source": mining_shares.get('methanol', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+            "Share of steel for unspecified mining and quarrying": {
+                "source": mining_shares.get('steel', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+            
+            # textile and leather
+            "Final Energy of textile and leather": {
+                "source": textile_total_GWh, 
+                "unit": "GWh",
+                "forecast": True
+            },
+            "Share of oil for unspecified textile and leather": {
+                "source": textile_shares.get('oil', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+            "Share of gas for unspecified textile and leather": {
+                "source": textile_shares.get('gas', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+            "Share of electricity for unspecified textile and leather": {
+                "source": textile_shares.get('electricity', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+            "Share of coal for unspecified textile and leather": {
+                "source": textile_shares.get('coal', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+            "Share of biomass for unspecified textile and leather": {
+                "source": textile_shares.get('biomass', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+            "Share of hydrogen for unspecified textile and leather": {
+                "source": textile_shares.get('hydrogen', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+            "Share of ammonia for unspecified textile and leather": {
+                "source": textile_shares.get('ammonia', 0.0),
+                "unit": "% of fuel consumption",
+                "forecast": False
+            },
+            "Share of methanol for unspecified textile and leather": {
+                "source": textile_shares.get('methanol', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+            "Share of steel for unspecified textile and leather": {
+                "source": textile_shares.get('steel', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+             
+            # transport equipment
+            "Final Energy of transport equipment": {
+                "source": transport_equipment_total_GWh, 
+                "unit": "GWh",
+                "forecast": True
+            },
+            "Share of oil for unspecified transport equipment": {
+                "source": transport_equipment_shares.get('oil', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+            "Share of gas for unspecified transport equipment": {
+                "source": transport_equipment_shares.get('gas', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+            "Share of electricity for unspecified transport equipment": {
+                "source": transport_equipment_shares.get('electricity', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+            "Share of coal for unspecified transport equipment": {
+                "source": transport_equipment_shares.get('coal', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+            "Share of biomass for unspecified transport equipment": {
+                "source": transport_equipment_shares.get('biomass', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+            "Share of hydrogen for unspecified transport equipment": {
+                "source": transport_equipment_shares.get('hydrogen', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+            "Share of ammonia for unspecified transport equipment": {
+                "source": transport_equipment_shares.get('ammonia', 0.0),
+                "unit": "% of fuel consumption",
+                "forecast": False
+            },
+            "Share of methanol for unspecified transport equipment": {
+                "source": transport_equipment_shares.get('methanol', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+            "Share of steel for unspecified transport equipment": {
+                "source": transport_equipment_shares.get('steel', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+
+            # wood and wood products
+            "Final Energy of wood and wood products": {
+                "source": wood_total_GWh, 
+                "unit": "GWh",
+                "forecast": True
+            },
+            "Share of oil for unspecified wood and wood products": {    
+                "source": wood_shares.get('oil', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+            "Share of gas for unspecified wood and wood products": {
+                "source": wood_shares.get('gas', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+            "Share of electricity for unspecified wood and wood products": {
+                "source": wood_shares.get('electricity', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+            "Share of coal for unspecified wood and wood products": {
+                "source": wood_shares.get('coal', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+            "Share of biomass for unspecified wood and wood products": {
+                "source": wood_shares.get('biomass', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+            "Share of hydrogen for unspecified wood and wood products": {
+                "source": wood_shares.get('hydrogen', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+            "Share of ammonia for unspecified wood and wood products": {
+                "source": wood_shares.get('ammonia', 0.0),
+                "unit": "% of fuel consumption",
+                "forecast": False
+            },
+            "Share of methanol for unspecified wood and wood products": {
+                "source": wood_shares.get('methanol', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },
+            "Share of steel for unspecified wood and wood products": {
+                "source": wood_shares.get('steel', 0.0),
+                "unit": "% of fuel consumption", 
+                "forecast": False
+            },    
          }
         columns = ["Metric", str(base_year)]
         columns += [f"{yr}_{sc}" for yr in target_years for sc in scenarios]
         columns += ["Units"]
 
         rows = []
+
 
         for name, meta in metrics.items():
             unit = meta["unit"]
@@ -1540,14 +2021,14 @@ def main():
                 elif "country" in df.columns:
                     df = df[df["country"] == country]
 
+
                 if "Year" in df.columns or "year" in df.columns:
                     ycol = "Year" if "Year" in df.columns else "year"
                     df = df.sort_values(ycol)
                     colname = meta.get("column")
-
                     if colname:
                         years_clean = pd.to_numeric(df[ycol], errors="coerce").dropna()
-                        
+
                         # === FIX START ===
                         if years_clean.empty:
                             # If no valid years, treat as missing data. Do NOT return.
@@ -1568,6 +2049,7 @@ def main():
                                 v = float(df_interp.loc[y, colname]) if y in df_interp.index else None
                                 for sc in scenarios:
                                     scenario_vals[f"{y}_{sc}"] = v
+
                     else:
                         num_cols = df.select_dtypes(include="number").columns
                         if len(num_cols):
@@ -1580,6 +2062,7 @@ def main():
                             else:
                                 years_full = range(int(years_clean.min()), int(years_clean.max()) + 1)
 
+
                                 df_interp = (
                                     df.set_index(ycol)[[c0]]
                                     .reindex(years_full)
@@ -1588,7 +2071,6 @@ def main():
 
                                 by = int(base_year)
                                 base_val = float(df_interp.loc[by, c0]) if by in df_interp.index else None
-
                                 for y in target_years:
                                     val_y = float(df_interp.loc[y, c0]) if y in df_interp.index else None
                                     for sc in scenarios:
@@ -1602,6 +2084,7 @@ def main():
                         else:
                             base_val = None
                             scenario_vals = {f"{y}_{sc}": None for y in target_years for sc in scenarios}
+
 
                 elif any(str(c).isdigit() for c in df.columns):
                     if df.empty:
@@ -1624,6 +2107,8 @@ def main():
                             for sc in scenarios:
                                 scenario_vals[f"{y}_{sc}"] = vy
 
+
+
             # --- 2.b dict source ---
             elif isinstance(source, dict):
                 base_series = {}
@@ -1636,7 +2121,6 @@ def main():
                     if v0 is not None:
                         base_series[yi] = v0
                 base_val = _interp_at(base_series, base_year)
-
                 scenario_vals = {}
                 for idx, sc in enumerate(scenarios):
                     series_i = {}
@@ -1651,6 +2135,7 @@ def main():
                     for y in target_years:
                         scenario_vals[f"{y}_{sc}"] = _interp_at(series_i, y)
 
+
             # --- 2.c scalar source ---
             elif isinstance(source, (int, float)):
                 base_val = source
@@ -1659,7 +2144,10 @@ def main():
                 base_val = None
                 scenario_vals = {f"{y}_{sc}": None for y in target_years for sc in scenarios}
 
+
+
             # --- SPECIAL CASE: Unspecified NMM activity factor (compute & append immediately) ---
+
             if name == "Activity factor of unspecified non metallic minerals" and meta.get("forecast", False):
                 base_val = float(cement_tpy_2020)
                 cagr_cfg = get_metric_cagr_cfg_from_excel(
@@ -1673,6 +2161,7 @@ def main():
                     cagr_cfg=cagr_cfg,
                     scenarios=scenarios,
                     use_profile=False,
+
                 )
                 scenario_vals = {}
                 for y in target_years:
@@ -1681,17 +2170,26 @@ def main():
 
                 result_expanded = {base_year: base_val}
                 result_expanded.update(scenario_vals)
-
                 row = {"Metric": name, str(base_year): base_val, "Units": unit}
                 row.update({k: v for k, v in result_expanded.items() if k != base_year})
                 rows.append(row)
+
                 continue  # important: only for this special case
 
+
+
             # --- GENERIC FORECAST / OUTPUT for all other metrics ---
+
             result_expanded = {base_year: base_val}
 
-            if meta.get("forecast", False) and base_val is not None:
-                metric_cfg = get_metric_cagr_cfg_from_excel(industry_cagr_excel,country,name,)
+
+
+            if meta.get("forecast", True) and base_val is not None:
+                # 1. Map the specific metric name to the category name in your Excel
+                search_name = get_mapped_config_name(name)
+
+                # 2. Use that search_name to get the CAGR configuration
+                metric_cfg = get_metric_cagr_cfg_from_excel(industry_cagr_excel, country, search_name)
 
                 # pull a simple history if DataFrame-based
                 hist_series = None
@@ -1712,6 +2210,7 @@ def main():
                                     pass
                         hist_series = s if s else None
 
+
                 if name == "Steel production per year":
                     last_obs_year = base_year
                     last_obs_val  = base_val
@@ -1723,9 +2222,11 @@ def main():
                         if y <= last_obs_year and f"{y}_{scenarios[0]}" in scenario_vals:
                             for sc in scenarios:
                                 result_expanded[f"{y}_{sc}"] = scenario_vals.get(f"{y}_{sc}")
+
                 else:
                     last_obs_year = base_year
                     last_obs_val  = base_val
+
 
                 future_years = [y for y in target_years if y > last_obs_year]
                 if future_years:
@@ -1737,6 +2238,7 @@ def main():
             else:
                 for k, v in scenario_vals.items():
                     result_expanded[k] = v
+
 
             row = {"Metric": name, str(base_year): base_val, "Units": unit}
             row.update({k: v for k, v in result_expanded.items() if k != base_year})

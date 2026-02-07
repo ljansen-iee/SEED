@@ -14,7 +14,7 @@ from build_load_factors import get_Load_factor_Car, Load_factor_Bus, Load_factor
 from build_energy_intensities import generate_energy_intensities, expand_intensity
 from build_technology_share import Share_of_Direct_Electric_Passenger_Train, share_technology, TECHNOLOGY_OVERRIDES, enforce_share_constraints, apply_technology_overrides
 from config_loader import load_transport_config
-from CAGR import poly_project, expand_with_cagr, expand_constant, as_fraction, get_cagr
+from build_CAGR import poly_project, expand_with_cagr, expand_constant, as_fraction, get_cagr
 
 # === Constants ===
 BASE_YEAR = 2020  
@@ -34,14 +34,14 @@ print("Running transport sector pipeline")
 print(f"Transport assumptions file: {TRANSPORT_CONFIG_FILE}")
 print("===============================\n")
 
-devkopsys_countries = ["Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
+countries_to_process = ["Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
                        "Algeria","Argentina","Brazil","Chile","Colombia","Mexico","Peru","Venezuela",
                        "Morocco","Tunisia","Tanzania","Libya",
                        "Australia", "Canada", "China", "France", "Germany",  
                        "India", "Indonesia", "Italy", "Japan", "Mexico","Russia", "Saudi Arabia", 
                        "South Africa", "South Korea", "United Kingdom", "United States"]
 
-countries_to_load = devkopsys_countries + ["default"] 
+countries_to_load = countries_to_process + ["default"] 
 
 TRANSPORT_CONFIG = load_transport_config(
     excel_path=TRANSPORT_CONFIG_PATH,
@@ -96,7 +96,7 @@ def main(base_year=None, target_years=None, scenarios=None):
     units_dict = generate_units_dictionary()
 
     # === Loop through countries ===
-    for selected_country in devkopsys_countries:
+    for selected_country in countries_to_process:
         print(f"\n🔹 Processing: {selected_country}")
         
         # === Load Data & Merge with Defaults ===

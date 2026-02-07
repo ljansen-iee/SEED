@@ -22,7 +22,7 @@ COUNTRY = [
     "Morocco","Tunisia","Tanzania", "South Africa","Libya",
     "Australia", "Canada", "China", "France", "Germany",  
     "India", "Indonesia", "Italy", "Japan", "Russia", "Saudi Arabia", 
-    "South Korea", "United Kingdom", "United States"
+    "South Korea", "United Kingdom", "United States of America"
 ]
 
 
@@ -42,14 +42,15 @@ def get_iso2_country_code(c):
 
 def generate_transport_indicators(final_df: pd.DataFrame, country: str) -> pd.DataFrame:
     """
-    Generates aggregated transport indicators in wide-format (TWh).
-    Matches the specific column structure required for the final output.
+    Generates aggregated transport indicators.
+    1. Removes 'transport' and '(TWh)' from column names.
+    2. Includes 'road hydrogen' column.
     """
     df = final_df.copy()
     # Ensure numeric
     df["Final Energy Demand (TWh)"] = pd.to_numeric(df["Final Energy Demand (TWh)"], errors="coerce").fillna(0)
 
-    # Helper: Filter and sum energy (Already in TWh)
+    # Helper: Filter and sum energy
     def sum_filter(subsector=None, mode=None, fuels=None):
         d = df.copy()
         if subsector:
@@ -61,55 +62,35 @@ def generate_transport_indicators(final_df: pd.DataFrame, country: str) -> pd.Da
         return d.groupby("Scenario")["Final Energy Demand (TWh)"].sum()
 
     # Fuel groups
-    oil_fuels = ["Gasoline", "Diesel", "LPG", "Kerosene", "Fuel Oil", "E-Diesel", "E-Kerosene"]
-    bio_fuels = ["Bio Diesel", "Bio Ethanol", "Bio Kerosene"]
     elec_fuels = ["Electricity"]
-    hydro_fuels = ["Hydrogen"]
-    gas_fuels = ["Gas", "LPG"]
-
-    # --- RAIL ---
-    elec_rail = sum_filter(mode=["Rail", "Passenger Train", "Freight Train"], fuels=["Electricity"])
-    total_rail = sum_filter(mode=["Rail", "Passenger Train", "Freight Train"])
-
-    # --- ROAD ---
     road_modes = ["Road", "LDV", "Bus", "2&3 Wheelers", "Light-Duty Trucks", "Heavy-Duty Trucks"]
-    road_biomass = sum_filter(mode=road_modes, fuels=["Bio Diesel", "Bio Ethanol"])
-    road_electricity = sum_filter(mode=road_modes, fuels=elec_fuels)
-    road_gas = sum_filter(mode=road_modes, fuels=["LPG", "Gas"])
-    road_oil = sum_filter(mode=road_modes, fuels=["Gasoline", "Diesel", "Kerosene", "Fuel Oil"])
-    total_road = sum_filter(mode=road_modes)
-    
-    road_ev = road_electricity
-    road_fcev = sum_filter(mode=road_modes, fuels=["Hydrogen"])
-    road_ice = total_road - road_ev - road_fcev
 
-    # --- AVIATION ---
-    intl_avn = sum_filter(mode="International Aviation")
-    dom_avn = sum_filter(mode=["Aviation", "Passenger Planes", "Freight Planes"])
-
-    # --- NAVIGATION ---
-    intl_nav = sum_filter(mode="International Navigation")
-    dom_nav = sum_filter(mode=["Navigation", "Passenger Ships", "Freight Ships"])
-
-    # --- BUILD RESULT ---
+    # --- Calculations ---
     all_scenarios = df["Scenario"].unique()
     result = pd.DataFrame({"scenario": all_scenarios, "country": country}).set_index("scenario")
 
-    # Assign values (temporary names)
-    result["transport electricity rail"] = elec_rail
-    result["transport total rail"] = total_rail
-    result["transport road biomass"] = road_biomass
-    result["transport road electricity"] = road_electricity
-    result["transport road gas"] = road_gas
-    result["transport road oil"] = road_oil
-    result["transport total road"] = total_road
-    result["transport total road ev"] = road_ev
-    result["transport total road fcev"] = road_fcev
-    result["transport total road ice"] = road_ice
-    result["transport total domestic aviation"] = dom_avn
-    result["transport total domestic navigation"] = dom_nav
-    result["transport total international aviation"] = intl_avn
-    result["transport total international navigation"] = intl_nav
+    # Rail
+    result["electricity rail"] = sum_filter(mode=["Rail", "Passenger Train", "Freight Train"], fuels=elec_fuels)
+    result["total rail"] = sum_filter(mode=["Rail", "Passenger Train", "Freight Train"])
+
+    # Road
+    result["road biomass"] = sum_filter(mode=road_modes, fuels=["Bio Diesel", "Bio Ethanol"])
+    result["road electricity"] = sum_filter(mode=road_modes, fuels=elec_fuels)
+    result["road hydrogen"] = sum_filter(mode=road_modes, fuels=["Hydrogen"]) # Added this
+    result["road gas"] = sum_filter(mode=road_modes, fuels=["LPG", "Gas"])
+    result["road oil"] = sum_filter(mode=road_modes, fuels=["Gasoline", "Diesel", "Kerosene", "Fuel Oil"])
+    
+    total_road = sum_filter(mode=road_modes)
+    result["total road"] = total_road
+    result["total road ev"] = result["road electricity"]
+    result["total road fcev"] = result["road hydrogen"]
+    result["total road ice"] = total_road - result["road electricity"] - result["road hydrogen"]
+
+    # Aviation & Navigation
+    result["total domestic aviation"] = sum_filter(mode=["Aviation", "Passenger Planes", "Freight Planes"])
+    result["total domestic navigation"] = sum_filter(mode=["Navigation", "Passenger Ships", "Freight Ships"])
+    result["total international aviation"] = sum_filter(mode="International Aviation")
+    result["total international navigation"] = sum_filter(mode="International Navigation")
 
     result = result.fillna(0).reset_index()
 
@@ -120,35 +101,14 @@ def generate_transport_indicators(final_df: pd.DataFrame, country: str) -> pd.Da
         return s
     result["scenario"] = result["scenario"].map(normalize_scenario)
 
-    # --- UPDATE NAMES WITH UNITS ---
-    # We rename the columns to include (TWh)
-    rename_map = {
-        "transport electricity rail": "transport electricity rail (TWh)",
-        "transport total rail": "transport total rail (TWh)",
-        "transport road biomass": "transport road biomass (TWh)",
-        "transport road electricity": "transport road electricity (TWh)",
-        "transport road gas": "transport road gas (TWh)",
-        "transport road oil": "transport road oil (TWh)",
-        "transport total road": "transport total road (TWh)",
-        "transport total road ev": "transport total road ev (TWh)",
-        "transport total road fcev": "transport total road fcev (TWh)",
-        "transport total road ice": "transport total road ice (TWh)",
-        "transport total domestic aviation": "transport total domestic aviation (TWh)",
-        "transport total domestic navigation": "transport total domestic navigation (TWh)",
-        "transport total international aviation": "transport total international aviation (TWh)",
-        "transport total international navigation": "transport total international navigation (TWh)"
-    }
-    result.rename(columns=rename_map, inplace=True)
-
-    # Order columns (Update this list to match the new names)
+    # --- Define final column order (Clean Names) ---
     cols = [
         "scenario", "country",
-        "transport electricity rail (TWh)", "transport total rail (TWh)",
-        "transport road biomass (TWh)", "transport road electricity (TWh)",
-        "transport road gas (TWh)", "transport road oil (TWh)", "transport total road (TWh)",
-        "transport total road ev (TWh)", "transport total road fcev (TWh)", "transport total road ice (TWh)",
-        "transport total domestic aviation (TWh)", "transport total domestic navigation (TWh)",
-        "transport total international aviation (TWh)", "transport total international navigation (TWh)"
+        "electricity rail", "total rail",
+        "road biomass", "road electricity", "road hydrogen", "road gas", "road oil", 
+        "total road", "total road ev", "total road fcev", "total road ice",
+        "total domestic aviation", "total domestic navigation",
+        "total international aviation", "total international navigation"
     ]
     
     result = result.reindex(columns=cols, fill_value=0)
@@ -390,30 +350,16 @@ def dataframe_to_metrics_raw(df: pd.DataFrame) -> dict:
 def build_summary(df, metrics_raw):
     df = df[df["Fuel"].astype(str).str.strip() != ""]
 
-    # CHANGE: Grouping by (TWh) column now
+    # 1. Group by Scenario names EXACTLY as they appear in the data
     fuel_summary = df.groupby(["Fuel", "Scenario"])["Final Energy Demand (TWh)"].sum().unstack(fill_value=0)
     mode_summary = df.groupby(["Mode", "Scenario"])["Final Energy Demand (TWh)"].sum().unstack(fill_value=0)
     subsector_summary = df.groupby(["Subsector", "Scenario"])["Final Energy Demand (TWh)"].sum().unstack(fill_value=0)
     enduse_summary = df.groupby(["End-Use", "Scenario"])["Final Energy Demand (TWh)"].sum().unstack(fill_value=0)
 
-    # Clean column names
-    def rename_cols(wide_df):
-        wide_df.columns = [c.replace("_EL", "_AT") for c in wide_df.columns]
-        return wide_df
-    
-    fuel_summary = rename_cols(fuel_summary)
-    mode_summary = rename_cols(mode_summary)
-    subsector_summary = rename_cols(subsector_summary)
-    enduse_summary = rename_cols(enduse_summary)
-
-    # Biofuel blending logic
+    # 2. Biofuel blending logic
     def share(metric_name, scn):
         d = metrics_raw.get(metric_name, {})
-        scn_key = scn if scn in d else scn.replace("_AT", "_EL")
-        try:
-            val = float(d.get(scn_key, 0.0) or 0.0)
-        except Exception:
-            val = 0.0
+        val = float(d.get(scn, 0.0) or 0.0)
         return val / 100.0 if val > 1 else val
 
     for idx in ["Bio Ethanol", "Bio Diesel", "Bio Kerosene", "LPG"]:
@@ -440,9 +386,10 @@ def build_summary(df, metrics_raw):
         if "Diesel" in fuel_summary.index:   fuel_summary.at["Diesel", scn]   = max(0.0, die - die_bio)
         if "Kerosene" in fuel_summary.index: fuel_summary.at["Kerosene", scn] = max(0.0, ker - ker_bio)
 
-    # Sorting
+    # 3. Sorting (Dynamic)
     def scenario_sort_key(s):
-        digits = "".join(filter(str.isdigit, s))
+        # Extracts year to sort chronologically, keeps suffix order flexible
+        digits = "".join(filter(str.isdigit, str(s)))
         return int(digits) if digits else 9999
 
     fuel_summary = fuel_summary[sorted(fuel_summary.columns, key=scenario_sort_key)]
@@ -487,15 +434,15 @@ def run(country: str, base_dir: str = "output_data") -> None:
     os.makedirs(country_results_dir, exist_ok=True)
 
     # 1. Save detailed Energy Demand (TWh)
-    final_df.to_excel(
-        os.path.join(country_results_dir, f"{country_code}_energy_demand.xlsx"),
+    final_df.to_csv(
+        os.path.join(country_results_dir, f"{country_code}_energy_demand.csv"),
         index=False)
 
     # 2. Generate Indicators (TWh)
     try:
         indicators_df = generate_transport_indicators(final_df, country)
-        indicators_df.to_excel(
-            os.path.join(country_results_dir, f"{country_code}_final_energy_demand.xlsx"),
+        indicators_df.to_csv(
+            os.path.join(country_results_dir, f"{country_code}_final_energy_demand.csv"),
             index=False
         )
     except Exception as e:

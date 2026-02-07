@@ -20,7 +20,7 @@ from helpers import refresh_unsd_master_data, UNSD_GLOBAL_OUTPUT
 # === Constants ===
 BASE_YEAR = 2020  
 SSP_ORDER = ["SSP2", "SSP2", "SSP1"]
-SCENARIOS = ["Baseline", "Er", "RL"] 
+SCENARIOS = ["Baseline", "Reference", "NetZero"] 
 
 validate_scenarios_and_ssp(SCENARIOS, SSP_ORDER)
 
@@ -35,14 +35,14 @@ print("Running transport sector pipeline")
 print(f"Transport assumptions file: {TRANSPORT_CONFIG_FILE}")
 print("===============================\n")
 
-devkopsys_countries = ["Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
+countries_to_process = ["Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
                        "Algeria","Argentina","Brazil","Chile","Colombia","Mexico","Peru","Venezuela",
                        "Morocco","Tunisia","Tanzania","Libya",
                        "Australia", "Canada", "China", "France", "Germany",  
                        "India", "Indonesia", "Italy", "Japan", "Mexico","Russia", "Saudi Arabia", 
                        "South Africa", "South Korea", "United Kingdom", "United States of America"]
 
-countries_to_load = devkopsys_countries + ["default"] 
+countries_to_load = countries_to_process + ["default"] 
 
 TRANSPORT_CONFIG = load_transport_config(
     excel_path=TRANSPORT_CONFIG_PATH,
@@ -97,7 +97,7 @@ def main(base_year=None, target_years=None, scenarios=None):
     units_dict = generate_units_dictionary()
 
     # === Loop through countries ===
-    for selected_country in devkopsys_countries:
+    for selected_country in countries_to_process:
         print(f"\n🔹 Processing: {selected_country}")
         
         # === Load Data & Merge with Defaults ===
@@ -662,5 +662,5 @@ def main(base_year=None, target_years=None, scenarios=None):
             continue
 
 if __name__ == "__main__":
-    refresh_unsd_master_data() # Add this
+    refresh_unsd_master_data() 
     main()

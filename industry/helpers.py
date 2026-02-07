@@ -1,5 +1,5 @@
 # helpers.py
-
+import numpy as np
 import pandas as pd
 def convert_wide_to_long(df_wide, country):
     """
@@ -468,3 +468,106 @@ def _interpolated_cagr_for_year(
 
     # Linear interpolation in time
     return r0 + (r1 - r0) * (year - y0) / (y1 - y0)
+
+
+def get_mapped_config_name(metric_name: str) -> str:
+    """
+    Maps specific fuel-based metric names to general process categories 
+    defined in the industry_config Excel file.
+    """
+    mapping_keywords = {
+        "blast furnaces + open hearth furnace": "Energy intensity of blast furnaces + open hearth furnaces",
+        "blast furnaces + basic oxygen furnace": "Energy intensity of blast furnaces + basic oxygen furnaces",
+        "direct reduction + electric arc furnace": "Energy intensity of direct reduction + electric arc furnaces",
+        "scrap electric arc furnaces": "Energy intensity of scrap electric arc furnaces",
+        "casting, rolling & finishing": "Energy intensity of casting, rolling & finishing",
+        "SMR + Haber-Bosch": "Energy intensity of SMR + Haber-Bosch",
+        "renewable ammonia synthesis": "Energy intensity of renewable ammonia synthesis",
+        "cement production": "Energy intensity of cement production",
+        "paper production": "Energy intensity of paper production",
+        "primary pulp": "Energy intensity of primary pulp production",
+        "secondary pulp": "Energy intensity of secondary pulp production"
+    }
+
+    # Search for the keyword within the long metric name
+    for keyword, config_name in mapping_keywords.items():
+        if keyword.lower() in metric_name.lower():
+            return config_name
+            
+    # If no keyword matches, return the original name (safe fallback)
+    return metric_name
+
+
+import pandas as pd
+from pathlib import Path
+
+def get_historical_sector_data(folder_path: Path, country: str, sector_keyword: str):
+    """
+    Scans folder for 'Country-Year.csv', finds sector in the 2nd column, 
+    and cleans strings like '---' or '*123' into numbers.
+    """
+    history = {}
+    
+    # 1. Glob all files for this country (e.g., Morocco-2016.csv, Morocco-2017.csv)
+    files = list(folder_path.glob(f"{country}-*.csv"))
+    
+    if not files:
+        print(f" No files found for {country} in {folder_path}")
+        return None
+
+    for file_path in files:
+        try:
+            # 2. Extract year from filename
+            year_str = file_path.stem.split("-")[-1]
+            year = int(year_str)
+
+            df = pd.read_csv(file_path)
+            
+            # 3. Clean column headers and find the 'Total Energy' column
+            df.columns = df.columns.str.strip()
+            val_col = [c for c in df.columns if "Total Energy" in c][0]
+            
+            # 4. Search in the SECOND column (index 1) for the sector name
+            # Your CSV format has 'Transactions' in the second column.
+            mask = df.iloc[:, 1].astype(str).str.contains(sector_keyword, case=False, na=False)
+            sector_row = df[mask]
+            
+            if not sector_row.empty:
+                raw_val = str(sector_row[val_col].iloc[0])
+                
+                # 5. Data Cleaning: remove '---', '*', and spaces
+                clean_val = raw_val.replace("---", "0").replace("*", "").strip()
+                history[year] = float(clean_val)
+                
+        except Exception as e:
+            print(f" Error processing {file_path.name} for {sector_keyword}: {e}")
+
+    if not history:
+        print(f" No data found for sector '{sector_keyword}' in {country}")
+        return None
+
+    #print(f" Loaded {len(history)} years for {sector_keyword}")
+    return history
+    
+def poly_project(years, values, target_years, degree=1):
+    import numpy as np
+    try:
+        # 1. Filter out zeros and NaNs to find the real historical trend
+        clean_points = [(float(y), float(v)) for y, v in zip(years, values) if v > 0]
+        
+        if len(clean_points) < 2:
+            # Not enough data to find a trend; return the last known value flat
+            val = clean_points[-1][1] if clean_points else 0.0
+            return {int(t): val for t in target_years}
+
+        x_train, y_train = zip(*clean_points)
+        
+        # 2. Linear fit (Degree 1)
+        coeffs = np.polyfit(x_train, y_train, degree)
+        model = np.poly1d(coeffs)
+        
+        # 3. Predict future years (keeping values positive)
+        return {int(t): max(0.0, float(model(t))) for t in target_years}
+    except Exception as e:
+        print(f"Error in poly_project: {e}")
+        return {int(t): 0.0 for t in target_years}

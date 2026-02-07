@@ -9,15 +9,19 @@ import pandas as pd
 # CONFIG
 # -------------------------------------------------------------------
 
+# Set to None to auto-find the latest, or set to a specific name like "industry_config"
+CHOOSE_FOLDER = "industry_config"
+
 # Countries to run – you just edit this list
-AVAILABLE_COUNTRIES = ["Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
-                         "Algeria","Argentina","Brazil","Chile","Colombia","Mexico","Peru","Venezuela",
-                          "Morocco","Tunisia","Tanzania", "South Africa","Libya",
+AVAILABLE_COUNTRIES = ["Morocco"]
+                        #"Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
+                         #"Algeria","Argentina","Brazil","Chile","Colombia","Mexico","Peru","Venezuela",
+                          #"Morocco","Tunisia","Tanzania", "South Africa","Libya",
 
                           #G20 countries
-                          "Argentina", "Australia", "Brazil", "Canada", "China", "France", "Germany",  
-                          "India", "Indonesia", "Italy", "Japan", "Mexico","Russia", "Saudi Arabia", 
-                          "South Africa", "South Korea", "United Kingdom", "United States"]
+                          #"Argentina", "Australia", "Brazil", "Canada", "China", "France", "Germany",  
+                          #"India", "Indonesia", "Italy", "Japan", "Mexico","Russia", "Saudi Arabia", 
+                          #"South Africa", "South Korea", "United Kingdom", "United States"]
 
 
 # Order of carriers in the new "carrier" sheet
@@ -126,15 +130,27 @@ def get_output_data_folder() -> Path:
 
 def find_latest_run_folder() -> Path:
     """
-    Inside output_data, find the most recent folder (by modified time).
-    Example: DKS_20251116
+    Inside output_data, find either the manually selected folder 
+    or the most recent folder (by modified time).
     """
     output_data = get_output_data_folder()
+    
+    # 1. Check for manual selection first
+    if CHOOSE_FOLDER:
+        target = output_data / CHOOSE_FOLDER
+        if target.exists() and target.is_dir():
+            print(f"--- Using selected folder: {CHOOSE_FOLDER} ---")
+            return target
+        else:
+            print(f"Warning: Selected folder '{CHOOSE_FOLDER}' not found. Searching for latest...")
+
+    # 2. Fallback: Find the most recent folder
     subdirs = [p for p in output_data.iterdir() if p.is_dir()]
     if not subdirs:
         raise FileNotFoundError(f"No run folders found in: {output_data}")
 
     latest = max(subdirs, key=lambda p: p.stat().st_mtime)
+    print(f"--- Using latest run folder: {latest.name} ---")
     return latest
 
 
