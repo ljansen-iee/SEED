@@ -563,3 +563,115 @@ def refresh_unsd_master_data():
     master_df.columns = ['Country', 'Year', 'Aviation_Bunkers_TWh', 'Marine_Bunkers_TWh']
     master_df.to_excel(UNSD_GLOBAL_OUTPUT, index=False)
     #print(f" UNSD Master Data Refreshed: {UNSD_GLOBAL_OUTPUT}")
+
+def check_technology_groups(df, tech_groups, base_year, target_years, scenarios, tolerance=0.01):
+
+    years = [str(base_year)] + [f"{y}_{s}" for y in target_years for s in scenarios]
+
+    for group_name, metrics in tech_groups.items():
+
+        for year in years:
+
+            total = df.loc[df["Metric"].isin(metrics), year].sum()
+
+            if pd.isna(total):
+                continue
+
+            if abs(total - 100.0) > tolerance:
+                print(
+                    f" WARNING: {group_name} technology shares in {year} = "
+                    f"{total:.2f}% (should be 100%)"
+                )
+
+# === Technology validation groups ===
+TECH_GROUPS = {
+
+    "LDV": [
+        "Share of Technology - Gasoline ICE LDV",
+        "Share of Technology - Diesel ICE LDV",
+        "Share of Technology - LPG ICE LDV",
+        "Share of Technology - BEV LDV",
+        "Share of Technology - FCEV LDV",
+        "Share of Technology - Diesel Plugin Hybrid LDV",
+        "Share of Technology - Gasoline Plugin Hybrid LDV"
+    ],
+
+    "Bus": [
+        "Share of Technology - Diesel ICE Bus",
+        "Share of Technology - BEV Bus",
+        "Share of Technology - FCEV Bus",
+        "Share of Technology - Diesel Plugin Hybrid Bus"
+    ],
+
+    "2&3W": [
+        "Share of Technology - Gasoline ICE 2&3W",
+        "Share of Technology - BEV 2&3W"
+    ],
+
+    "Passenger Train": [
+        "Share of Technology - Diesel ICE Passenger Train",
+        "Share of Technology - Direct Electric Passenger Train",
+        "Share of Technology - FCEV Passenger Train"
+    ],
+
+    "Passenger Plane": [
+        "Share of Technology - Kerosene Passenger Plane",
+        "Share of Technology - BEV Passenger Plane",
+        "Share of Technology - FCEV Passenger Plane"
+    ],
+
+    "LDT": [
+        "Share of Technology - Diesel ICE LDT",
+        "Share of Technology - BEV LDT",
+        "Share of Technology - FCEV LDT",
+        "Share of Technology - Diesel Plugin Hybrid LDT"
+    ],
+
+    "HDT": [
+        "Share of Technology - Diesel ICE HDT",
+        "Share of Technology - BEV HDT",
+        "Share of Technology - FCEV HDT",
+        "Share of Technology - Diesel Plugin Hybrid HDT"
+    ],
+
+    "Freight Train": [
+        "Share of Technology - Diesel ICE Freight Train",
+        "Share of Technology - Direct Electric Freight Train",
+        "Share of Technology - FCEV Freight Train"
+    ],
+
+    "Freight Ship": [
+        "Share of Technology - Diesel ICE Freight Ship",
+        "Share of Technology - Methanol Freight Ship",
+        "Share of Technology - Ammonia Freight Ship",
+        "Share of Technology - BEV Freight Ship",
+        "Share of Technology - FCEV Freight Ship"
+    ]
+}
+
+
+
+def get_interpolated_value(df, ssp, year):
+    available_years = [int(y) for y in df.columns if y.isdigit()]
+    available_years.sort()
+
+    if year in available_years:
+        return float(df.loc[ssp, str(year)])
+
+    # find surrounding years
+    lower = max([y for y in available_years if y < year], default=None)
+    upper = min([y for y in available_years if y > year], default=None)
+
+    if lower is None or upper is None:
+        raise ValueError(f"Cannot interpolate year {year}")
+
+    lower_val = float(df.loc[ssp, str(lower)])
+    upper_val = float(df.loc[ssp, str(upper)])
+
+    # linear interpolation
+    ratio = (year - lower) / (upper - lower)
+
+    return lower_val + ratio * (upper_val - lower_val)
+
+
+

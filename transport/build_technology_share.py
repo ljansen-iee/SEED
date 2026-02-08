@@ -1,7 +1,9 @@
+# build_technology_share.py
+
 import pandas as pd
 import numpy as np
 from helpers import clean_column_headers
-
+from build_CAGR import expand_with_cagr, get_cagr
 # =============================================================================
 #  HELPER: Interpolate Overrides
 # =============================================================================
@@ -26,81 +28,57 @@ def interpolate_overrides(metric, year, scenario, overrides):
     return v0 + (v1 - v0) * frac
 
 
-# =============================================================================
-#  CORE FUNCTION: Apply Overrides (Excel ONLY)
-# =============================================================================
-def apply_technology_overrides(rows, target_years, scenarios, CAGR_VALUES=None):
-    """
-    Apply technology shares logic:
-    1. Check Excel Data (CAGR_VALUES).
-    2. If missing in Excel, use Base Year (2020) constant for all future years.
-    """
+
+def apply_technology_overrides(rows, target_years, scenarios, CAGR_VALUES, ASSUMPTION_TYPES):
+
     new_rows = []
-    
-    # --- 1. Pre-process Excel Data ---
+
+    tech_metrics = {
+        m for m, t in ASSUMPTION_TYPES.items() if t == "TECH_SHARE"
+    }
+
     excel_overrides = {}
-    
-    if CAGR_VALUES:
-        for metric, entry in CAGR_VALUES.items():
-            # Look for TECH_SHARE rows from Excel
-            if entry.get("assumption_type") == "TECH_SHARE":
-                values_dict = entry.get("values", {})
-                
-                # Handle edge case where values might be direct keys
-                if not values_dict:
-                    if any(isinstance(k, int) or str(k).isdigit() for k in entry.keys()):
-                         values_dict = entry
-                    else:
-                        continue 
 
-                if metric not in excel_overrides:
-                    excel_overrides[metric] = {}
-                
-                # Flatten structure for easy lookup
-                for year, scen_dict in values_dict.items():
-                    if not isinstance(scen_dict, dict): continue
-                    for scen, val in scen_dict.items():
-                        key = f"{year}_{scen}" 
-                        excel_overrides[metric][key] = float(val)
+    for metric in tech_metrics:
+        if metric not in CAGR_VALUES:
+            continue
 
-    # --- 2. Apply to Rows ---
+        values_dict = CAGR_VALUES.get(metric, {})
+
+        if not isinstance(values_dict, dict):
+            continue
+
+        excel_overrides[metric] = {}
+
+        for year, scen_dict in values_dict.items():
+            if not isinstance(scen_dict, dict):
+                continue
+
+            for scen, val in scen_dict.items():
+                key = f"{year}_{scen}"
+                excel_overrides[metric][key] = float(val)
+
     for row in rows:
         metric = row["Metric"]
-        
-        # Get the Base Year Value (2020) to use as a fallback
-        # (This prevents empty cells if no data exists)
-        base_value_2020 = row.get("2020", 0.0) 
-        
-        # Check if we have overrides from Excel
-        overrides = {}
-        if metric in excel_overrides:
-            overrides = excel_overrides[metric]
-        
-        # Apply to target years (e.g., 2030, 2035, 2050)
+        base_value = row.get("2020", 0.0)
+
+        overrides = excel_overrides.get(metric, {})
+
         for year in target_years:
             for scenario in scenarios:
                 key = f"{year}_{scenario}"
-                
-                # Case 1: Direct Match in Excel (e.g., 2030 target provided)
-                if overrides and key in overrides:
+
+                if key in overrides:
                     row[key] = overrides[key]
-                
-                # Case 2: Interpolate (if we have endpoints like 2030 & 2050)
-                elif overrides:
-                    interpolated = interpolate_overrides(metric, year, scenario, overrides)
-                    if interpolated is not None:
-                        row[key] = interpolated
-                    else:
-                        # If we have *some* data but not enough to interpolate, use base val
-                        row[key] = base_value_2020
-                
-                # Case 3: No Data in Excel -> KEEP CONSTANT (Fill Forward 2020 Value)
                 else:
-                    row[key] = base_value_2020
+                    row[key] = base_value
 
         new_rows.append(row)
 
     return new_rows
+
+
+
 
 
 # =============================================================================

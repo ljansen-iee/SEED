@@ -13,14 +13,14 @@ from build_share_mode import process_bus_share_data, share_of_two_Three
 from build_load_factors import get_Load_factor_Car, Load_factor_Bus, Load_factor_two_three_occupancy, heavy_load_factor, medium_load_factor, load_factor
 from build_energy_intensities import generate_energy_intensities, expand_intensity
 from build_technology_share import Share_of_Direct_Electric_Passenger_Train, share_technology, TECHNOLOGY_OVERRIDES, enforce_share_constraints, apply_technology_overrides
-from config_loader import load_transport_config
-from build_CAGR import poly_project, expand_with_cagr, expand_constant, as_fraction, get_cagr
-from helpers import refresh_unsd_master_data, UNSD_GLOBAL_OUTPUT
+from config_loader import load_transport_config, extract_config_data
+from build_CAGR import poly_project, expand_with_cagr, expand_constant, as_fraction, get_cagr, apply_load_factor
+from helpers import refresh_unsd_master_data, UNSD_GLOBAL_OUTPUT, check_technology_groups, TECH_GROUPS, get_interpolated_value
 
 # === Constants ===
 BASE_YEAR = 2020  
 SSP_ORDER = ["SSP2", "SSP2", "SSP1"]
-SCENARIOS = ["Baseline", "Reference", "NetZero"] 
+SCENARIOS = ["Baseline", "Er", "RL"] 
 
 validate_scenarios_and_ssp(SCENARIOS, SSP_ORDER)
 
@@ -35,14 +35,15 @@ print("Running transport sector pipeline")
 print(f"Transport assumptions file: {TRANSPORT_CONFIG_FILE}")
 print("===============================\n")
 
-countries_to_process = ["Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
+devkopsys_countries = ["Morocco",
+                      "Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
                        "Algeria","Argentina","Brazil","Chile","Colombia","Mexico","Peru","Venezuela",
                        "Morocco","Tunisia","Tanzania","Libya",
                        "Australia", "Canada", "China", "France", "Germany",  
                        "India", "Indonesia", "Italy", "Japan", "Mexico","Russia", "Saudi Arabia", 
                        "South Africa", "South Korea", "United Kingdom", "United States of America"]
 
-countries_to_load = countries_to_process + ["default"] 
+countries_to_load = devkopsys_countries + ["default"] 
 
 TRANSPORT_CONFIG = load_transport_config(
     excel_path=TRANSPORT_CONFIG_PATH,
@@ -51,7 +52,7 @@ TRANSPORT_CONFIG = load_transport_config(
 )
 
 # Extract the Default values once
-DEFAULT_VALUES = TRANSPORT_CONFIG.get("default", {})
+DEFAULT_VALUES, DEFAULT_ASSUMPTION_TYPES = extract_config_data(TRANSPORT_CONFIG, "default")
 if not DEFAULT_VALUES:
     print(" WARNING: No 'default' data found in trans_config.xlsx. Fallback logic might fail.")
 
@@ -89,27 +90,28 @@ def main(base_year=None, target_years=None, scenarios=None):
         return
 
     # Output folder
-    today_str = datetime.today().strftime("%Y%m%d")
     TRANSPORT_DIR = Path(__file__).resolve().parent
-    base_output_dir = TRANSPORT_DIR / "output_data" / f"DKS_{today_str}"
+    # Use the configuration file name as the folder name
+    base_output_dir = TRANSPORT_DIR / "output_data" / Path(TRANSPORT_CONFIG_FILE).stem
+    
     base_output_dir.mkdir(parents=True, exist_ok=True)
 
     units_dict = generate_units_dictionary()
 
     # === Loop through countries ===
-    for selected_country in countries_to_process:
+    for selected_country in devkopsys_countries:
         print(f"\n🔹 Processing: {selected_country}")
-        
+        all_rows = []
         # === Load Data & Merge with Defaults ===
         try:
-            country_values = TRANSPORT_CONFIG.get(selected_country, {})
-            
-            # Start with Defaults
-            CAGR_VALUES = DEFAULT_VALUES.copy() 
-            
-            # Update with Country Specifics
-            if country_values:
-                CAGR_VALUES.update(country_values)
+            country_values, country_types = extract_config_data(TRANSPORT_CONFIG, selected_country)
+
+            CAGR_VALUES = DEFAULT_VALUES.copy()
+            CAGR_VALUES.update(country_values)
+
+            ASSUMPTION_TYPES = DEFAULT_ASSUMPTION_TYPES.copy()
+            ASSUMPTION_TYPES.update(country_types)
+
             
             if not CAGR_VALUES:
                 raise ValueError(f"No data found for: {selected_country}")
@@ -118,46 +120,61 @@ def main(base_year=None, target_years=None, scenarios=None):
             print(f" Error preparing configuration for {selected_country}: {e}")
             continue
 
-       # ------- Population -------
+        # ------- Population using CAGR from config -------
+
         try:
+            # Get base year population from dataset (still needed)
             dfs_country_spe = load_country_specific_data(find_input_folder())
             df_population = process_population_data(dfs_country_spe)
+
             pop_df = df_population.loc[selected_country]
+
             if "Unit" in pop_df.columns:
                 pop_df = pop_df.drop(columns=["Unit"])
 
-            known_years = [2020, 2030, 2040, 2050] 
-            all_years = [base_year] + target_years
+            # Get base year value
+            base_ssp = SSP_ORDER[0]
+            pop_base = get_interpolated_value(pop_df, base_ssp, base_year)
 
-            pop_values = {}
-            for year in all_years:
-                for scenario in scenarios:
-                    ssp = get_ssp_for_scenario(
-                        scenario=scenario,
-                        scenarios=scenarios,
-                        ssp_order=SSP_ORDER
-                    )
-                    if str(year) in pop_df.columns:
-                        value = float(pop_df.loc[ssp, str(year)])
-                    else:
-                        known_vals = [float(pop_df.loc[ssp, str(y)]) for y in known_years if str(y) in pop_df.columns]
-                        known_yrs  = [y for y in known_years if str(y) in pop_df.columns]
-                        projections = poly_project(known_yrs, known_vals, [year])
-                        value = projections[year]
-                    pop_values[f"{year}_{scenario}"] = value
+            # Check if Population CAGR exists in config
+            if "Population" in CAGR_VALUES:
 
-            # Add plain base year
-            base_ssp = SSP_ORDER[0] 
-            if str(base_year) in pop_df.columns:
-                pop_values[str(base_year)] = float(pop_df.loc[base_ssp, str(base_year)])
+                pop_expanded = expand_with_cagr(
+                    pop_base,
+                    get_cagr(CAGR_VALUES, "Population"),
+                    base_year,
+                    target_years,
+                    scenarios
+                )
+
+                all_rows.append({
+                    "Metric": "Population",
+                    **pop_expanded,
+                    "Units": "million"
+                })
+
             else:
-                pop_values[str(base_year)] = pop_values[f"{base_year}_{scenarios[0]}"]
+                # Fallback to old SSP logic if CAGR not provided
+                print("Population Growth rate not found in config using SSP data as fallback")
 
-            population_row = {"Metric": "Population", **pop_values, "Units": "million"}
-            all_rows = [population_row]
+                pop_values = {}
+
+                for year in [base_year] + target_years:
+                    for scenario in scenarios:
+                        ssp = get_ssp_for_scenario(scenario, scenarios, SSP_ORDER)
+                        value = get_interpolated_value(pop_df, ssp, year)
+                        pop_values[f"{year}_{scenario}"] = value
+
+                pop_values[str(base_year)] = pop_base
+
+                all_rows.append({
+                    "Metric": "Population",
+                    **pop_values,
+                    "Units": "million"
+                })
 
         except Exception as e:
-            print(f" Skipping {selected_country}: Population error ({e})")
+            print(f"Skipping {selected_country}: Population error ({e})")
             continue
 
         # ------- Transport indicators -------
@@ -230,7 +247,15 @@ def main(base_year=None, target_years=None, scenarios=None):
                 if str(y) in df_medium_load_factor.columns else np.nan for y in share_years],
                 [base_year]
             )[base_year]
-            ldt_expanded = expand_constant(ldt_base, base_year, target_years, scenarios)
+            ldt_expanded = apply_load_factor(
+                "Load Factor - LDT",
+                ldt_base,
+                CAGR_VALUES,
+                ASSUMPTION_TYPES,
+                base_year,
+                target_years,
+                scenarios
+            )
 
             hdt_base = poly_project(
                 share_years,
@@ -238,13 +263,28 @@ def main(base_year=None, target_years=None, scenarios=None):
                 if str(y) in df_heavy_load_factor.columns else np.nan for y in share_years],
                 [base_year]
             )[base_year]
-            hdt_expanded = expand_constant(hdt_base, base_year, target_years, scenarios)
-
+            hdt_expanded = apply_load_factor(
+                "Load Factor - HDT",
+                hdt_base,
+                CAGR_VALUES,
+                ASSUMPTION_TYPES,
+                base_year,
+                target_years,
+                scenarios
+            )
             train_freight_base = hdt_base * get_transport_constants('load_factor_multiplier', 'Freight Train')
             train_freight_expanded = expand_constant(train_freight_base, base_year, target_years, scenarios)
 
             ship_freight_base = 508.0
-            ship_freight_expanded = expand_constant(ship_freight_base, base_year, target_years, scenarios)
+            ship_freight_expanded = apply_load_factor(
+                "Load Factor - Freight Ship",
+                ship_freight_base,
+                CAGR_VALUES,
+                ASSUMPTION_TYPES,
+                base_year,
+                target_years,
+                scenarios
+            )
 
             all_rows.append({"Metric": "Load Factor - LDT", **ldt_expanded, "Units": "t/vehicle"})
             all_rows.append({"Metric": "Load Factor - HDT", **hdt_expanded, "Units": "t/vehicle"})
@@ -368,19 +408,59 @@ def main(base_year=None, target_years=None, scenarios=None):
             # --- Load Factors ---
             try:
                 ldv_base = poly_project(share_years, [df_load_factor_car.loc[df_load_factor_car["Countries List"] == selected_country, str(y)].values[0] if str(y) in df_load_factor_car.columns else np.nan for y in share_years], [base_year])[base_year]
-                ldv_expanded = expand_constant(ldv_base, base_year, target_years, scenarios)
-
+                ldv_expanded = apply_load_factor(
+                        "Load Factor - LDV",
+                        ldv_base,
+                        CAGR_VALUES,
+                        ASSUMPTION_TYPES,
+                        base_year,
+                        target_years,
+                        scenarios
+                    )
+                
                 bus_base = poly_project(share_years, [df_load_factor_bus.loc[df_load_factor_bus["Countries List"] == selected_country, str(y)].values[0] if str(y) in df_load_factor_bus.columns else np.nan for y in share_years], [base_year])[base_year]
-                bus_expanded = expand_constant(bus_base, base_year, target_years, scenarios)
+                bus_expanded = apply_load_factor(
+                        "Load Factor - Bus",
+                        bus_base,
+                        CAGR_VALUES,
+                        ASSUMPTION_TYPES,
+                        base_year,
+                        target_years,
+                        scenarios
+                    )
 
                 two3w_base = poly_project(share_years, [df_load_factor_two_three_occupancy.loc[df_load_factor_two_three_occupancy["Countries List"] == selected_country, str(y)].values[0] if str(y) in df_load_factor_two_three_occupancy.columns else np.nan for y in share_years], [base_year])[base_year]
-                two3w_expanded = expand_constant(two3w_base, base_year, target_years, scenarios)
+                two3w_expanded = apply_load_factor(
+                        "Load Factor - 2&3W",
+                        two3w_base,
+                        CAGR_VALUES,
+                        ASSUMPTION_TYPES,
+                        base_year,
+                        target_years,
+                        scenarios
+                    )
 
                 train_base = ldv_base * get_transport_constants('load_factor_multiplier', 'Passenger Train')
-                train_expanded = expand_constant(train_base, base_year, target_years, scenarios)
+                train_expanded = apply_load_factor(
+                    "Load Factor - Passenger Train",
+                    train_base,
+                    CAGR_VALUES,
+                    ASSUMPTION_TYPES,
+                    base_year,
+                    target_years,
+                    scenarios
+                )
 
                 plane_base = 101.0
-                plane_expanded = expand_constant(plane_base, base_year, target_years, scenarios)
+                plane_expanded = apply_load_factor(
+                    "Load Factor - Passenger Plane",
+                    plane_base,
+                    CAGR_VALUES,
+                    ASSUMPTION_TYPES,
+                    base_year,
+                    target_years,
+                    scenarios
+                )
 
                 all_rows.append({"Metric": "Load Factor - LDV", **ldv_expanded, "Units": "p/vehicle"})
                 all_rows.append({"Metric": "Load Factor - Bus", **bus_expanded, "Units": "p/vehicle"})
@@ -389,7 +469,14 @@ def main(base_year=None, target_years=None, scenarios=None):
                 all_rows.append({"Metric": "Load Factor - Passenger Plane", **plane_expanded, "Units": "p/vehicle"})
                 
                 ship_base = load_passenger_ship
-                ship_expanded = expand_constant(ship_base, base_year, target_years, scenarios)
+                ship_expanded = apply_load_factor(
+                    "Load Factor - Passenger Ship",
+                    ship_base,
+                    CAGR_VALUES,
+                    ASSUMPTION_TYPES,
+                    base_year,
+                    target_years,
+                    scenarios)
                 all_rows.append({"Metric": "Load Factor - Passenger Ship", **ship_expanded, "Units": "p/vehicle"})
 
             except Exception as e:
@@ -627,13 +714,27 @@ def main(base_year=None, target_years=None, scenarios=None):
             row = {"Metric": metric, str(base_year): tech_base.get(metric, np.nan), "Units": "% of km"}
             tech_rows.append(row)
 
-        tech_rows = apply_technology_overrides(tech_rows, target_years, scenarios, CAGR_VALUES)
+        tech_rows = apply_technology_overrides(
+                tech_rows,
+                target_years,
+                scenarios,
+                CAGR_VALUES,
+                ASSUMPTION_TYPES
+            )
         tech_rows = enforce_share_constraints(tech_rows)
 
         df_tech = pd.DataFrame(tech_rows)
         for col in df_tech.columns:
             if col not in ["Metric", "Units"]:
                 df_tech[col] = df_tech[col].apply(lambda x: round(x * 100, 2) if pd.notnull(x) and isinstance(x, (int, float)) and x <= 1 else x)
+        
+        check_technology_groups(
+            df_tech,
+            TECH_GROUPS,
+            base_year,
+            target_years,
+            scenarios
+        )
         tech_rows = df_tech.to_dict("records")
         all_rows.extend(tech_rows)
 
@@ -662,5 +763,5 @@ def main(base_year=None, target_years=None, scenarios=None):
             continue
 
 if __name__ == "__main__":
-    refresh_unsd_master_data() 
+    refresh_unsd_master_data()
     main()

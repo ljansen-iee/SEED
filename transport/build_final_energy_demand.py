@@ -15,6 +15,10 @@ TRANSPORT_OUTPUT_DIR = os.path.join(SCRIPT_DIR, "output_data")
 RESULTS_DIR = os.path.join(SCRIPT_DIR, "results")
 os.makedirs(RESULTS_DIR, exist_ok=True)
 
+
+CHOOSE_FOLDER = "trans_config"
+
+
 # List of countries to process
 COUNTRY = [ 
     "Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
@@ -404,8 +408,19 @@ def build_summary(df, metrics_raw):
 
 def run(country: str, base_dir: str = "output_data") -> None:
     country_code = get_iso2_country_code(country)
-    latest_dir = find_latest_dir(base_dir)
-    print(f" Latest folder: {latest_dir}")
+
+    # === MODIFIED LOGIC START ===
+    # Check if a specific folder is enforced via CHOOSE_FOLDER
+    if CHOOSE_FOLDER:
+        latest_dir = os.path.join(base_dir, CHOOSE_FOLDER)
+        if not os.path.exists(latest_dir):
+            raise FileNotFoundError(f"The chosen folder does not exist: {latest_dir}")
+        print(f" Using folder: {CHOOSE_FOLDER}")
+    else:
+        # Fallback to the original logic (finding the latest)
+        latest_dir = find_latest_dir(base_dir)
+        print(f" Latest folder found: {latest_dir}")
+    # === MODIFIED LOGIC END ===
 
     available = list_countries(latest_dir)
     if country not in available:
