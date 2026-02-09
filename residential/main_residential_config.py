@@ -4,87 +4,42 @@ import pandas as pd
 from pathlib import Path
 import tabula
 
+# === Imports from project libraries ===
 import build_macro_indicators as build_mac
 import build_saturation_rates as build_sat
 import build_technology_shares as build_tec_share
 import build_energy_intensities as build_en_int
 import build_CAGR as build_cagr
+import helpers
+from helpers import load_residential_config
 
 
-def generate_units_dictionary():
-    data_units_dict = {
-    "Population": "p",
-    "Residential Area per Person": "m^2/p",
-    "Persons per Dwelling": "p/dw",
-
-    "Saturation of Space Heating": "% of m2",
-    "Saturation of Space Cooling": "% of m2",
-    "Saturation of Water Heating": "% of dw",
-    "Saturation of Cooking": "% of dw",
-    "Saturation of Appliances": "% of dw",
-    
-    "Share of Oil Boilers for Space Heating" : "% of Space Heating",
-    "Share of LPG Boilers for Space Heating": "% of Space Heating",
-    "Share of Natural Gas Boilers for Space Heating": "% of Space Heating",
-    "Share of Kerosene Boilers for Space Heating": "% of Space Heating",
-    "Share of Coal Boilers for Space Heating": "% of Space Heating",
-    "Share of Biogas Boilers for Space Heating": "% of Space Heating",
-    "Share of Traditional Biomass Boilers for Space Heating": "% of Space Heating",
-    "Share of Modern Biomass Boilers for Space Heating": "% of Space Heating",
-    "Share of Hydrogen Boilers for Space Heating": "% of Space Heating",
-    "Share of Solar Heating for Space Heating": "% of Space Heating",
-    "Share of District Heating for Space Heating": "% of Space Heating",
-    "Share of Electric Heaters for Space Heating": "% of Space Heating",
-    "Share of Heat Pumps for Space Heating": "% of Space Heating",
-
-    "Share of Heat Pumps for Space Cooling": "% of Space Cooling",
-    "Share of Air Conditioning for Space Cooling": "% of Space Cooling",
-
-    "Share of Oil Boilers for Water Heating": "% of Water Heating",
-    "Share of LPG Boilers for Water Heating": "% of Water Heating",
-    "Share of Natural Gas Boilers for Water Heating": "% of Water Heating",
-    "Share of Kerosene Boilers for Water Heating": "% of Water Heating",
-    "Share of Coal Boilers for Water Heating": "% of Water Heating",
-    "Share of Biogas Boilers for Water Heating": "% of Water Heating",
-    "Share of Traditional Biomass Boilers for Water Heating": "% of Water Heating",
-    "Share of Modern Biomass Boilers for Water Heating": "% of Water Heating",
-    "Share of Hydrogen Boilers for Water Heating": "% of Water Heating",
-    "Share of Solar Heating for Water Heating": "% of Water Heating",
-    "Share of District Heating for Water Heating": "% of Water Heating",
-    "Share of Electric Heaters for Water Heating": "% of Water Heating",
-    "Share of Heat Pumps for Water Heating": "% of Water Heating",
-
-    "Share of Electric Stoves for Cooking": "% of Cooking",
-    "Share of Natural Gas Stoves for Cooking": "% of Cooking",
-    "Share of LPG Stoves for Cooking": "% of Cooking",
-    "Share of Kerosene Stoves for Cooking": "% of Cooking",
-    "Share of Traditional Biomass Stoves for Cooking": "% of Cooking",
-
-    "Final Energy Intensity of Oil Boilers for Space Heating":  "kWh/m^2",
-    "Final Energy Intensity of Heat Pumps for Space Cooling": "kWh/m^2",
-    "Final Energy Intensity of LPG Boilers for Water Heating" :  "kWh/m^2",
-    "Final Energy Intensity of Electric Stoves for Cooking" :  "kWh/m^2",
-    "Final Energy Intensity of Electrical Appliances" :  "kWh/m^2"
-    }
-    return data_units_dict
 
 
 if __name__=="__main__":
-    # TODO: 
-    # 1. define run_name
-    # 2. define scenario years
 
-    # Main configuaration parameters:
+# === SCENARIOS PARAMETRIZATION === 
 
-        # economic drivers, i.e. Population and GDP per capita based on socio-economic pathways (SSP). Used to project future trends in population, economic growth, and other factors that influence energy demand and supply.
-            # mitigation challenges vs adaption challenges
-            # SSP1 : Sustainability ("Taking the Green Road") - low challenges in both mitigation and adaptation
-            # SSP2 : "Middle of the Road" - intermediate challenges in both mitigation and adaptation
-            # SSP3 : Regional Rivalry ("A Rocky Road") - high challenges in both mitigation and adaptation
-            # SSP4 : Inequality ("A Road Divided") - adaptation challenges dominate
-            # SSP5 : Fossil-fueled Development ("Taking the Highway") - mitigation challenges dominate
-    run_name = "DKS_202507"
-    growth_pathway = "SSP2"
+    # === basics ===
+    base_year = 2020  # select starting year between 2019 and 2023.
+    growth_pathway = ["SSP2", "SSP2", "SSP1"] # this is the order of growth path for the three scenarios
+    scenario_name = ["BAU", "Progressive", "Optimistic"] 
+
+    # TODO: What for??
+    # validate_scenarios_and_ssp(SCENARIO_NAME, GROWTH_PATHWAY)
+
+    target_Years = [2030, 2035, 2040, 2045, 2050] # select proyected years
+    
+    RESIDENTIAL_CONFIG_FILE = "residential_config.xlsx"
+
+    residential_config_path = Path(__file__).resolve().parent / RESIDENTIAL_CONFIG_FILE
+
+    # todo: tdb run_name
+    # run_name = "DKS_202507"
+
+    print("\n===============================")
+    print(f"Residential configuration file: {RESIDENTIAL_CONFIG_FILE}")
+    print("===============================\n")
 
     # Country options
     selected_countries = [
@@ -104,9 +59,40 @@ if __name__=="__main__":
         "South Africa" 
     ]
 
-    # TODO -->  Create option for African continent!
-    for selected_country in selected_countries:
+    # "Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
+    # "Algeria","Argentina","Brazil","Chile","Colombia","Mexico","Peru","Venezuela",
+    # "Morocco","Tunisia","Tanzania","Libya",
+
+countries_to_load = selected_countries + ["default"] 
+
+# === create configuration parameters ===
+
+def create_config_file_all():
+
+    for country in selected_countries:
+        print(f"\n🔹 Processing: {country}")
+
+    # STEP 1 GENERATE MACRO INDICATORS
+        # ------- Population -------
         try:
+            macro_indicators = build_mac.create_macro_indicators_all()
+            df_population, df_gdp_ssp, df_m2_p_all, df_person_dw, df_economics = macro_indicators
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
             scenario = "baseline"
             year = 2018 # NOTE: default for now
 
@@ -135,7 +121,7 @@ if __name__=="__main__":
 
             # STEP 5 GENERATE CAGR 
             df_CAGR = build_cagr.build_CAGR()
-    
+
             # For CARG there are three options, for african countries and DEVKOPSYS or a default (base on Morocco HYPAT information).
             df_africa_regions, df_africa_subregions = build_cagr.build_Africa_regions()
             
@@ -150,9 +136,9 @@ if __name__=="__main__":
 
             # Generate data for baseline energy balance
             scenario_baseline = {
-            "Population": df_population.loc[selected_country,growth_pathway][str(year)],
-            "Residential Area per Person": df_m2_p_all.loc[selected_country,growth_pathway][str(year)],
-            "Persons per Dwelling": df_person_dw.loc[(selected_country,growth_pathway,slice(None))][str(year)].iloc[0], # for other years call either 2030,2040,2050
+            "Population": df_population.loc[selected_country,GROWTH_PATHWAY][str(year)],
+            "Residential Area per Person": df_m2_p_all.loc[selected_country,GROWTH_PATHWAY][str(year)],
+            "Persons per Dwelling": df_person_dw.loc[(selected_country,GROWTH_PATHWAY,slice(None))][str(year)].iloc[0], # for other years call either 2030,2040,2050
 
             "Saturation of Space Heating": df_sh_saturation.loc[(scenario, "2021"), "Value in %"], # Only for Morocco!!!! Assumption, same for all other countries???
             "Saturation of Space Cooling": df_sc_saturation.loc[year,selected_country], # Available for DevKopSys countries
@@ -205,6 +191,7 @@ if __name__=="__main__":
             "Share of Traditional Biomass Stoves for Cooking": df_cooking_shares["biomass"].iloc[0], # Traditional Biomass contains also Coal, Charcoal, wood, ag.waste/straw dung and others...# TODO: Optional is to differiante between rural and urban areas!
             
             "Final Energy Intensity of Oil Boilers for Space Heating": intensity_sh,
+
             "Final Energy Intensity of Heat Pumps for Space Cooling":intensity_sc,
             "Final Energy Intensity of LPG Boilers for Water Heating" : intensity_wh,
             "Final Energy Intensity of Electric Stoves for Cooking" : intensity_cooking,
@@ -213,7 +200,7 @@ if __name__=="__main__":
 
             main_config = pd.DataFrame(list(scenario_baseline.items()),columns=["metric","value"])
             main_config["value"] = main_config["value"].fillna(0)
-            df_units = generate_units_dictionary()
+            df_units = helpers.generate_units_dictionary()
             df_units = pd.DataFrame(list(df_units.items()),columns=["metric","units"])
             
             main_config = pd.merge(
@@ -257,3 +244,14 @@ if __name__=="__main__":
             print(f"Error for country {selected_country}: {e}")
 
 
+# load default or modified configuration
+RESIDENTIAL_CONFIG = helpers.load_residential_config(
+    path=residential_config_path,
+    countries=countries_to_load,
+    scenarios=scenario_name
+)
+
+# Extract the default values once
+DEFAULT_VALUES = RESIDENTIAL_CONFIG.get("default", {})
+if not DEFAULT_VALUES:
+    print(" WARNING: No 'default' data found in trans_config.xlsx. Fallback logic might fail.")

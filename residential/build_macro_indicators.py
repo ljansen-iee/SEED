@@ -344,7 +344,7 @@ def create_macro_indicators_all():
     return df_population, df_gdp_ssp, df_m2_p_all, df_person_dw, df_economics
 
 # Only necessary for local testing
-# if __name__=="__main__":
-#     df_population, df_gdp_ssp, df_m2_p_all, df_person_dw, df_economics = create_macro_indicators_all()
+if __name__=="__main__":
+    df_population, df_gdp_ssp, df_m2_p_all, df_person_dw, df_economics = create_macro_indicators_all()
 
-# print (df_population, df_gdp_ssp, df_m2_p_all, df_person_dw, df_economics)
+print (df_population, df_gdp_ssp, df_m2_p_all, df_person_dw, df_economics)
