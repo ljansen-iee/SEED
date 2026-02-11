@@ -309,6 +309,7 @@ def create_macro_indicators_all():
     dfs_country_spe, dfs_global = load_all_files("residential") # specify the sector to load the data. It is also possible to configurate it with "industry"
     
     df_population = process_ssp_pop(dfs_country_spe)
+    df_population = df_population.round(0).astype("int64")
     df_gdp = process_ssp_gdp(dfs_country_spe)
     df_gdp_ssp = process_ssp_gdp_percapita(df_gdp,df_population)
 
@@ -363,18 +364,18 @@ def create_macro_indicators_all():
     return df_population, df_gdp_ssp, df_m2_p_all, df_person_dw, df_economics
 
 # Only necessary for local testing
-if __name__=="__main__":
-    df_population, df_gdp_ssp, df_m2_p_all, df_person_dw, df_economics = create_macro_indicators_all()
+# if __name__=="__main__":
+#     df_population, df_gdp_ssp, df_m2_p_all, df_person_dw, df_economics = create_macro_indicators_all()
 
-print (df_population, df_gdp_ssp, df_m2_p_all, df_person_dw, df_economics)
+# print (df_population, df_gdp_ssp, df_m2_p_all, df_person_dw, df_economics)
 
 
-out_dir = os.path.join(os.path.dirname(__file__), "output_data\macro_indicators")
-os.makedirs(out_dir, exist_ok=True)
-print(out_dir, os.path.exists(out_dir))
+# out_dir = os.path.join(os.path.dirname(__file__), "output_data\macro_indicators")
+# os.makedirs(out_dir, exist_ok=True)
+# print(out_dir, os.path.exists(out_dir))
       
-df_population.to_csv(os.path.join(out_dir, "population.csv"), index=True)
-df_gdp_ssp.to_csv(os.path.join(out_dir, "gdp_ssp.csv"), index=True)
-df_m2_p_all.to_csv(os.path.join(out_dir, "m2_pp.csv"), index=True)
-df_person_dw.to_csv(os.path.join(out_dir, "person_dw.csv"), index=True)
-df_economics.to_csv(os.path.join(out_dir, "economic_ind.csv"), index=True)
+# df_population.to_csv(os.path.join(out_dir, "population.csv"), index=True)
+# df_gdp_ssp.to_csv(os.path.join(out_dir, "gdp_ssp.csv"), index=True)
+# df_m2_p_all.to_csv(os.path.join(out_dir, "m2_pp.csv"), index=True)
+# df_person_dw.to_csv(os.path.join(out_dir, "person_dw.csv"), index=True)
+# df_economics.to_csv(os.path.join(out_dir, "economic_ind.csv"), index=True)

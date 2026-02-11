@@ -76,8 +76,8 @@ def load_all_files(energy_sector="residential", base_dir=None):
 
 def generate_units_dictionary():
     data_units_dict = {
-    "Population": "p",
-    "Residential Area per Person": "m^2/p",
+    "Population": "millions",
+    "Residential Area per Person": "m2/p",
     "Persons per Dwelling": "p/dw",
 
     "Saturation of Space Heating": "% of m2",
@@ -166,7 +166,7 @@ def generate_units_dictionary():
     }
     return data_units_dict
 
-#EXTRACTED FROM TRANSPORT VALIDATE
+# TODO EXTRACTED FROM TRANSPORT VALIDATE
 
 def load_residential_config(path: Path, countries: list, scenarios: list):
 
