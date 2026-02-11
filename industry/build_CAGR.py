@@ -17,34 +17,52 @@ SCENARIO_INDEX_MAP = {
 def load_industry_config(excel_path: Path, countries: list, scenarios: list):
     if not excel_path.exists():
         raise FileNotFoundError(f"Could not find config at {excel_path}")
+    
     df = pd.read_excel(excel_path)
     df.columns = df.columns.str.strip()
     config = {c: {} for c in countries}
+    
     for _, row in df.iterrows():
-        metric = str(row["Metric Name"]).strip()
+        # CHANGE: Convert metric name to lowercase right here
+        metric = str(row["Metric Name"]).strip().lower() 
         a_type = str(row["Assumption Type"]).strip().upper()
+        
         try:
             year = int(row["Year"])
         except:
             continue
+            
         for country in countries:
-            val = row[country] if (country in df.columns and pd.notna(row[country])) else row["default"]
-            if pd.isna(val): continue
+            # CHANGE: Use .get() and .columns to avoid KeyErrors
+            if country in df.columns and pd.notna(row[country]):
+                val = row[country]
+            else:
+                val = row.get("default", 0.0) # Safer fallback
+                
+            if pd.isna(val): 
+                val = 0.0
+                
             scenario_key = str(row["Scenario"]).strip().lower()
             target_indices = []
+            
             if scenario_key == "all":
                 target_indices = range(len(scenarios))
             elif scenario_key in SCENARIO_INDEX_MAP:
                 idx = SCENARIO_INDEX_MAP[scenario_key]
-                if idx < len(scenarios): target_indices = [idx]
+                if idx < len(scenarios): 
+                    target_indices = [idx]
+            
+            # Store in config
             metric_entry = config[country].setdefault(metric, {"assumption_type": a_type, "values": {}})
             for idx in target_indices:
                 scenario_name = scenarios[idx]
                 metric_entry["values"].setdefault(year, {})[scenario_name] = float(val)
+                
     return config
 
 def get_metric_cagr_cfg_from_excel(industry_config, country, metric_name):
     """Bridge for main_industry.py loop"""
+    metric_name = str(metric_name).strip().lower()
     return industry_config.get(country, {}).get(metric_name, {}).get("values", {})
 
 def expand_with_cagr_smooth(base_value, cagr_table, base_year, target_years, scenarios):

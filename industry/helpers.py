@@ -571,3 +571,54 @@ def poly_project(years, values, target_years, degree=1):
     except Exception as e:
         print(f"Error in poly_project: {e}")
         return {int(t): 0.0 for t in target_years}
+    
+def validate_fuel_shares(rows, base_year, target_years, scenarios):
+    """
+    Checks if FUEL shares sum to 100%. 
+    Filters out production route shares to avoid incorrect warnings.
+    """
+    # Only sum metrics that contain these specific fuel words
+    valid_fuels = [
+        "diesel", "natural gas", "gas", "electricity", "coal", 
+        "heat", "biomass", "hydrogen", "ammonia", "methanol", "oil", "steel"
+    ]
+
+    sector_keywords = {
+        "Primary Pulp": "primary pulp production",
+        "Secondary Pulp": "secondary pulp production",
+        "Paper": "paper production",
+        "Cement": "cement production",
+        "Steel (BF+OHF)": "blast furnaces + open hearth furnace",
+        "Steel (BF+BOF)": "blast furnaces + basic oxygen furnace",
+        "Steel (DR+EAF)": "direct reduction + electric arc furnace",
+        "Steel (Scrap EAF)": "scrap electric arc furnaces",
+        "Steel (Unspecified)": "unspecified iron and steel",
+        "Chemicals (Unspecified)": "unspecified chemicals",
+        "Construction": "unspecified construction",
+        "Machinery": "unspecified machinery",
+        "Mining": "unspecified mining and quarrying",
+        "Textile": "unspecified textile and leather",
+        "Transport": "unspecified transport equipment",
+        "Wood": "unspecified wood and wood products",
+        "Food & Tobacco": "unspecified food and tobacco"
+    }
+
+    check_cols = [str(base_year)] + [f"{y}_{sc}" for y in target_years for sc in scenarios]
+    
+    for label, keyword in sector_keywords.items():
+        # FILTER LOGIC: Must contain "share of" AND the sector keyword AND a valid fuel name
+        sector_rows = [
+            r for r in rows if keyword in r['Metric'].lower() 
+            and "share of" in r['Metric'].lower()
+            and any(fuel in r['Metric'].lower() for fuel in valid_fuels)
+        ]
+        
+        if not sector_rows:
+            continue
+
+        for col in check_cols:
+            total = sum(float(r.get(col, 0) or 0) for r in sector_rows)
+            
+            # Warn if not 100%
+            if abs(total - 100) > 0.1 and total > 0:
+                print(f" FUEL SHARE WARNING: {label} totals {total:.2f}% in {col}")

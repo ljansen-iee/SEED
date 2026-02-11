@@ -13,15 +13,15 @@ import pandas as pd
 CHOOSE_FOLDER = "industry_config"
 
 # Countries to run – you just edit this list
-AVAILABLE_COUNTRIES = ["Morocco"]
-                        #"Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
-                         #"Algeria","Argentina","Brazil","Chile","Colombia","Mexico","Peru","Venezuela",
-                          #"Morocco","Tunisia","Tanzania", "South Africa","Libya",
+AVAILABLE_COUNTRIES = ["Morocco",
+                        "Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
+                         "Algeria","Argentina","Brazil","Chile","Colombia","Mexico","Peru","Venezuela",
+                        "Morocco","Tunisia","Tanzania", "South Africa","Libya",
 
                           #G20 countries
-                          #"Argentina", "Australia", "Brazil", "Canada", "China", "France", "Germany",  
-                          #"India", "Indonesia", "Italy", "Japan", "Mexico","Russia", "Saudi Arabia", 
-                          #"South Africa", "South Korea", "United Kingdom", "United States"]
+                          "Argentina", "Australia", "Brazil", "Canada", "China", "France", "Germany",  
+                          "India", "Indonesia", "Italy", "Japan", "Mexico","Russia", "Saudi Arabia", 
+                          "South Africa", "South Korea", "United Kingdom", "United States"]
 
 
 # Order of carriers in the new "carrier" sheet
@@ -52,16 +52,19 @@ COL_ORDER = [
 ]
 
 # Row order for SEC sheet
-ROW_ORDER = ["Total", "Oil", "Gas", "Electricity", "Coal", "Heat", "Biomass", "Hydrogen"]
+ROW_ORDER = ["Total", "Oil", "Gas", "Electricity", "Coal", "Heat", "Biomass", "Hydrogen", "Ammonia", "Methanol"]
 
 FUEL_TO_SEC = {
-    "Diesel": "Oil",
-    "Natural Gas": "Gas",
-    "Electricity": "Electricity",
-    "Coal": "Coal",
-    "Heat": "Heat",
-    "Biomass": "Biomass",
-    "Hydrogen": "Hydrogen",
+    "Diesel": "Oil", "oil": "Oil",
+    "Natural Gas": "Gas", "gas": "Gas",
+    "Electricity": "Electricity", "electricity": "Electricity",
+    "Coal": "Coal", "coal": "Coal",
+    "Heat": "Heat",  "heat": "Heat",
+    "Biomass": "Biomass", "biomass": "Biomass",
+    "Hydrogen": "Hydrogen",  "hydrogen": "Hydrogen",
+    "Ammonia": "Ammonia", "ammonia": "Ammonia",
+    "Methanol": "Methanol", "methanol": "Methanol",
+    "Steel": "Steel", "steel": "Steel"
 }
 
 # Sector-specific SEC columns
@@ -88,7 +91,15 @@ AMMONIA_SEC_COLS = [
     "Industry Chemical HVC Methanol",
 ]
 
-
+OTHER_SEC_COLS = [
+    "Industry Machinery",
+    "Industry Construction",
+    "Industry Transport Equipment",
+    "Industry Food and Tobacco",
+    "Industry Mining and Quarrying",
+    "Industry Textile and Leather",
+    "Industry Wood and Wood Products",
+]
 # -------------------------------------------------------------------
 # PATH HELPERS
 # -------------------------------------------------------------------
@@ -185,6 +196,65 @@ def get_results_folder(country: str) -> Path:
     country_folder = results_root / country.replace(" ", "_")
     country_folder.mkdir(exist_ok=True)
     return country_folder
+
+
+def build_sec_other_from_output(df_output: pd.DataFrame) -> pd.DataFrame:
+    frames = []
+    sector_map = {
+        "machinery": "Industry Machinery",
+        "construction": "Industry Construction",
+        "transport equipment": "Industry Transport Equipment",
+        "food and tobacco": "Industry Food and Tobacco",
+        "mining and quarrying": "Industry Mining and Quarrying",
+        "textile and leather": "Industry Textile and Leather",
+        "wood and wood products": "Industry Wood and Wood Products"
+    }
+
+    # Define all fuels we want to capture
+    TARGET_FUELS = ["Diesel", "Natural Gas", "Electricity", "Coal", "Heat", "Biomass", "Hydrogen", "Ammonia", "Methanol", "Steel"]
+
+    scenario_cols = [c for c in df_output.columns if c not in ["Metric", "Units"]]
+
+    for col in scenario_cols:
+        year = _first_year_in_string(col)
+        scenario = col.split("_", 1)[1] if "_" in str(col) else "Baseline"
+        rows = []
+
+        for metric_key, sec_label in sector_map.items():
+            total_demand = _get_val(df_output, f"Final energy of {metric_key}", col, 0.0)
+
+            # Map Morocco_Output metric names to internal fuel keys
+            shares = {
+                "Diesel": _get_val(df_output, f"Share of oil for unspecified {metric_key}", col, 0.0) / 100,
+                "Natural Gas": _get_val(df_output, f"Share of gas for unspecified {metric_key}", col, 0.0) / 100,
+                "Electricity": _get_val(df_output, f"Share of electricity for unspecified {metric_key}", col, 0.0) / 100,
+                "Coal": _get_val(df_output, f"Share of coal for unspecified {metric_key}", col, 0.0) / 100,
+                "Heat": _get_val(df_output, f"Share of heat for unspecified {metric_key}", col, 0.0) / 100,
+                "Biomass": _get_val(df_output, f"Share of biomass for unspecified {metric_key}", col, 0.0) / 100,
+                "Hydrogen": _get_val(df_output, f"Share of hydrogen for unspecified {metric_key}", col, 0.0) / 100,
+                "Ammonia": _get_val(df_output, f"Share of ammonia for unspecified {metric_key}", col, 0.0) / 100,
+                "Methanol": _get_val(df_output, f"Share of methanol for unspecified {metric_key}", col, 0.0) / 100,
+                "Steel": _get_val(df_output, f"Share of steel for unspecified {metric_key}", col, 0.0) / 100,
+            }
+
+            for fuel_key in TARGET_FUELS:
+                share_val = shares.get(fuel_key, 0.0)
+                fuel_demand = total_demand * share_val
+                
+                rows.append({
+                    "Year": year,
+                    "Scenario": scenario,
+                    "SEC_Fuel": FUEL_TO_SEC.get(fuel_key, fuel_key),
+                    sec_label: fuel_demand
+                })
+
+        df_tmp = pd.DataFrame(rows)
+        frames.append(df_tmp)
+
+    df = pd.concat(frames, ignore_index=True)
+    # Pivot to sum up demands by Year, Scenario, and Fuel
+    piv = df.pivot_table(index=["Year", "Scenario", "SEC_Fuel"], aggfunc="sum", fill_value=0).reset_index()
+    return piv
 
 
 # -------------------------------------------------------------------
@@ -2005,94 +2075,80 @@ def build_sec_ammonia_from_tidy(df: pd.DataFrame) -> pd.DataFrame:
 
 def build_carrier_table_from_sec(sec_all: pd.DataFrame, country_name: str) -> pd.DataFrame:
     """
-    Build a 'carrier-level' table like:
-
-    country | scenario | year | carrier | chemical and petrochemical | iron and steel | non-metallic minerals | paper pulp and print
-
-    - Aggregates subsector SEC columns into 4 big sector columns.
-    - Creates rows for carriers: oil, gas, electricity, coal, biomass, hydrogen,
-      plus placeholder rows for ammonia, steel, methanol, process emissions, low-temperature heat.
+    Build a 'carrier-level' table including ALL aggregated sectors and individual 'Other' sectors.
     """
-
     iso = get_iso_code(country_name)
 
-    # Which columns belong to which big sector
-    steel_cols = [c for c in sec_all.columns if c.startswith("Industry Steel ")]
-    nmm_cols = [c for c in sec_all.columns if c.startswith("Industry NMM ")]
-    pp_cols = [c for c in sec_all.columns if c.startswith("Industry Paper and pulp ")]
-    chem_cols = [c for c in sec_all.columns if c.startswith("Industry Chemical ")]
+    # Subsector groups for the 4 main aggregated columns
+    steel_cols = [c for c in sec_all.columns if "Steel" in c and "Other" not in c]
+    nmm_cols = [c for c in sec_all.columns if "NMM" in c]
+    pp_cols = [c for c in sec_all.columns if "Paper and pulp" in c]
+    chem_cols = [c for c in sec_all.columns if "Chemical" in c]
+    
+    # Map for the 7 other individual sectors
+    other_mapping = {
+        "Industry Machinery": "machinery",
+        "Industry Construction": "construction",
+        "Industry Transport Equipment": "transport equipment",
+        "Industry Food and Tobacco": "food and tobacco",
+        "Industry Mining and Quarrying": "mining and quarrying",
+        "Industry Textile and Leather": "textile and leather",
+        "Industry Wood and Wood Products": "wood and wood products"
+    }
 
     rows = []
-
-    # Unique (Year, Scenario) combinations
-    combos = (
-        sec_all[["Year", "Scenario"]]
-        .drop_duplicates()
-        .sort_values(["Year", "Scenario"])
-        .itertuples(index=False)
-    )
+    # Loop through all Year/Scenario combos present in the data
+    combos = sec_all[["Year", "Scenario"]].drop_duplicates().sort_values(["Year", "Scenario"]).itertuples(index=False)
 
     for year, scenario in combos:
-        # 1) "Real" energy carriers from SEC_Fuel
-        for fuel in ["Oil", "Gas", "Electricity", "Coal", "Biomass", "Hydrogen"]:
+        # Loop through ALL carriers (including Ammonia, Methanol, and Heat)
+        for fuel_row in ROW_ORDER: 
             sub = sec_all[
-                (sec_all["Year"] == year)
-                & (sec_all["Scenario"] == scenario)
-                & (sec_all["SEC_Fuel"] == fuel)
+                (sec_all["Year"] == year) & 
+                (sec_all["Scenario"] == scenario) & 
+                (sec_all["SEC_Fuel"] == fuel_row)
             ]
 
-            if sub.empty:
-                steel_val = nmm_val = pp_val = chem_val = 0.0
+            row_dict = {
+                "country": iso,
+                "scenario": scenario,
+                "year": int(year),
+                "carrier": fuel_row.lower()
+            }
+
+            if not sub.empty:
+                data = sub.iloc[0]
+                # Sum the 4 main big categories
+                row_dict["iron and steel"] = data[steel_cols].sum()
+                row_dict["non-metallic minerals"] = data[nmm_cols].sum()
+                row_dict["paper pulp and print"] = data[pp_cols].sum()
+                row_dict["chemical and petrochemical"] = data[chem_cols].sum()
+
+                # Map the 7 other individual industry sectors
+                for sec_col, short_name in other_mapping.items():
+                    row_dict[short_name] = data.get(sec_col, 0.0)
+                
+                rows.append(row_dict)
             else:
-                row = sub.iloc[0]
-                steel_val = float(row[steel_cols].sum()) if steel_cols else 0.0
-                nmm_val = float(row[nmm_cols].sum()) if nmm_cols else 0.0
-                pp_val = float(row[pp_cols].sum()) if pp_cols else 0.0
-                chem_val = float(row[chem_cols].sum()) if chem_cols else 0.0
-
-            rows.append({
-                "country": iso,
-                "scenario": scenario,
-                "year": int(year),
-                "carrier": fuel.lower(),  # oil, gas, ...
-                "chemical and petrochemical": chem_val,
-                "iron and steel": steel_val,
-                "non-metallic minerals": nmm_val,
-                "paper pulp and print": pp_val,
-            })
-
-        # 2) Placeholder rows for additional carriers
-        for extra in ["ammonia", "steel", "methanol", "process emissions", "low-temperature heat"]:
-            rows.append({
-                "country": iso,
-                "scenario": scenario,
-                "year": int(year),
-                "carrier": extra,
-                "chemical and petrochemical": 0.0,
-                "iron and steel": 0.0,
-                "non-metallic minerals": 0.0,
-                "paper pulp and print": 0.0,
-            })
+                # Optional: Handle missing carrier rows by setting them to 0
+                row_dict.update({
+                    "iron and steel": 0.0, "non-metallic minerals": 0.0, 
+                    "paper pulp and print": 0.0, "chemical and petrochemical": 0.0
+                })
+                row_dict.update({v: 0.0 for v in other_mapping.values()})
+                rows.append(row_dict)
 
     df_car = pd.DataFrame(rows)
-
-    # Sort carriers in the desired order
     df_car["carrier"] = pd.Categorical(df_car["carrier"], categories=CARRIER_ORDER, ordered=True)
-    df_car = df_car.sort_values(["country", "scenario", "year", "carrier"]).reset_index(drop=True)
-
-    return df_car[
-        [
-            "country",
-            "scenario",
-            "year",
-            "carrier",
-            "chemical and petrochemical",
-            "iron and steel",
-            "non-metallic minerals",
-            "paper pulp and print",
-        ]
-    ]
-
+    
+    # Order columns as requested
+    final_cols = [
+        "country", "scenario", "year", "carrier",
+        "chemical and petrochemical", "iron and steel",
+        "non-metallic minerals", "paper pulp and print"
+    ] + list(other_mapping.values())
+    
+    return df_car.sort_values(["country", "scenario", "year", "carrier"])[final_cols]
 
 # -------------------------------------------------------------------
 # FEEDSTOCK & SEC PIPELINE
@@ -2129,7 +2185,7 @@ def build_all_feedstock_from_metrics(input_path: Path, output_path: Path):
         steel_tidy.to_excel(writer, sheet_name="Steel", index=False)
         nmm_tidy.to_excel(writer, sheet_name="Non metallic minerals", index=False)
         pp_tidy.to_excel(writer, sheet_name="Paper and pulp", index=False)
-        ammo_tidy.to_excel(writer, sheet_name="Ammonia", index=False)
+        ammo_tidy.to_excel(writer, sheet_name="Chemical_and_petrochemical", index=False)
 
     print(f" Saved final energy demand → {output_path}")
 
@@ -2138,6 +2194,7 @@ def build_sec_table_from_feedstock(
     input_xlsx: Path,
     output_xlsx: Path,
     country_name: str,
+    df_metrics: pd.DataFrame,
     sheet_name: str = "SEC",
 ):
     """
@@ -2154,10 +2211,12 @@ def build_sec_table_from_feedstock(
     sec_nmm = build_sec_nmm_from_tidy(nmm_df)
     sec_pp = build_sec_paper_pulp_from_tidy(pp_df)
     sec_ammo = build_sec_ammonia_from_tidy(ammo_df)
+    
+    sec_other = build_sec_other_from_output(df_metrics)
 
     sec_all = reduce(
         lambda left, right: pd.merge(left, right, on=["Year", "Scenario", "SEC_Fuel"], how="outer"),
-        [sec_steel, sec_nmm, sec_pp, sec_ammo],
+        [sec_steel, sec_nmm, sec_pp, sec_ammo, sec_other],
     )
 
     # Fill NaNs in numeric columns
@@ -2167,7 +2226,7 @@ def build_sec_table_from_feedstock(
     sec_all["SEC_Fuel"] = pd.Categorical(sec_all["SEC_Fuel"], categories=ROW_ORDER, ordered=True)
     sec_all = sec_all.sort_values(["Year", "Scenario", "SEC_Fuel"]).reset_index(drop=True)
 
-    desired_cols = ["Year", "Scenario", "SEC_Fuel"] + STEEL_SEC_COLS + NMM_SEC_COLS + PP_SEC_COLS + AMMONIA_SEC_COLS
+    desired_cols = ["Year", "Scenario", "SEC_Fuel"] + STEEL_SEC_COLS + NMM_SEC_COLS + PP_SEC_COLS + AMMONIA_SEC_COLS  + OTHER_SEC_COLS
     for c in desired_cols:
         if c not in sec_all.columns:
             sec_all[c] = 0.0
@@ -2193,8 +2252,6 @@ def build_sec_table_from_feedstock(
 
     print(f"Saved combined SEC table → {output_xlsx}")
     print(f"Saved carrier-level table → {output_xlsx}")
-
-import pycountry
 
 def run_industry_pipeline_for_country(country: str):
     """
@@ -2224,8 +2281,19 @@ def run_industry_pipeline_for_country(country: str):
     feedstock_out = results_dir / feedstock_filename
     sec_out = results_dir / sec_filename
 
+    df_metrics = pd.read_excel(country_file)
+
     build_all_feedstock_from_metrics(country_file, feedstock_out)
-    build_sec_table_from_feedstock(feedstock_out, sec_out, country_name=country, sheet_name="SEC")
+
+    build_sec_table_from_feedstock(
+        feedstock_out,
+        sec_out,
+        country_name=country,
+        df_metrics=df_metrics,      
+        sheet_name="SEC"
+    )
+
+
 
 # -------------------------------------------------------------------
 # CLI / manual run
