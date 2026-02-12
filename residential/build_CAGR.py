@@ -1,21 +1,26 @@
 import pandas as pd
 import os
+from pathlib import Path
 
 def build_scenarios():
-    demand_options = [
+    reference_pathway_options = [
         "Current Policies", 
         "Progessive Measuraments", 
         "Ambitious Net Zero"
-    ]
-    demand_years =[
-        2030, 
+    ] # based on available IEA scenario names
+
+    target_years =[
+        2030,
+        2035,
+        2040,
+        2045,
         2050
     ]
     
-    return demand_options,demand_years
+    return reference_pathway_options,target_years
 
 def build_CAGR_default():
-    demand_options, demand_years = build_scenarios()
+    reference_pathway_options, target_years = build_scenarios()
 
     #NOTE: This are default values taken from the HYPAT base assumptions
 
@@ -37,15 +42,21 @@ def build_CAGR_default():
         }
         ).transpose()
 
-    df_CAGR_default = pd.concat(
-        [df_CAGR_2030,df_CAGR_2050], 
-        axis=1
-        )
+    df_CAGR_2030.columns = reference_pathway_options
+    df_CAGR_2050.columns = reference_pathway_options
 
-    df_CAGR_default.columns = pd.MultiIndex.from_product(
-        [demand_options, demand_years], 
-        names=['Scenario', 'Year']
-        )
+    columns = []
+    data = []
+    for scenario in reference_pathway_options:
+        for year in target_years:
+            base_df = df_CAGR_2030 if year in (2030, 2035) else df_CAGR_2050
+            data.append(base_df[scenario])
+            columns.append((scenario, year))
+
+    df_CAGR_default = pd.concat(data, axis=1)
+    df_CAGR_default.columns = pd.MultiIndex.from_tuples(
+        columns, names=['Scenario', 'Year']
+    )
     
     df_CAGR_default.index.name="energy_intensity"
     df_CAGR_default.insert(0,"subregion","Default")
@@ -56,14 +67,17 @@ def build_CAGR_default():
 
 def build_Africa_regions():
     # path = os.path.join(os.path.dirname(os.getcwd()),"residential","input_data","global","UNSD — Methodology.csv")
-    base_dir = os.path.dirname(os.path.abspath(__file__))
+    try:
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+    except NameError:
+        base_dir = os.getcwd()
     file_path = os.path.join(
         base_dir,
         "input_data",
         "global",
         "UNSD — Methodology.csv"
     )
-    df = pd.read_csv(file_path, delimiter=";")
+    df = pd.read_csv(file_path, delimiter=",")
     df = df[df["Region Name"] == "Africa"]
     df = df[['Sub-region Name','Intermediate Region Name', 'Country or Area']]
 
@@ -103,11 +117,11 @@ def build_CAGR_Africa():
     for scenario in df_CAGR_default.columns:
         df_region =[]
         for subregion in df_investment_shares.index:
-                energy_intensity_values = df_CAGR_default[scenario].droplevel(level= 0)
-                adjusted_values = energy_intensity_values.values - ((1 - df_investment_shares.loc[subregion, "relative_shares"]) * energy_intensity_values.values)
+                energy_intensity_shares = df_CAGR_default[scenario].droplevel(level= 0)
+                adjusted_values = energy_intensity_shares.values - ((1 - df_investment_shares.loc[subregion, "relative_shares"]) * energy_intensity_shares.values)
                 multi_index = pd.MultiIndex.from_product([
                         [subregion],
-                        energy_intensity_values.index.tolist()],
+                        energy_intensity_shares.index.tolist()],
                         names=['subregion', 'energy_intensity']
                         )
                 df = pd.DataFrame(adjusted_values,
@@ -126,10 +140,9 @@ def build_CAGR_Africa():
     return df_CAGR_Africa
 
 def build_CAGR_LATAM():
-    demand_options, demand_years = build_scenarios()
+    reference_pathway_options, target_years = build_scenarios()
 
     #NOTE: CAGR based on IEA scenarios,i.e. STEPS & APS, for the whole region. For the residential sector: https://iea.blob.core.windows.net/assets/1055131a-8dc4-488b-9e9e-7eb4f72bf7ad/LatinAmericaEnergyOutlook.pdf
-    #TODO: Add a third scenario from IEE. For know we used the one from Morocco provided by hypat
     
     df_CAGR_2030_LATAM = pd.DataFrame({
     "Final Energy Intensity of Space Heating" : [0.3, -1.2, -3],
@@ -147,16 +160,23 @@ def build_CAGR_LATAM():
     "Final Energy Intensity of Electrical Appliances": [0.7, 0.0, 1.5],
     }).transpose()
 
-    df_CAGR_LATAM = pd.concat(
-        [df_CAGR_2030_LATAM,df_CAGR_2050_LATAM], 
-        axis=1
-        )
+    df_CAGR_2030_LATAM.columns = reference_pathway_options
+    df_CAGR_2050_LATAM.columns = reference_pathway_options
+
+    columns = []
+    data = []
+    for scenario in reference_pathway_options:
+        for year in target_years:
+            base_df = df_CAGR_2030_LATAM if year in (2030, 2035) else df_CAGR_2050_LATAM
+            data.append(base_df[scenario])
+            columns.append((scenario, year))
+
+    df_CAGR_LATAM = pd.concat(data, axis=1)
 
     # create the MultiIndex for the columns
-    df_CAGR_LATAM.columns = pd.MultiIndex.from_product(
-        [demand_options, demand_years], 
-        names=['scenario', 'year']
-        )
+    df_CAGR_LATAM.columns = pd.MultiIndex.from_tuples(
+        columns, names=['scenario', 'year']
+    )
     
     df_CAGR_LATAM.index.name = ("energy_intensity")
     df_CAGR_LATAM.insert(0,"subregion","LATAM")
@@ -175,11 +195,85 @@ def build_CAGR():
     return df_CAGR
 
 
+def build_country_cagr(selected_countries, target_years=None):
+    df_cagr = build_CAGR()
+    df_africa_regions, _ = build_Africa_regions()
+
+    if target_years is None:
+        _, target_years = build_scenarios()
+
+    subregion_list = df_cagr.index.get_level_values("subregion").unique().tolist()
+
+    def resolve_subregion(country):
+        if country in ("LATAM", "Default"):
+            return country
+        if country in df_africa_regions.index:
+            return df_africa_regions.loc[country, "subregion"]
+        if "LATAM" in subregion_list:
+            return "LATAM"
+        if "Default" in subregion_list:
+            return "Default"
+        return subregion_list[0] if subregion_list else None
+
+    energy_intensity_list = (
+        df_cagr.index.get_level_values("energy_intensity").unique().tolist()
+    )
+
+    reference_pathway_options, _ = build_scenarios()
+    columns = []
+    row_keys = []
+    for scenario in reference_pathway_options:
+        for year in target_years:
+            columns.append((scenario, year))
+            row_keys.append((scenario, year))
+
+    data = {}
+    for country in selected_countries:
+        subregion = resolve_subregion(country)
+        rows = []
+        for energy_intensity in energy_intensity_list:
+            values = []
+            for scenario_src, year in row_keys:
+                try:
+                    values.append(
+                        df_cagr.loc[(subregion, energy_intensity), (scenario_src, year)]
+                    )
+                except KeyError:
+                    values.append(float("nan"))
+            rows.append(values)
+
+        idx = pd.MultiIndex.from_product(
+            [[country], energy_intensity_list],
+            names=["country", "energy_intensity"],
+        )
+        data[country] = pd.DataFrame(rows, index=idx, columns=pd.MultiIndex.from_tuples(columns))
+
+    return pd.concat(data.values(), axis=0)
+
+
+def build_all_countries_cagr(target_years=None):
+    df_africa_regions, _ = build_Africa_regions()
+    selected_countries = df_africa_regions.index.tolist() + ["LATAM", "Default"]
+    return build_country_cagr(selected_countries, target_years=target_years)
+
+
+def export_all_countries_cagr_csv(output_path=None):
+    df_cagr = build_all_countries_cagr()
+    df_cagr = df_cagr.reset_index()
+    if isinstance(df_cagr.columns, pd.MultiIndex):
+        df_cagr.columns = [
+            "_".join([str(part) for part in col if part != ""]).strip("_")
+            for col in df_cagr.columns
+        ]
+    if output_path is None:
+        output_dir = Path(__file__).resolve().parent / "output_data"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        output_path = output_dir / "CAGR_residential.csv"
+    df_cagr.to_csv(output_path, index=False)
+    return output_path
+
+
 # Only necessary for local testing
-# if __name__=="__main__":
-#     df_CAGR = build_CAGR()
-
-#     file_path = r"C:\Users\eduque\Fraunhofer\DeV-KopSys-2 - Globale ESA\04_methods_and_models\Sectoral_demand\01_Buttom_up_workflow\residential\output_data\CAGR_output.xlsx"
-#     df_CAGR.to_excel(file_path,"CAGR", index_label= True)
-
+if __name__=="__main__":
+    export_all_countries_cagr_csv()
 
