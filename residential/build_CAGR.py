@@ -274,6 +274,6 @@ def export_all_countries_cagr_csv(output_path=None):
 
 
 # Only necessary for local testing
-if __name__=="__main__":
-    export_all_countries_cagr_csv()
+# if __name__=="__main__":
+#     export_all_countries_cagr_csv()
 

@@ -24,7 +24,7 @@ scenario_name = ["BAU", "Progressive", "Optimistic"]
 # TODO: What for??
 # validate_scenarios_and_ssp(SCENARIO_NAME, GROWTH_PATHWAY)
 
-target_years = [2030, 2035, 2040, 2045, 2050] # select proyected years
+target_years = [base_year, 2030, 2035, 2040, 2045, 2050] # select proyected years
 
 RESIDENTIAL_CONFIG_FILE = "residential_config.xlsx"
 
@@ -127,7 +127,7 @@ def create_csv_all():
             df_macro[country] = values
         return df_macro
 
-    def build_constant_metric_df(metric_name, unit_key, country_series):
+    def build_constant_metric_df(metric_name, unit_key, country_series, type_label="technology share"):
         unit = units_dict.get(unit_key)
         country_values = country_series.reindex(selected_countries)
         if country_values.isna().any():
@@ -138,7 +138,7 @@ def create_csv_all():
             for scenario in scenario_name:
                 macro_rows.append(
                     {
-                        "type": "technology share",
+                        "type": type_label,
                         "metric name": metric_name,
                         "year": year,
                         "scenario": scenario,
@@ -193,8 +193,6 @@ def create_csv_all():
             )
         )
 
-
-
         cooking_series = {}
         for metric_name, col in cooking_metrics.items():
             if col is None:
@@ -229,7 +227,120 @@ def create_csv_all():
                 build_constant_metric_df(wh_metric, wh_metric, cooking_series[cooking_metric])
             )
 
-        df_all = pd.concat([df_population_macro, df_area_macro, *share_macro_dfs], ignore_index=True)
+        intensity_sh, intensity_wh, intensity_sc, intensity_cooking, intensity_appliances = (
+            build_en_int.insert_energy_intensities()
+        )
+
+        cagr_scenario_map = {
+            "Current Policies": "BAU",
+            "Progessive Measuraments": "Progressive",
+            "Ambitious Net Zero": "Optimistic",
+        }
+        df_cagr_country_raw = build_cagr.build_country_cagr(
+            selected_countries,
+            target_years=target_years,
+        )
+        df_cagr_country = df_cagr_country_raw.copy()
+        df_cagr_country.columns = pd.MultiIndex.from_tuples(
+            [(cagr_scenario_map.get(scenario, scenario), year) for scenario, year in df_cagr_country.columns],
+            names=df_cagr_country.columns.names,
+        )
+
+        base_intensity_map = {
+            "Final Energy Intensity of Space Heating": intensity_sh,
+            "Final Energy Intensity of Space Cooling": intensity_sc,
+            "Final Energy Intensity of Water Heating": intensity_wh,
+            "Final Energy Intensity of Cooking": intensity_cooking,
+            "Final Energy Intensity of Electrical Appliances": intensity_appliances,
+        }
+
+        intensity_metrics_map = {
+            "Final Energy Intensity of Space Heating": build_en_int.SPACE_HEATING_INTENSITY_METRICS,
+            "Final Energy Intensity of Space Cooling": build_en_int.SPACE_COOLING_INTENSITY_METRICS,
+            "Final Energy Intensity of Water Heating": build_en_int.WATER_HEATING_INTENSITY_METRICS,
+            "Final Energy Intensity of Cooking": build_en_int.COOKING_INTENSITY_METRICS,
+            "Final Energy Intensity of Electrical Appliances": build_en_int.APPLIANCES_INTENSITY_METRICS,
+        }
+
+        cagr_units_map = {
+            "Final Energy Intensity of Space Heating": "kWh/m2",
+            "Final Energy Intensity of Space Cooling": "kWh/m2",
+            "Final Energy Intensity of Water Heating": "kWh/dw",
+            "Final Energy Intensity of Cooking": "kWh/dw",
+            "Final Energy Intensity of Electrical Appliances": "kWh/dw",
+        }
+
+        cagr_years = [base_year] + target_years
+        cagr_rows = []
+        row_keys = []
+        energy_intensity_list = (
+            df_cagr_country.index.get_level_values("energy_intensity").unique().tolist()
+        )
+        for energy_intensity in energy_intensity_list:
+            for year in cagr_years:
+                for scenario_dst in cagr_scenario_map.values():
+                    cagr_rows.append(
+                        {
+                            "type": "CAGR",
+                            "metric name": energy_intensity,
+                            "year": year,
+                            "scenario": scenario_dst,
+                            "units": cagr_units_map.get(energy_intensity, units_dict.get(energy_intensity)),
+                        }
+                    )
+                    row_keys.append((energy_intensity, year, scenario_dst))
+
+        df_cagr_macro = pd.DataFrame(cagr_rows)
+        for country in selected_countries:
+            values = []
+            for energy_intensity, year, scenario_dst in row_keys:
+                try:
+                    if year == base_year:
+                        values.append(0)
+                    else:
+                        cagr_rate = df_cagr_country.loc[(country, energy_intensity), (scenario_dst, year)]
+                        values.append(cagr_rate)
+                except KeyError:
+                    values.append(np.nan)
+            df_cagr_macro[country] = values
+
+        intensity_rows = []
+        expanded_row_keys = []
+        for energy_intensity, year, scenario_dst in row_keys:
+            for metric_name in intensity_metrics_map.get(energy_intensity, []):
+                intensity_rows.append(
+                    {
+                        "type": "energy intensity",
+                        "metric name": metric_name,
+                        "year": year,
+                        "scenario": scenario_dst,
+                        "units": units_dict.get(metric_name),
+                    }
+                )
+                expanded_row_keys.append((energy_intensity, metric_name, year, scenario_dst))
+
+        df_cagr_intensity_macro = pd.DataFrame(intensity_rows)
+        for country in selected_countries:
+            values = []
+            for energy_intensity, metric_name, year, scenario_dst in expanded_row_keys:
+                base_intensity = base_intensity_map.get(energy_intensity)
+                if base_intensity is None:
+                    values.append(np.nan)
+                    continue
+                try:
+                    if year == base_year:
+                        values.append(base_intensity)
+                    else:
+                        cagr_rate = df_cagr_country.loc[(country, energy_intensity), (scenario_dst, year)]
+                        values.append(base_intensity * (1 + cagr_rate / 100) ** 5)
+                except KeyError:
+                    values.append(np.nan)
+            df_cagr_intensity_macro[country] = values
+
+        df_all = pd.concat(
+            [df_population_macro, df_area_macro, *share_macro_dfs, df_cagr_macro, df_cagr_intensity_macro],
+            ignore_index=True,
+        )
 
         output_dir = Path(__file__).resolve().parent / "output_data"
         output_dir.mkdir(parents=True, exist_ok=True)
