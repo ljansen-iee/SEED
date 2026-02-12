@@ -12,10 +12,10 @@ from build_share_subsectors import extract_country_transport_data, create_countr
 from build_share_mode import process_bus_share_data, share_of_two_Three
 from build_load_factors import get_Load_factor_Car, Load_factor_Bus, Load_factor_two_three_occupancy, heavy_load_factor, medium_load_factor, load_factor
 from build_energy_intensities import generate_energy_intensities, expand_intensity
-from build_technology_share import Share_of_Direct_Electric_Passenger_Train, share_technology, TECHNOLOGY_OVERRIDES, enforce_share_constraints, apply_technology_overrides
+from build_technology_share import Share_of_Direct_Electric_Passenger_Train, share_technology, TECHNOLOGY_OVERRIDES, enforce_share_constraints, apply_technology_overrides, get_unsd_bunker_fuel_shares
 from config_loader import load_transport_config, extract_config_data
 from build_CAGR import poly_project, expand_with_cagr, expand_constant, as_fraction, get_cagr, apply_load_factor
-from helpers import refresh_unsd_master_data, UNSD_GLOBAL_OUTPUT, check_technology_groups, TECH_GROUPS, get_interpolated_value
+from helpers import refresh_unsd_master_data, UNSD_GLOBAL_OUTPUT, check_technology_groups, TECH_GROUPS, get_interpolated_value, UNSD_INPUT_FOLDER
 
 # === Constants ===
 BASE_YEAR = 2020  
@@ -35,13 +35,13 @@ print("Running transport sector pipeline")
 print(f"Transport assumptions file: {TRANSPORT_CONFIG_FILE}")
 print("===============================\n")
 
-devkopsys_countries = ["Morocco",
-                      "Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
-                       "Algeria","Argentina","Brazil","Chile","Colombia","Mexico","Peru","Venezuela",
-                       "Morocco","Tunisia","Tanzania","Libya",
-                       "Australia", "Canada", "China", "France", "Germany",  
-                       "India", "Indonesia", "Italy", "Japan", "Mexico","Russia", "Saudi Arabia", 
-                       "South Africa", "South Korea", "United Kingdom", "United States of America"]
+devkopsys_countries = ["Morocco"]
+                       #"Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Nigeria"]
+                       #"Algeria","Argentina","Brazil","Chile","Colombia","Mexico","Peru","Venezuela",
+                       #"Morocco","Tunisia","Tanzania","Libya",
+                       #"Australia", "Canada", "China", "France", "Germany",  
+                       #"India", "Indonesia", "Italy", "Japan", "Mexico","Russia", "Saudi Arabia", 
+                       #"South Africa", "South Korea", "United Kingdom", "United States of America"]
 
 countries_to_load = devkopsys_countries + ["default"] 
 
@@ -103,18 +103,28 @@ def main(base_year=None, target_years=None, scenarios=None):
         print(f"\n🔹 Processing: {selected_country}")
         all_rows = []
         # === Load Data & Merge with Defaults ===
+        # === Load Data & Merge with Defaults ===
         try:
             country_values, country_types = extract_config_data(TRANSPORT_CONFIG, selected_country)
 
+            # --- FIX: Clean NaN values so they don't overwrite defaults ---
+            country_values = {k: ({sk: sv for sk, sv in v.items() if pd.notna(sv)} if isinstance(v, dict) else v) 
+                              for k, v in country_values.items() if pd.notna(v)}
+            # Also clean the types
+            country_types = {k: v for k, v in country_types.items() if pd.notna(v)}
+
             CAGR_VALUES = DEFAULT_VALUES.copy()
-            CAGR_VALUES.update(country_values)
-
             ASSUMPTION_TYPES = DEFAULT_ASSUMPTION_TYPES.copy()
-            ASSUMPTION_TYPES.update(country_types)
-
             
-            if not CAGR_VALUES:
-                raise ValueError(f"No data found for: {selected_country}")
+            # Deep update to merge year-by-year 
+            for k, v in country_values.items():
+                if k in CAGR_VALUES and isinstance(CAGR_VALUES[k], dict) and isinstance(v, dict):
+                    CAGR_VALUES[k].update(v)
+                else:
+                    CAGR_VALUES[k] = v
+            
+            # Update types (Target vs CAGR)
+            ASSUMPTION_TYPES.update(country_types)
 
         except Exception as e:
             print(f" Error preparing configuration for {selected_country}: {e}")
@@ -554,12 +564,11 @@ def main(base_year=None, target_years=None, scenarios=None):
             continue
         
         try:
-            # Load the Master Excel
+            # --- 1. Load Total Energy (TWh) from Master Excel ---
             if UNSD_GLOBAL_OUTPUT.exists():
                 unsd_df = pd.read_excel(UNSD_GLOBAL_OUTPUT)
                 
-                # Standardize columns for matching (strip spaces and lowercase)
-                # This ensures "Morocco " matches "morocco"
+                # Standardize columns for matching
                 unsd_df['Country_Clean'] = unsd_df['Country'].astype(str).str.strip().str.lower()
                 target_country_clean = selected_country.strip().lower()
                 
@@ -572,15 +581,93 @@ def main(base_year=None, target_years=None, scenarios=None):
                 if not match.empty:
                     marine_base = float(match['Marine_Bunkers_TWh'].values[0])
                     aviation_base = float(match['Aviation_Bunkers_TWh'].values[0])
-                    #print(f"   -> Found UNSD Bunkers for {selected_country}: Marine={marine_base:.2f} TWh, Aviation={aviation_base:.2f} TWh")
                 else:
-                    print(f"   -> WARNING: {selected_country} (clean: '{target_country_clean}') not found in UNSD data. Defaulting Bunkers to 0.")
+                    print(f"   -> WARNING: {selected_country} not found in UNSD Master data. Defaulting Bunkers to 0.")
                     marine_base, aviation_base = 0.0, 0.0
             else:
-                print("   -> WARNING: UNSD Master file not found.")
+                print("   -> WARNING: UNSD Master file not found. Defaulting Bunkers to 0.")
                 marine_base, aviation_base = 0.0, 0.0
 
-            # 1. Expand Marine with CAGR (Uses rows from your trans_config.xlsx)
+            # --- 2. Calculate Fuel Shares (Percentages) ---
+            # because we might have the CSVs even if the aggregated Excel is missing.
+            
+            aviation_fuel_shares = get_unsd_bunker_fuel_shares(
+                base_path=UNSD_INPUT_FOLDER,
+                country=selected_country,
+                year=base_year,
+                bunker_type="aviation"
+            )
+
+            maritime_fuel_shares = get_unsd_bunker_fuel_shares(
+                base_path=UNSD_INPUT_FOLDER,
+                country=selected_country,
+                year=base_year,
+                bunker_type="marine"
+            )
+
+            # --- 3. Add Fuel Share Rows to Output ---
+            
+            # Add Aviation fuel share rows
+            for fuel, value in aviation_fuel_shares.items():
+                metric_name = f"Share of Technology - {fuel.capitalize()} Int Aviation"
+
+                expanded = {}
+
+                # Base year
+                expanded[str(base_year)] = value
+
+                # Future years
+                for year in target_years:
+                    for scenario in scenarios:
+                        key = f"{year}_{scenario}"
+
+                        # Check config
+                        if metric_name in CAGR_VALUES and year in CAGR_VALUES[metric_name]:
+                            year_dict = CAGR_VALUES[metric_name][year]
+
+                            if scenario in year_dict:
+                                expanded[key] = year_dict[scenario] * 100   # <-- convert to %
+                            else:
+                                expanded[key] = value
+                        else:
+                            expanded[key] = value
+
+                all_rows.append({
+                    "Metric": metric_name,
+                    **expanded,
+                    "Units": "%"
+                })
+
+
+            for fuel, value in maritime_fuel_shares.items():
+                metric_name = f"Share of Technology - {fuel.capitalize()} Int Maritime"
+
+                expanded = {}
+
+                expanded[str(base_year)] = value
+
+                for year in target_years:
+                    for scenario in scenarios:
+                        key = f"{year}_{scenario}"
+
+                        if metric_name in CAGR_VALUES and year in CAGR_VALUES[metric_name]:
+                            year_dict = CAGR_VALUES[metric_name][year]
+
+                            if scenario in year_dict:
+                                expanded[key] = year_dict[scenario] * 100
+                            else:
+                                expanded[key] = value
+                        else:
+                            expanded[key] = value
+
+                all_rows.append({
+                    "Metric": metric_name,
+                    **expanded,
+                    "Units": "%"
+                })
+
+            # --- 4. Expand Total Energy with CAGR ---
+            # Expand Marine TWh
             marine_expanded = expand_with_cagr(
                 marine_base,
                 get_cagr(CAGR_VALUES, "Total Energy - Int. Maritime"),
@@ -588,7 +675,7 @@ def main(base_year=None, target_years=None, scenarios=None):
             )
             all_rows.append({"Metric": "Total Energy - Int. Maritime", **marine_expanded, "Units": "TWh"})
 
-            # 2. Expand Aviation with CAGR
+            # Expand Aviation TWh
             aviation_expanded = expand_with_cagr(
                 aviation_base,
                 get_cagr(CAGR_VALUES, "Total Energy - Int. Aviation"),
@@ -596,15 +683,18 @@ def main(base_year=None, target_years=None, scenarios=None):
             )
             all_rows.append({"Metric": "Total Energy - Int. Aviation", **aviation_expanded, "Units": "TWh"})
 
-            # 3. Add Activity/Technology variables for Bunkers
-            intl_tech = ["Share - Int. Aviation E-fuel", "Share - Int. Maritime Ammonia", "Share - Int. Maritime E-fuel"]
-            for tech in intl_tech:
-                t_base = CAGR_VALUES.get(tech, {}).get(base_year, 0.0)
-                t_expanded = expand_with_cagr(t_base, get_cagr(CAGR_VALUES, tech), base_year, target_years, scenarios)
-                all_rows.append({"Metric": tech, **t_expanded, "Units": "Fraction"})
-
         except Exception as e:
             print(f" Error processing International Bunkers for {selected_country}: {e}")
+        # --- 5. Validate Fuel Share Sum (Base Year Only) ---
+
+        aviation_total = sum(aviation_fuel_shares.values())
+        if abs(aviation_total - 100) > 0.01:
+            print(f" WARNING: {selected_country} Int Aviation fuel shares in {base_year} = {aviation_total:.2f}% (should be 100%)")
+
+        maritime_total = sum(maritime_fuel_shares.values())
+        if abs(maritime_total - 100) > 0.01:
+            print(f" WARNING: {selected_country} Int Maritime fuel shares in {base_year} = {maritime_total:.2f}% (should be 100%)")
+
         # ==============================================================================
 
         # ------- Final Energy Intensities -------
@@ -646,7 +736,7 @@ def main(base_year=None, target_years=None, scenarios=None):
              technology_kerosene_freight_plane,
              technology_diesel_passenger_ship,
              bioethanol_in_road_gasoline, biodiesel_in_road_diesel, biodiesel_in_rail_diesel, biodiesel_in_internal_navigation_diesel, biokerosene_in_internal_aviation_fuel, ice_fuel_in_plugin_hybrid
-             ) = share_technology()
+             ) = share_technology(selected_country, year=2019)
         except Exception as e:
             print(f" Skipping {selected_country}: Technology shares error ({e})")
             continue

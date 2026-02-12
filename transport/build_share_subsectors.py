@@ -353,7 +353,7 @@ countries_to_process =  [
         "Uruguay",'Morocco',"South Africa","Angola","Benin","Botswana","Burkina Faso","Burundi","Cameroon",
         "Central African Republic","Chad","Comoros", "Congo","Djibouti","Equatorial Guinea","Eritrea",
         "Eswatini","Ethiopia","Gabon","Gambia","Ghana","Guinea","Guinea Bissau","Kenya","Lesotho","Liberia","Madagascar",
-        "Malawi","Mali","Mauritania","Mozambique","Namibia","Niger","Rwanda","Senegal","Sierra Leone","Somalia","Sudan",
+        "Malawi","Mali","Mauritania","Mozambique","Namibia","Nigeria","Rwanda","Senegal","Sierra Leone","Somalia","Sudan",
         "Tanzania","Togo","Uganda","Zambia","Zimbabwe", "Venezuela"]
 
 

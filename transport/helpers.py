@@ -646,6 +646,18 @@ TECH_GROUPS = {
         "Share of Technology - Ammonia Freight Ship",
         "Share of Technology - BEV Freight Ship",
         "Share of Technology - FCEV Freight Ship"
+    ],
+    "Int Aviation": [
+        "Share of Technology - Oil Int Aviation", "Share of Technology - Gas Int Aviation",
+        "Share of Technology - Electricity Int Aviation", "Share of Technology - Coal Int Aviation",
+        "Share of Technology - Biomass Int Aviation", "Share of Technology - Heat Int Aviation",
+        "Share of Technology - Hydrogen Int Aviation"
+    ],
+    "Int Maritime": [
+        "Share of Technology - Oil Int Maritime", "Share of Technology - Gas Int Maritime",
+        "Share of Technology - Electricity Int Maritime", "Share of Technology - Coal Int Maritime",
+        "Share of Technology - Biomass Int Maritime", "Share of Technology - Heat Int Maritime",
+        "Share of Technology - Hydrogen Int Maritime"
     ]
 }
 
