@@ -28,7 +28,7 @@ def prepare_ssp_df (df):
     df.reset_index(inplace=True)
     df.columns = ["SSP"] + list(df.columns[1:])
     df.set_index(["Country","SSP"],drop=True,inplace=True)
-    df =df*1000000 # units is person
+    df = df * 1000000 # units is person
     return df
 
 def interpolate (df):
@@ -309,7 +309,6 @@ def create_macro_indicators_all():
     dfs_country_spe, dfs_global = load_all_files("residential") # specify the sector to load the data. It is also possible to configurate it with "industry"
     
     df_population = process_ssp_pop(dfs_country_spe)
-    df_population = df_population.round(0).astype("int64")
     df_gdp = process_ssp_gdp(dfs_country_spe)
     df_gdp_ssp = process_ssp_gdp_percapita(df_gdp,df_population)
 
@@ -347,35 +346,51 @@ def create_macro_indicators_all():
 
     df_gdp_ssp = pd.merge(
         df_gdp_ssp.reset_index(),
-        df_economics["Region"], 
-        on= "country", 
-        how ="left")
+        df_economics["Region"],
+        on="country",
+        how="left",
+    )
 
     
     categories = create_categories(df_economics_std, df_all)
     df_mean_classification, bins_dict, labels_dict, years_ssp_gdp = categories
 
     # generate person/dwelling for all interested countries
-    df_person_dw = df_gdp_ssp.apply(categorize_persons_per_dwelling, axis=1,
-                                    args=(df_mean_classification, bins_dict, labels_dict, years_ssp_gdp))
-    df_person_dw.set_index(["country","SSP","Region"], drop =True,inplace=True)
+    df_ppd_source = df_gdp_ssp.drop(columns=["Unit"], errors="ignore")
+    df_person_dw = df_ppd_source.apply(
+        categorize_persons_per_dwelling,
+        axis=1,
+        args=(df_mean_classification, bins_dict, labels_dict, years_ssp_gdp),
+    )
+    df_person_dw.set_index(["country", "SSP", "Region"], drop=True, inplace=True)
+
+    year_cols = pd.to_numeric(df_person_dw.columns, errors="coerce")
+    df_person_dw.columns = year_cols
+    df_person_dw = df_person_dw.loc[:, year_cols.notna()]
+    df_person_dw.columns = df_person_dw.columns.astype(int)
+
+    for year in df_person_dw.columns:
+        if year not in years_ssp_gdp:
+            df_person_dw[year] = np.nan
+    df_person_dw = df_person_dw.reindex(
+        columns=range(df_person_dw.columns.min(), df_person_dw.columns.max() + 1)
+    ).interpolate(axis=1).ffill(axis=1).bfill(axis=1)
     df_person_dw = round(df_person_dw, 2)
 
     return df_population, df_gdp_ssp, df_m2_p_all, df_person_dw, df_economics
 
-# Only necessary for local testing
+## Only necessary for local testing
 # if __name__=="__main__":
 #     df_population, df_gdp_ssp, df_m2_p_all, df_person_dw, df_economics = create_macro_indicators_all()
 
-# print (df_population, df_gdp_ssp, df_m2_p_all, df_person_dw, df_economics)
+    # print(df_population, df_gdp_ssp, df_m2_p_all, df_person_dw, df_economics)
 
+    # out_dir = os.path.join(os.path.dirname(__file__), "output_data\macro_indicators")
+    # os.makedirs(out_dir, exist_ok=True)
+    # print(out_dir, os.path.exists(out_dir))
 
-# out_dir = os.path.join(os.path.dirname(__file__), "output_data\macro_indicators")
-# os.makedirs(out_dir, exist_ok=True)
-# print(out_dir, os.path.exists(out_dir))
-      
-# df_population.to_csv(os.path.join(out_dir, "population.csv"), index=True)
-# df_gdp_ssp.to_csv(os.path.join(out_dir, "gdp_ssp.csv"), index=True)
-# df_m2_p_all.to_csv(os.path.join(out_dir, "m2_pp.csv"), index=True)
-# df_person_dw.to_csv(os.path.join(out_dir, "person_dw.csv"), index=True)
-# df_economics.to_csv(os.path.join(out_dir, "economic_ind.csv"), index=True)
+    # df_population.to_csv(os.path.join(out_dir, "population.csv"), index=True)
+    # df_gdp_ssp.to_csv(os.path.join(out_dir, "gdp_ssp.csv"), index=True)
+    # df_m2_p_all.to_csv(os.path.join(out_dir, "m2_pp.csv"), index=True)
+    # df_person_dw.to_csv(os.path.join(out_dir, "person_dw.csv"), index=True)
+    # df_economics.to_csv(os.path.join(out_dir, "economic_ind.csv"), index=True)

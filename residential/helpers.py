@@ -3,6 +3,9 @@ import pandas as pd
 import tabula
 from pathlib import Path
 import glob
+import build_energy_intensities as build_en_int
+
+DEFAULT_TARGET_YEARS = [2020, 2030, 2035, 2040, 2045, 2050]
 
 
 def open_pdf(file_path, pages="1", multiple_tables=False, encoding="latin1", **kwargs):
@@ -76,7 +79,7 @@ def load_all_files(energy_sector="residential", base_dir=None):
 
 def generate_units_dictionary():
     data_units_dict = {
-    "Population": "millions",
+    "Population": "persons",
     "Residential Area per Person": "m2/p",
     "Persons per Dwelling": "p/dw",
 
@@ -158,15 +161,63 @@ def generate_units_dictionary():
     "Final Energy Intensity of Traditional Biomass Stoves for Cooking": "kWh/dw",
     "Final Energy Intensity of Electrical Appliances": "kWh/dw",
 
-    "Final Energy Intensity of Space Heating": "% per year",
-    "Final Energy Intensity of Space Cooling": "% per year",
-    "Final Energy Intensity of Water Heating": "% per year",
-    "Final Energy Intensity of Cooking": "% per year",
-    "Final Energy Intensity of Electrical Appliances": "% per year"
     }
     return data_units_dict
 
-# TODO EXTRACTED FROM TRANSPORT VALIDATE
+
+SH_METRICS = {
+    "residential oil_share": "Share of Oil Boilers for Space Heating",
+    "lpg_share": "Share of LPG Boilers for Space Heating",
+    "residential gas_share": "Share of Natural Gas Boilers for Space Heating",
+    "kerosene_share": "Share of Kerosene Boilers for Space Heating",
+    "coal_share": "Share of Coal Boilers for Space Heating",
+    "biogas_share": "Share of Biogas Boilers for Space Heating",
+    "residential biomass_share": "Share of Traditional Biomass Boilers for Space Heating",
+    "modern_biomass_share": "Share of Modern Biomass Boilers for Space Heating",
+    "hydrogen_share": "Share of Hydrogen Boilers for Space Heating",
+    "solar_share": "Share of Solar Heating for Space Heating",
+    "district_heating_share": "Share of District Heating for Space Heating",
+    "electricity residential_share": "Share of Electric Heaters for Space Heating",
+    "heat_pumps_share": "Share of Heat Pumps for Space Heating",
+}
+
+COOKING_METRICS = {
+    "Share of Electric Stoves for Cooking": "electricity",
+    "Share of Natural Gas Stoves for Cooking": "natural gas",
+    "Share of LPG Stoves for Cooking": None,
+    "Share of Kerosene Stoves for Cooking": "kerosene",
+    "Share of Traditional Biomass Stoves for Cooking": "biomass",
+}
+
+CAGR_SCENARIO_MAP = {
+    "Current Policies": "BAU",
+    "Progessive Measuraments": "Progressive",
+    "Ambitious Net Zero": "Optimistic",
+}
+
+CAGR_UNITS_MAP = {
+    "Final Energy Intensity of Space Heating": "kWh/m2",
+    "Final Energy Intensity of Space Cooling": "kWh/m2",
+    "Final Energy Intensity of Water Heating": "kWh/dw",
+    "Final Energy Intensity of Cooking": "kWh/dw",
+    "Final Energy Intensity of Electrical Appliances": "kWh/dw",
+}
+
+SATURATION_SCENARIO_MAP = {
+    "baseline": "BAU",
+    "Current Policies": "BAU",
+    "Progessive Measuraments": "Progressive",
+    "Ambitious Net Zero": "Optimistic",
+}
+
+INTENSITY_METRICS_MAP = {
+    "Final Energy Intensity of Space Heating": build_en_int.SPACE_HEATING_INTENSITY_METRICS,
+    "Final Energy Intensity of Space Cooling": build_en_int.SPACE_COOLING_INTENSITY_METRICS,
+    "Final Energy Intensity of Water Heating": build_en_int.WATER_HEATING_INTENSITY_METRICS,
+    "Final Energy Intensity of Cooking": build_en_int.COOKING_INTENSITY_METRICS,
+    "Final Energy Intensity of Electrical Appliances": build_en_int.APPLIANCES_INTENSITY_METRICS,
+}
+
 
 def load_residential_config(path: Path, countries: list, scenarios: list):
 

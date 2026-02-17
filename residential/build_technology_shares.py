@@ -200,6 +200,21 @@ def create_technology_shares_all():
 
     df_sh_shares[[f'{col}_share' for col in columns_to_calculate]] = df_sh_shares[columns_to_calculate].apply(lambda x: round(x / df_sh_shares["total GWh"],2), axis= 0)
 
+    zero_share_columns = [
+        "lpg_share",
+        "kerosene_share",
+        "coal_share",
+        "biogas_share",
+        "modern_biomass_share",
+        "hydrogen_share",
+        "solar_share",
+        "district_heating_share",
+        "heat_pumps_share",
+    ]
+    for col in zero_share_columns:
+        if col not in df_sh_shares.columns:
+            df_sh_shares[col] = 0.0
+
     # Load tables for cooking
     # cwd =os.getcwd()
     # file_path= os.path.join(

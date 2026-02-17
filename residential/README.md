@@ -25,8 +25,8 @@ We categorized input_data into country-specific and global
 
 # Configuration options
     ## basics:
-        BASE_YEAR - refers to the starting point for building the demands. Possible years from 2019 until 2023 
-        GROWTH_PATHWAY - The Shared Socioeconomic Pathways (SSPs) are used as reference trajectories of development FOR GDP and Population. 
+        BASE_YEAR: refers to the starting point for building the demands. Possible years from 2019 until 2023 
+        GROWTH_PATHWAY: The Shared Socioeconomic Pathways (SSPs) are used as reference trajectories of development FOR GDP and Population. 
             Options are SSP1, SSP2, SSP3, SSP4, SSP5
   
             # mitigation challenges vs adaption challenges
@@ -37,9 +37,9 @@ We categorized input_data into country-specific and global
             # SSP5 : Fossil-fueled Development ("Taking the Highway") - mitigation challenges dominate
             more information-->  https://en.wikipedia.org/wiki/Shared_Socioeconomic_Pathways
 
-        SCENARIO_NAME - three scenarios top are possible
+        SCENARIO_NAME: max. three scenarios
 
-        TARGET_YEARS - all years between 2020 and 2050 are possible to select.
+
     
     ## configuration parameters
         TRANSPORT_CONFIG_FILE - a preliminary selection for a configuration is provided based on a mix of methodologies to build parameters. 
@@ -62,6 +62,7 @@ We categorized input_data into country-specific and global
                 "South Africa", "South Korea", "United Kingdom", "United States of America"
             ]
 
+* IMPORTANT NOTE: in the parameters.csv it is possible to change only the CAGR for the final energy intensity. If final energy intensity absolute values are change in this conf file, it wont be possible to overwrite the values.
 
 # Steps in PyPSA
 

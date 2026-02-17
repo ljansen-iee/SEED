@@ -63,7 +63,7 @@ def build_CAGR_default():
     df_CAGR_default.reset_index(inplace=True)
     df_CAGR_default.set_index(["subregion","energy_intensity"], inplace=True)
     
-    return df_CAGR_default
+    return (df_CAGR_default / 100).round(4)
 
 def build_Africa_regions():
     # path = os.path.join(os.path.dirname(os.getcwd()),"residential","input_data","global","UNSD — Methodology.csv")
@@ -137,7 +137,7 @@ def build_CAGR_Africa():
     df_CAGR_Africa = pd.concat(df_all, ignore_index=False,axis =1)
     df_CAGR_Africa.columns = pd.MultiIndex.from_tuples(df_CAGR_Africa.columns, names=['scenario', 'year'])
 
-    return df_CAGR_Africa
+    return (df_CAGR_Africa / 100).round(4)
 
 def build_CAGR_LATAM():
     reference_pathway_options, target_years = build_scenarios()
@@ -184,7 +184,7 @@ def build_CAGR_LATAM():
 
     df_CAGR_LATAM.set_index(["subregion","energy_intensity"], inplace=True)
 
-    return df_CAGR_LATAM
+    return (df_CAGR_LATAM / 100).round(4)
 
 def build_CAGR():
     df_CAGR_LATAM = build_CAGR_LATAM()
@@ -266,7 +266,7 @@ def export_all_countries_cagr_csv(output_path=None):
             for col in df_cagr.columns
         ]
     if output_path is None:
-        output_dir = Path(__file__).resolve().parent / "output_data"
+        output_dir = Path(__file__).resolve().parent / "output_data/macro_indicators"
         output_dir.mkdir(parents=True, exist_ok=True)
         output_path = output_dir / "CAGR_residential.csv"
     df_cagr.to_csv(output_path, index=False)
