@@ -2,9 +2,18 @@
 import pandas as pd
 from pathlib import Path
 
-def load_transport_config(excel_path: Path, countries: list, scenarios: list):
+import pandas as pd
+import numpy as np
+from pathlib import Path
 
+def load_transport_config(excel_path: Path, countries: list, scenarios: list):
+    """
+    Loads the transport configuration Excel and merges country-specific 
+    values with defaults, handling empty strings and spaces robustly.
+    """
+    # Load Excel
     df = pd.read_excel(excel_path)
+    # Strip any spaces from column headers (e.g. "Morocco " -> "Morocco")
     df.columns = df.columns.str.strip()
 
     required_cols = {
@@ -14,36 +23,57 @@ def load_transport_config(excel_path: Path, countries: list, scenarios: list):
         "Scenario",
         "default"
     }
+    
     if not required_cols.issubset(df.columns):
         raise ValueError(f"Excel must contain columns: {required_cols}")
 
     SCENARIO_ALIAS_MAP = {"sc_a": 0, "sc_b": 1, "sc_c": 2}
-
     config = {c: {} for c in countries}
+
+    # Helper function to clean text and convert to float safely
+    def safe_float(val):
+        if pd.isna(val):
+            return None
+        # Remove spaces
+        s_val = str(val).strip()
+        # If it's just a space or empty string, treat as None
+        if s_val == "" or s_val.lower() == "nan":
+            return None
+        try:
+            return float(s_val)
+        except ValueError:
+            return None
 
     for _, row in df.iterrows():
         metric = str(row["Metric Name"]).strip()
-
+        
         try:
             year = int(row["Year"])
-        except Exception:
+        except (ValueError, TypeError):
             continue
 
-        scenario_val = str(row["Scenario"]).strip()
-        scenario_val_lower = scenario_val.lower()
-        default_val = row["default"]
+        scenario_val_raw = str(row["Scenario"]).strip()
+        scenario_val_lower = scenario_val_raw.lower()
+        
+        # Pre-clean the default value for this row
+        default_num = safe_float(row["default"])
 
         for country in countries:
-            if country in df.columns and pd.notna(row[country]):
-                val = float(row[country])
-            elif pd.notna(default_val):
-                val = float(default_val)
-            else:
+            # 1. Get and clean the country-specific value
+            country_raw = row[country] if country in df.columns else np.nan
+            val = safe_float(country_raw)
+
+            # 2. FALLBACK: If country value is empty, use the default value
+            if val is None:
+                val = default_num
+
+            # 3. If BOTH are empty, skip this entry
+            if val is None:
                 continue
 
-            # Resolve scenario
-            if scenario_val in scenarios:
-                target_scenarios = [scenario_val]
+            # 4. Resolve which scenarios this applies to
+            if scenario_val_raw in scenarios:
+                target_scenarios = [scenario_val_raw]
             elif scenario_val_lower == "all":
                 target_scenarios = scenarios
             elif scenario_val_lower in SCENARIO_ALIAS_MAP:
@@ -55,15 +85,18 @@ def load_transport_config(excel_path: Path, countries: list, scenarios: list):
             else:
                 continue
 
+            # 5. Store in the config dictionary
             for s in target_scenarios:
-                entry = config[country].setdefault(
-                    metric,
-                    {
+                if metric not in config[country]:
+                    config[country][metric] = {
                         "assumption_type": str(row["Assumption Type"]).strip().upper(),
                         "values": {}
                     }
-                )
-                entry["values"].setdefault(year, {})[s] = val
+                
+                if year not in config[country][metric]["values"]:
+                    config[country][metric]["values"][year] = {}
+                
+                config[country][metric]["values"][year][s] = val
 
     return config
 

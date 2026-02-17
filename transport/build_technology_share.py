@@ -29,7 +29,7 @@ def load_oecd_transport_file(base_dir=None):
         )
 
     df = pd.read_csv(file_path)
-    print(" OECD transport file loaded successfully!")
+    #print(" OECD transport file loaded successfully!")
 
     return df
 

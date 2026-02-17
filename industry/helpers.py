@@ -255,107 +255,40 @@ def _forecast_from_history_and_sparse_cagr(
     scenarios: List[str],
 ) -> Dict[str, float]:
     """
-    Chained CAGR logic with interpolation between anchors.
-
-    For each scenario:
-      - We have anchor CAGRs, e.g. {2030: r_2030, 2050: r_2050}.
-      - First compute values at all anchor years *sequentially*:
-          v(2030) = base * (1 + r_2030)^(2030 - base_year)
-          v(2050) = v(2030) * (1 + r_2050)^(2050 - 2030)
-      - Then for any target year Y:
-          * If Y == anchor year → use that anchor value.
-          * If between two anchors → linearly interpolate between
-            the two anchor VALUES (not the rates).
-          * If before first anchor → use first anchor CAGR from base.
-          * If after last anchor → extend last anchor CAGR beyond last anchor.
+    Step-CAGR logic to match Excel milestones exactly.
+    Applies the CAGR rate exponentially for the entire period.
     """
     result: Dict[str, float] = {}
 
     if not target_years:
         return result
 
-    target_years_sorted = sorted(set(int(y) for y in target_years))
-
     for sc in scenarios:
         anchors = sc_anchors.get(sc, {}) or {}
-        # list of (year, rate) sorted by year
+        # Get (year, rate) sorted by year
         anchor_items = sorted((int(y), float(r)) for y, r in anchors.items())
 
-        # always store values at years here
-        values: Dict[int, float] = {int(last_obs_year): float(last_obs_val)}
-
-        # === 1. Compute values at anchor years sequentially (chained growth) ===
-        if anchor_items:
-            prev_year = int(last_obs_year)
-            prev_val  = float(last_obs_val)
-
-            for y_anchor, r_anchor in anchor_items:
-                if y_anchor <= prev_year:
-                    continue
-                years_diff = y_anchor - prev_year
-                v_anchor = prev_val * ((1.0 + r_anchor) ** years_diff)
-                values[y_anchor] = v_anchor
-                prev_year, prev_val = y_anchor, v_anchor
-
-        # convenience variables
-        anchor_years = sorted(y for y in values.keys() if y != last_obs_year)
-        first_anchor_year = anchor_years[0] if anchor_years else None
-        last_anchor_year  = anchor_years[-1] if anchor_years else None
-        last_anchor_rate  = (
-            anchor_items[-1][1] if anchor_items else 0.0
-        )
-
-        for Y in target_years_sorted:
+        for Y in sorted(target_years):
             if Y <= last_obs_year:
+                result[f"{Y}_{sc}"] = float(last_obs_val)
                 continue
 
-            # exact anchor/base value
-            if Y in values:
-                val_Y = values[Y]
-
-            else:
-                # no anchors at all → no growth (flat)
-                if not anchor_items:
-                    val_Y = float(last_obs_val)
-
-                # before first anchor → use first anchor CAGR from base
-                elif first_anchor_year is not None and Y < first_anchor_year:
-                    r_first = anchor_items[0][1]
-                    years_diff = Y - last_obs_year
-                    val_Y = float(last_obs_val) * ((1.0 + r_first) ** years_diff)
-
-                # after last anchor → extend last anchor CAGR from last anchor value
-                elif last_anchor_year is not None and Y > last_anchor_year:
-                    v_last = values[last_anchor_year]
-                    years_diff = Y - last_anchor_year
-                    val_Y = v_last * ((1.0 + last_anchor_rate) ** years_diff)
-
+            # STEP LOGIC: Find the rate that applies to the current target year
+            active_rate = 0.0
+            if anchor_items:
+                for y_anchor, r_anchor in anchor_items:
+                    if Y <= y_anchor:
+                        active_rate = r_anchor
+                        break
                 else:
-                    # between two anchors → interpolate between anchor VALUES
-                    # find previous and next anchor around Y
-                    prev_y = None
-                    next_y = None
-                    for y in sorted(anchor_years):
-                        if y <= Y:
-                            prev_y = y
-                        if y >= Y:
-                            next_y = y
-                            break
+                    # If target year is past the last anchor, use the last known rate
+                    active_rate = anchor_items[-1][1]
 
-                    # safety fallback
-                    if prev_y is None:
-                        prev_y = first_anchor_year
-                    if next_y is None:
-                        next_y = last_anchor_year
-
-                    v_prev = values[prev_y]
-                    v_next = values[next_y]
-                    if next_y == prev_y:
-                        val_Y = v_prev
-                    else:
-                        frac = (Y - prev_y) / (next_y - prev_y)
-                        val_Y = v_prev + (v_next - v_prev) * frac
-
+            # COMPOUND GROWTH: Base * (1 + r)^n
+            # This is exactly how Excel calculates the 544,967 value.
+            years_diff = Y - last_obs_year
+            val_Y = float(last_obs_val) * ((1.0 + active_rate) ** years_diff)
+            
             result[f"{Y}_{sc}"] = float(val_Y)
 
     return result
@@ -475,6 +408,12 @@ def get_mapped_config_name(metric_name: str) -> str:
     Maps specific fuel-based metric names to general process categories 
     defined in the industry_config Excel file.
     """
+    # 1. First, check if this is an Intensity metric. 
+    # If it is NOT an intensity metric, return the name as is (to pick up Production rates)
+    if "intensity" not in metric_name.lower():
+        return metric_name
+
+    # 2. If it IS an intensity metric, map the fuel-specific name to the general category
     mapping_keywords = {
         "blast furnaces + open hearth furnace": "Energy intensity of blast furnaces + open hearth furnaces",
         "blast furnaces + basic oxygen furnace": "Energy intensity of blast furnaces + basic oxygen furnaces",
@@ -489,14 +428,11 @@ def get_mapped_config_name(metric_name: str) -> str:
         "secondary pulp": "Energy intensity of secondary pulp production"
     }
 
-    # Search for the keyword within the long metric name
     for keyword, config_name in mapping_keywords.items():
         if keyword.lower() in metric_name.lower():
             return config_name
             
-    # If no keyword matches, return the original name (safe fallback)
     return metric_name
-
 
 import pandas as pd
 from pathlib import Path

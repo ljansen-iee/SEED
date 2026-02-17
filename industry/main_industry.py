@@ -33,8 +33,8 @@ from scripts.food_and_tobacco.build_shares_food_and_tobacco import get_unsd_fuel
 
 def main():
     # ---- USER SETTINGS ----
-    base_year = 2021
-    target_years = [2030, 2035, 2040, 2045,2050]
+    base_year = 2020
+    target_years = [2030,2050]
     scenarios = ["Baseline","AP","NZ"]
 
 
@@ -47,14 +47,14 @@ def main():
     print("===============================\n")
 
     # ---- Countries ----
-    countries_to_process = ["Morocco",
-                          "Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Nigeria",
-                          "Algeria","Argentina","Brazil","Chile","Colombia","Peru","Venezuela",
-                          "Morocco","Tunisia","Tanzania", "South Africa","Libya",
+    countries_to_process = ["Morocco"
+                          #"Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Nigeria",
+                          #"Algeria","Argentina","Brazil","Chile","Colombia","Peru","Venezuela",
+                          #"Morocco","Tunisia","Tanzania", "South Africa","Libya",
                           #G20 countries
-                           "Australia", "Canada", "China", "France", "Germany",  
-                          "India", "Indonesia", "Italy", "Japan", "Mexico","Russia", "Saudi Arabia", 
-                           "South Korea", "United Kingdom","United States of America"
+                           #"Australia", "Canada", "China", "France", "Germany",  
+                          #"India", "Indonesia", "Italy", "Japan", "Mexico","Russia", "Saudi Arabia", 
+                           #"South Korea", "United Kingdom","United States of America"
                            ]
 
     industry_cagr_excel = load_industry_config(
@@ -278,6 +278,9 @@ def main():
             
             for fuel in all_fuels:
                 lookup_name = f"share of {fuel} for unspecified {s_id}".lower()
+                
+                # We need to see if the specific COUNTRY has a value
+                # Check your build_CAGR.py to ensure this returns a dict of years/scenarios
                 excel_share_values = get_metric_cagr_cfg_from_excel(industry_cagr_excel, country, lookup_name)
                 
                 fuel_series = {}
@@ -287,11 +290,21 @@ def main():
                         sc_name = scenarios[idx]
                         excel_val = excel_share_values.get(y, {}).get(sc_name)
                         
-                        if excel_val is not None:
+                        # --- THE LOGIC FIX ---
+                        # We only use excel_val if it is NOT NaN and NOT 0.0 (as a placeholder)
+                        # If you want a real 0% share, you would enter 0.0001 or use a special flag.
+                        # But typically, if Morocco is empty, we want to REPLICATE history.
+                        
+                        if excel_val is not None and not pd.isna(excel_val) and excel_val != 0.0:
+                            # Use the specific instruction from Excel
                             vals.append(float(excel_val))
-                        else:
-                            # Replicate the 2021 UNSD share if no override exists
+                        elif y == base_year:
+                            # Always use history for the base year column
                             vals.append(float(base_shares.get(fuel, 0.0)))
+                        else:
+                            # For 2030/2050, if Excel is 0 or Blank, REPLICATE 2020
+                            vals.append(float(base_shares.get(fuel, 0.0)))
+
                     fuel_series[y] = vals
                 fuel_shares_proj[fuel] = fuel_series
 
@@ -478,7 +491,7 @@ def main():
                 "source": df_steel_production,
                 "column": str(base_year),
                 "unit": "tons/y",
-                "forecast": False,
+                "forecast": True,
             },
             "Share of primary steel": {
                 "source": share_primary_steel,
@@ -2206,9 +2219,7 @@ def main():
             # --- GENERIC FORECAST / OUTPUT for all other metrics ---
 
             result_expanded = {base_year: base_val}
-
-
-
+            
             if meta.get("forecast", True) and base_val is not None:
                 # 1. Map the specific metric name to the category name in your Excel
                 search_name = get_mapped_config_name(name)
@@ -2239,15 +2250,16 @@ def main():
                 if name == "Steel production per year":
                     last_obs_year = base_year
                     last_obs_val  = base_val
+                elif name == "Paper production per year":
+                    last_obs_year = 2021 
+                    last_obs_val  = base_val
                 elif hist_series:
                     last_obs_year = max(hist_series.keys())
                     last_obs_val  = hist_series[last_obs_year]
-                    # keep any already-known values up to the last observation
                     for y in target_years:
                         if y <= last_obs_year and f"{y}_{scenarios[0]}" in scenario_vals:
                             for sc in scenarios:
                                 result_expanded[f"{y}_{sc}"] = scenario_vals.get(f"{y}_{sc}")
-
                 else:
                     last_obs_year = base_year
                     last_obs_val  = base_val
@@ -2255,10 +2267,18 @@ def main():
 
                 future_years = [y for y in target_years if y > last_obs_year]
                 if future_years:
-                    sc_anchors = _build_rate_anchors_indexed(metric_cfg, scenarios)
-                    grown = _forecast_from_history_and_sparse_cagr(
-                        last_obs_val, last_obs_year, future_years, sc_anchors, scenarios
+                    # We use the new library function here
+                    grown = expand_with_cagr_smooth(
+                        base_value=last_obs_val,
+                        cagr_table=metric_cfg,
+                        base_year=last_obs_year,
+                        target_years=future_years,
+                        scenarios=scenarios
                     )
+                    
+                    # Optional: Add this to see if it's working in your console
+                    #print(f"Metric: {name} | Base {last_obs_year}: {last_obs_val} | 2030 result: {grown.get('2030_Baseline')}")
+                    
                     result_expanded.update(grown)
             else:
                 for k, v in scenario_vals.items():

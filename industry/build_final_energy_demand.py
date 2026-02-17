@@ -13,15 +13,15 @@ import pandas as pd
 CHOOSE_FOLDER = "industry_config"
 
 # Countries to run – you just edit this list
-AVAILABLE_COUNTRIES = ["Morocco",
-                        "Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
-                         "Algeria","Argentina","Brazil","Chile","Colombia","Mexico","Peru","Venezuela",
-                        "Morocco","Tunisia","Tanzania", "South Africa","Libya",
+AVAILABLE_COUNTRIES = ["Morocco"]
+                        #"Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
+                        # "Algeria","Argentina","Brazil","Chile","Colombia","Mexico","Peru","Venezuela",
+                        #"Morocco","Tunisia","Tanzania", "South Africa","Libya",
 
                           #G20 countries
-                          "Argentina", "Australia", "Brazil", "Canada", "China", "France", "Germany",  
-                          "India", "Indonesia", "Italy", "Japan", "Mexico","Russia", "Saudi Arabia", 
-                          "South Africa", "South Korea", "United Kingdom", "United States"]
+                          #"Argentina", "Australia", "Brazil", "Canada", "China", "France", "Germany",  
+                          #"India", "Indonesia", "Italy", "Japan", "Mexico","Russia", "Saudi Arabia", 
+                          #"South Africa", "South Korea", "United Kingdom", "United States"]
 
 
 # Order of carriers in the new "carrier" sheet
@@ -200,6 +200,7 @@ def get_results_folder(country: str) -> Path:
 
 def build_sec_other_from_output(df_output: pd.DataFrame) -> pd.DataFrame:
     frames = []
+    # Ensure these match the EXACT string in your "Metric" column in Morocco_Output
     sector_map = {
         "machinery": "Industry Machinery",
         "construction": "Industry Construction",
@@ -210,20 +211,24 @@ def build_sec_other_from_output(df_output: pd.DataFrame) -> pd.DataFrame:
         "wood and wood products": "Industry Wood and Wood Products"
     }
 
-    # Define all fuels we want to capture
     TARGET_FUELS = ["Diesel", "Natural Gas", "Electricity", "Coal", "Heat", "Biomass", "Hydrogen", "Ammonia", "Methanol", "Steel"]
-
     scenario_cols = [c for c in df_output.columns if c not in ["Metric", "Units"]]
 
     for col in scenario_cols:
         year = _first_year_in_string(col)
-        scenario = col.split("_", 1)[1] if "_" in str(col) else "Baseline"
+        # Fix: Ensure scenario name is cleaned (e.g., '2030_AP' -> 'AP')
+        scenario = col.split("_", 1)[1] if "_" in str(col) else "Historic"
         rows = []
 
         for metric_key, sec_label in sector_map.items():
+            # IMPORTANT: Check if metric name is 'Final energy of food and tobacco' 
+            # or 'Final energy demand of food and tobacco'
             total_demand = _get_val(df_output, f"Final energy of {metric_key}", col, 0.0)
+            
+            # If total_demand is 0, try searching for the metric without "of"
+            if total_demand == 0:
+                total_demand = _get_val(df_output, f"Final energy {metric_key}", col, 0.0)
 
-            # Map Morocco_Output metric names to internal fuel keys
             shares = {
                 "Diesel": _get_val(df_output, f"Share of oil for unspecified {metric_key}", col, 0.0) / 100,
                 "Natural Gas": _get_val(df_output, f"Share of gas for unspecified {metric_key}", col, 0.0) / 100,
@@ -232,14 +237,12 @@ def build_sec_other_from_output(df_output: pd.DataFrame) -> pd.DataFrame:
                 "Heat": _get_val(df_output, f"Share of heat for unspecified {metric_key}", col, 0.0) / 100,
                 "Biomass": _get_val(df_output, f"Share of biomass for unspecified {metric_key}", col, 0.0) / 100,
                 "Hydrogen": _get_val(df_output, f"Share of hydrogen for unspecified {metric_key}", col, 0.0) / 100,
-                "Ammonia": _get_val(df_output, f"Share of ammonia for unspecified {metric_key}", col, 0.0) / 100,
-                "Methanol": _get_val(df_output, f"Share of methanol for unspecified {metric_key}", col, 0.0) / 100,
-                "Steel": _get_val(df_output, f"Share of steel for unspecified {metric_key}", col, 0.0) / 100,
             }
 
             for fuel_key in TARGET_FUELS:
                 share_val = shares.get(fuel_key, 0.0)
-                fuel_demand = total_demand * share_val
+                # If your numbers are too big, divide by a factor (e.g., 1e6) here if the source is in Joules
+                fuel_demand = (total_demand * 1000) * share_val
                 
                 rows.append({
                     "Year": year,
@@ -248,11 +251,14 @@ def build_sec_other_from_output(df_output: pd.DataFrame) -> pd.DataFrame:
                     sec_label: fuel_demand
                 })
 
-        df_tmp = pd.DataFrame(rows)
-        frames.append(df_tmp)
+        if rows:
+            df_tmp = pd.DataFrame(rows)
+            frames.append(df_tmp)
 
+    if not frames:
+        return pd.DataFrame(columns=["Year", "Scenario", "SEC_Fuel"])
+        
     df = pd.concat(frames, ignore_index=True)
-    # Pivot to sum up demands by Year, Scenario, and Fuel
     piv = df.pivot_table(index=["Year", "Scenario", "SEC_Fuel"], aggfunc="sum", fill_value=0).reset_index()
     return piv
 
@@ -2185,7 +2191,7 @@ def build_all_feedstock_from_metrics(input_path: Path, output_path: Path):
         steel_tidy.to_excel(writer, sheet_name="Steel", index=False)
         nmm_tidy.to_excel(writer, sheet_name="Non metallic minerals", index=False)
         pp_tidy.to_excel(writer, sheet_name="Paper and pulp", index=False)
-        ammo_tidy.to_excel(writer, sheet_name="Chemical_and_petrochemical", index=False)
+        ammo_tidy.to_excel(writer, sheet_name="Ammonia", index=False)
 
     print(f" Saved final energy demand → {output_path}")
 
@@ -2252,6 +2258,30 @@ def build_sec_table_from_feedstock(
 
     print(f"Saved combined SEC table → {output_xlsx}")
     print(f"Saved carrier-level table → {output_xlsx}")
+
+def build_presentation_summary(sec_all: pd.DataFrame, country_name: str) -> pd.DataFrame:
+    """
+    Generates a high-level summary table (Presentation style).
+    Aggregates ALL industry sectors dynamically.
+    """
+    iso = get_iso_code(country_name)
+    metadata_cols = ["Year", "Scenario", "SEC_Fuel"]
+    
+    # Automatically identify ALL individual sector columns present in the SEC sheet
+    sector_cols = [c for c in sec_all.columns if c not in metadata_cols]
+    
+    summary = sec_all[metadata_cols].copy()
+    summary.insert(0, "Country", iso) # Add Country at the start
+    
+    # Calculate Total Industry Demand
+    summary["Total Industry Energy (MWh)"] = sec_all[sector_cols].sum(axis=1)
+    
+    # Add individual columns for every sector found (cleaned names)
+    for col in sector_cols:
+        clean_name = col.replace("Industry ", "")
+        summary[clean_name] = sec_all[col]
+
+    return summary
 
 def run_industry_pipeline_for_country(country: str):
     """

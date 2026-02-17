@@ -39,9 +39,9 @@ def load_industry_config(excel_path: Path, countries: list, scenarios: list):
             else:
                 val = row.get("default", 0.0) # Safer fallback
                 
-            if pd.isna(val): 
-                val = 0.0
-                
+            if pd.isna(val):
+                continue
+
             scenario_key = str(row["Scenario"]).strip().lower()
             target_indices = []
             
@@ -66,48 +66,37 @@ def get_metric_cagr_cfg_from_excel(industry_config, country, metric_name):
     return industry_config.get(country, {}).get(metric_name, {}).get("values", {})
 
 def expand_with_cagr_smooth(base_value, cagr_table, base_year, target_years, scenarios):
-    """
-    Calculates future values for ALL scenarios using smooth sliding growth rates.
-    This replaces the piecewise function to ensure the 'Very Smooth' transition.
-    """
-    if isinstance(base_value, (list, tuple, dict)):
-        # Extract the first available number
-        if isinstance(base_value, dict):
-            base_value = list(base_value.values())[0]
-        else:
-            base_value = base_value[0]
-
-    if base_value is None or (isinstance(base_value, float) and np.isnan(base_value)):
-        return {f"{y}_{sc}": 0.0 for y in target_years for sc in scenarios}
+    # [Keep your base_value extraction code at the top]
     
-    # Identify the milestones (2030, 2050)
-    config_milestones = sorted([int(k) for k in cagr_table.keys() if str(k).isdigit()])
-    
-    # If no CAGR data in Excel, keep base value constant
-    if not config_milestones:
-        return {f"{y}_{sc}": float(base_value) for y in target_years for sc in scenarios}
-
     result = {}
-    mile_years = [base_year] + config_milestones
     max_target = max(target_years)
+    config_milestones = sorted([int(k) for k in cagr_table.keys() if str(k).isdigit()])
 
     for scenario in scenarios:
-        # Get rates for this scenario at each milestone
-        # Use the first available milestone rate as the 'starting rate' at base_year
-        first_rate = cagr_table.get(config_milestones[0], {}).get(scenario, 0.0)
-        mile_rates = [first_rate] + [cagr_table.get(m, {}).get(scenario, 0.0) for m in config_milestones]
-        
         current_val = float(base_value)
         
-        # Calculate every single year to allow the rate to 'slide' (Interpolate)
         for y in range(base_year + 1, max_target + 1):
-            # Interpolate the growth rate for this specific year
-            annual_rate = np.interp(y, mile_years, mile_rates)
+            # STEP LOGIC: Find the rate for the CURRENT period
+            # We look for the milestone that governs the current year 'y'
+            active_rate = 0.0
             
-            # Compound the value
-            current_val = current_val * (1 + annual_rate)
+            # Find the milestone that is greater than or equal to the current year
+            # If we are in 2025, we look at the 2030 milestone rate.
+            # If we are in 2035, we look at the 2050 milestone rate.
+            for m_year in config_milestones:
+                if y <= m_year:
+                    val = cagr_table.get(m_year, {}).get(scenario)
+                    # If the milestone exists but is empty (NaN), use the previous milestone's rate
+                    if val is not None and not np.isnan(val):
+                        active_rate = val
+                        break
+            else:
+                # Fallback to the very last rate if we are past 2050
+                active_rate = cagr_table.get(config_milestones[-1], {}).get(scenario, 0.0)
+
+            # Compound
+            current_val = current_val * (1 + active_rate)
             
-            # If this is a report year, save it
             if y in target_years:
                 result[f"{y}_{scenario}"] = current_val
                 

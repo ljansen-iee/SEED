@@ -20,11 +20,11 @@ from helpers import refresh_unsd_master_data, UNSD_GLOBAL_OUTPUT, check_technolo
 # === Constants ===
 BASE_YEAR = 2020  
 SSP_ORDER = ["SSP2", "SSP2", "SSP1"]
-SCENARIOS = ["Baseline", "Er", "RL"] 
+SCENARIOS = ["Baseline", "RF", "EL"] 
 
 validate_scenarios_and_ssp(SCENARIOS, SSP_ORDER)
 
-TARGET_YEARS = [2030, 2035, 2040, 2045, 2050] 
+TARGET_YEARS = [2030, 2050] 
 
 # === Transport assumptions file ===
 TRANSPORT_CONFIG_FILE = "trans_config.xlsx"
@@ -35,7 +35,7 @@ print("Running transport sector pipeline")
 print(f"Transport assumptions file: {TRANSPORT_CONFIG_FILE}")
 print("===============================\n")
 
-devkopsys_countries = ["Morocco"]
+devkopsys_countries = ["Morocco","Egypt","Chile","South Africa"]
                        #"Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Nigeria"]
                        #"Algeria","Argentina","Brazil","Chile","Colombia","Mexico","Peru","Venezuela",
                        #"Morocco","Tunisia","Tanzania","Libya",
@@ -145,7 +145,6 @@ def main(base_year=None, target_years=None, scenarios=None):
             # Get base year value
             base_ssp = SSP_ORDER[0]
             pop_base = get_interpolated_value(pop_df, base_ssp, base_year)
-
             # Check if Population CAGR exists in config
             if "Population" in CAGR_VALUES:
 

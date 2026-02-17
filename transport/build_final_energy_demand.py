@@ -20,15 +20,13 @@ CHOOSE_FOLDER = "trans_config"
 
 
 # List of countries to process
-COUNTRY = [ 
-    "Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
-    "Algeria","Argentina","Brazil","Chile","Colombia","Mexico","Peru","Venezuela",
-    "Morocco","Tunisia","Tanzania", "South Africa","Libya",
-    "Australia", "Canada", "China", "France", "Germany",  
-    "India", "Indonesia", "Italy", "Japan", "Russia", "Saudi Arabia", 
-    "South Korea", "United Kingdom", "United States of America"
-]
-
+COUNTRY = [ "Morocco","Egypt","Chile","South Africa"]
+    #"Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
+    #"Algeria","Argentina","Brazil","Chile","Colombia","Mexico","Peru","Venezuela",
+    #"Morocco","Tunisia","Tanzania", "South Africa","Libya",
+    #"Australia", "Canada", "China", "France", "Germany",  
+    #"India", "Indonesia", "Italy", "Japan", "Russia", "Saudi Arabia", 
+   # "South Korea", "United Kingdom", "United States of America"]
 
 def get_iso2_country_code(c):
     try:
@@ -36,6 +34,7 @@ def get_iso2_country_code(c):
         match = pycountry.countries.search_fuzzy(c)[0]
         return match.alpha_2
     except (LookupError, AttributeError):
+        
         # Fallback for very specific naming mismatches if pycountry fails
         print(f"Warning: Could not find ISO code for '{c}'. Using fallback.")
         return c[:2].upper()
@@ -142,7 +141,7 @@ def safe_div(n, d):
 def add_row(rows, sector, subsector, mode, enduse, tech, fuel, scn, vkm, share, inten):
     fed_kwh = vkm * share * inten
     # CHANGE: Divide by 1e9 for TWh (instead of 1e6 for GWh)
-    fed_twh = fed_kwh / 1e9  
+    fed_twh = fed_kwh / 1e6
     rows.append([sector, subsector, mode, enduse, tech, fuel, scn, fed_twh])
 
 # =============================================================================
