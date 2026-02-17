@@ -8,11 +8,24 @@ from pathlib import Path
 
 def load_transport_config(excel_path: Path, countries: list, scenarios: list):
     """
-    Loads the transport configuration Excel and merges country-specific 
-    values with defaults, handling empty strings and spaces robustly.
+    Robustly loads the transport configuration (CSV or Excel) and merges 
+    country-specific values with defaults.
     """
-    # Load Excel
-    df = pd.read_excel(excel_path)
+    # --- NEW: Robust Path Check ---
+    excel_path = Path(excel_path)
+    if not excel_path.exists():
+        # Try adding .csv if it was missing
+        if excel_path.suffix == "":
+            excel_path = excel_path.with_suffix(".csv")
+    
+    if not excel_path.exists():
+        raise FileNotFoundError(f"Could not find config file at {excel_path}")
+
+    # --- NEW: Handle both CSV and Excel ---
+    if excel_path.suffix.lower() == ".csv":
+        df = pd.read_csv(excel_path)
+    else:
+        df = pd.read_excel(excel_path)
     # Strip any spaces from column headers (e.g. "Morocco " -> "Morocco")
     df.columns = df.columns.str.strip()
 

@@ -27,7 +27,7 @@ validate_scenarios_and_ssp(SCENARIOS, SSP_ORDER)
 TARGET_YEARS = [2030, 2050] 
 
 # === Transport assumptions file ===
-TRANSPORT_CONFIG_FILE = "trans_config.xlsx"
+TRANSPORT_CONFIG_FILE = "trans_config.csv"
 TRANSPORT_CONFIG_PATH = Path(__file__).resolve().parent / TRANSPORT_CONFIG_FILE
 
 print("\n===============================")
@@ -840,15 +840,17 @@ def main(base_year=None, target_years=None, scenarios=None):
             tech_mask = main_config["Metric"].str.startswith("Share of Technology - ", na=False)
             main_config.loc[tech_mask, "Units"] = "% of km"
             
-            # === FIX 3: Pass arguments to reorder function too ===
             main_config = reorder_and_filter_columns(main_config, base_year, target_years, scenarios)
 
-            output_file_path = os.path.join(base_output_dir, f'output_{selected_country}.xlsx')
-            with pd.ExcelWriter(output_file_path, engine="openpyxl") as writer:
-                main_config.to_excel(writer, index=False, sheet_name="Main_Transport")
+            output_file_path = os.path.join(base_output_dir, f'output_{selected_country}.csv')
+            
+            # Use to_csv instead of ExcelWriter
+            main_config.to_csv(output_file_path, index=False, encoding='utf-8')
+            
             print(f"  Saved: {output_file_path}")
         except Exception as e:
-            print(f" Skipping {selected_country}: Error saving Excel file ({e})")
+            # Updated error message to reflect CSV context
+            print(f" Skipping {selected_country}: Error saving CSV file ({e})")
             continue
 
 if __name__ == "__main__":

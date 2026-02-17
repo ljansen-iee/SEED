@@ -330,17 +330,17 @@ def find_latest_dir(base_dir="output_data") -> str:
     return max(dirs, key=os.path.getmtime)
 
 def list_countries(latest_dir: str):
-    files = glob.glob(os.path.join(latest_dir, "output_*.xlsx"))
+    files = glob.glob(os.path.join(latest_dir, "output_*.csv"))
     return sorted([os.path.splitext(os.path.basename(f))[0].replace("output_", "") for f in files])
 
 def find_country_file(country: str, latest_dir: str) -> str:
-    path = os.path.join(latest_dir, f"output_{country}.xlsx")
+    path = os.path.join(latest_dir, f"output_{country}.csv")
     if not os.path.exists(path):
         raise FileNotFoundError(f"File not found: {path}")
     return path
 
 def load_country_dataframe(path: str) -> pd.DataFrame:
-    df = pd.read_excel(path)
+    df = pd.read_csv(path)
     df["Metric"] = df["Metric"].astype(str).str.replace("\xa0", " ").str.strip()
     numeric_cols = [c for c in df.columns if c not in ["Metric", "Units"]]
     for c in numeric_cols:
@@ -453,6 +453,7 @@ def run(country: str, base_dir: str = "output_data") -> None:
         index=False)
 
     # 2. Generate Indicators (TWh)
+    indicators_df = pd.DataFrame()
     try:
         indicators_df = generate_transport_indicators(final_df, country)
         indicators_df.to_csv(
@@ -470,12 +471,53 @@ def run(country: str, base_dir: str = "output_data") -> None:
         enduse_summary.to_excel(writer, sheet_name="EndUse")
 
     print(f" Saved results for {country} ({country_code})")
+    return indicators_df
 
+def export_global_energy_totals(all_country_indicators: list):
+    """
+    Combines indicators from all countries and saves separate CSVs 
+    for each scenario/year combination in results/energy_totals.
+    """
+    if not all_country_indicators:
+        return
+
+    # Combine all collected DataFrames
+    master_df = pd.concat(all_country_indicators, ignore_index=True)
+    
+    # Create the target directory: results/energy_totals
+    total_dir = os.path.join(RESULTS_DIR, "energy_totals")
+    os.makedirs(total_dir, exist_ok=True)
+
+    # We group by scenario because your 'scenario' column currently 
+    # contains values like "2030_Baseline", "2050_EL", etc.
+    groups = master_df.groupby("scenario")
+
+    for scenario_name, group_df in groups:
+        # Clean the name for a filename (e.g., "2030_Baseline" -> "2030_Baseline.csv")
+        clean_name = str(scenario_name).replace(" ", "_")
+        file_path = os.path.join(total_dir, f"{clean_name}.csv")
+        
+        # Save to CSV
+        group_df.to_csv(file_path, index=False, encoding='utf-8')
+        print(f"  [Global Export] Saved: {file_path}")
 
 if __name__ == "__main__":
+    # List to collect indicator dataframes from all countries
+    all_indicators_list = []
+
     for country in COUNTRY:
         try:
             print(f"\n{'='*50}\n Processing country: {country}\n{'='*50}")
-            run(country=country, base_dir=TRANSPORT_OUTPUT_DIR)
+            # Capture the returned dataframe
+            country_indicators = run(country=country, base_dir=TRANSPORT_OUTPUT_DIR)
+            
+            if not country_indicators.empty:
+                all_indicators_list.append(country_indicators)
+                
         except Exception as e:
             print(f" Error processing {country}: {e}")
+
+    # Final step: Export global totals
+    print(f"\n{'='*50}\n Generating Global Energy Totals\n{'='*50}")
+    export_global_energy_totals(all_indicators_list)
+    print("All tasks complete.")

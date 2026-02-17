@@ -13,7 +13,7 @@ import pandas as pd
 CHOOSE_FOLDER = "industry_config"
 
 # Countries to run – you just edit this list
-AVAILABLE_COUNTRIES = ["Morocco"]
+AVAILABLE_COUNTRIES = ["Morocco", "South Africa", "Egypt", "Chile"]
                         #"Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
                         # "Algeria","Argentina","Brazil","Chile","Colombia","Mexico","Peru","Venezuela",
                         #"Morocco","Tunisia","Tanzania", "South Africa","Libya",
@@ -172,7 +172,7 @@ def find_country_file(run_folder: Path, country: str) -> Path:
     """
     country_lower = country.lower()
     candidates = [
-        p for p in run_folder.glob("*.xlsx")
+        p for p in run_folder.glob("*.csv")
         if country_lower in p.stem.lower()
     ]
 
@@ -2173,7 +2173,7 @@ def build_all_feedstock_from_metrics(input_path: Path, output_path: Path):
       - "Paper and pulp"
       - "Ammonia"
     """
-    df_metrics = pd.read_excel(input_path)
+    df_metrics = pd.read_csv(input_path)
 
     steel_full = build_steel_full_table_from_metrics(df_metrics)
     steel_tidy = build_steel_tidy_feedstock(steel_full)
@@ -2202,6 +2202,7 @@ def build_sec_table_from_feedstock(
     country_name: str,
     df_metrics: pd.DataFrame,
     sheet_name: str = "SEC",
+    
 ):
     """
     Read energy_demand_summary.xlsx and build:
@@ -2258,6 +2259,7 @@ def build_sec_table_from_feedstock(
 
     print(f"Saved combined SEC table → {output_xlsx}")
     print(f"Saved carrier-level table → {output_xlsx}")
+    return carriers_df
 
 def build_presentation_summary(sec_all: pd.DataFrame, country_name: str) -> pd.DataFrame:
     """
@@ -2282,6 +2284,30 @@ def build_presentation_summary(sec_all: pd.DataFrame, country_name: str) -> pd.D
         summary[clean_name] = sec_all[col]
 
     return summary
+
+def export_energy_totals(all_countries_carrier_dfs: List[pd.DataFrame]):
+    """
+    Groups all collected data by Scenario and Year, then saves 
+    each group as a separate CSV in results/energy_totals.
+    """
+    if not all_countries_carrier_dfs:
+        return
+
+    master_df = pd.concat(all_countries_carrier_dfs, ignore_index=True)
+    
+    root = get_industry_root()
+    total_dir = root / "results" / "energy_totals"
+    total_dir.mkdir(parents=True, exist_ok=True)
+
+    groups = master_df.groupby(['scenario', 'year'])
+
+    for (scen, year), group_df in groups:
+        clean_scen = str(scen).replace(" ", "_")
+        file_name = f"{clean_scen}_{year}.csv"
+        file_path = total_dir / file_name
+        
+        group_df.to_csv(file_path, index=False, encoding='utf-8')
+        print(f"  [Global Export] Saved: {file_path}")
 
 def run_industry_pipeline_for_country(country: str):
     """
@@ -2311,27 +2337,38 @@ def run_industry_pipeline_for_country(country: str):
     feedstock_out = results_dir / feedstock_filename
     sec_out = results_dir / sec_filename
 
-    df_metrics = pd.read_excel(country_file)
+    df_metrics = pd.read_csv(country_file)
 
     build_all_feedstock_from_metrics(country_file, feedstock_out)
 
-    build_sec_table_from_feedstock(
+    carriers_df = build_sec_table_from_feedstock(
         feedstock_out,
         sec_out,
         country_name=country,
         df_metrics=df_metrics,      
         sheet_name="SEC"
     )
-
+    return carriers_df
 
 
 # -------------------------------------------------------------------
 # CLI / manual run
 # -------------------------------------------------------------------
-
 if __name__ == "__main__":
-    #print("Running industry pipeline (Steel + NMM + Paper & Pulp + Ammonia) for countries:")
+    # List to store dataframes from all countries
+    all_carrier_data = []
+
     for country in AVAILABLE_COUNTRIES:
-        print(f"  - {country}")
-        run_industry_pipeline_for_country(country)
+        print(f"  - Processing: {country}")
+        try:
+            # Run the pipeline and capture the carrier dataframe
+            country_carrier_df = run_industry_pipeline_for_country(country)
+            if country_carrier_df is not None:
+                all_carrier_data.append(country_carrier_df)
+        except Exception as e:
+            print(f"Error processing {country}: {e}")
+
+    # After all countries are processed, generate the individual CSVs
+    print("\nGenerating scenario-specific CSV totals...")
+    export_energy_totals(all_carrier_data)
     print("Done.")

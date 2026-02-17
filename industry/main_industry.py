@@ -38,7 +38,7 @@ def main():
     scenarios = ["Baseline","AP","NZ"]
 
 
-    INDUSTRY_CFG_PATH = BASE_DIR / "industry_config.xlsx"
+    INDUSTRY_CFG_PATH = BASE_DIR / "industry_config.csv"
   
 
     print("===============================")
@@ -47,7 +47,7 @@ def main():
     print("===============================\n")
 
     # ---- Countries ----
-    countries_to_process = ["Morocco"
+    countries_to_process = ["Morocco", "South Africa", "Egypt", "Chile"
                           #"Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Nigeria",
                           #"Algeria","Argentina","Brazil","Chile","Colombia","Peru","Venezuela",
                           #"Morocco","Tunisia","Tanzania", "South Africa","Libya",
@@ -2295,10 +2295,10 @@ def main():
         # after metrics loop
         df_out = pd.DataFrame(rows)
         df_out = df_out.reindex(columns=columns)
-        out_path = output_root / f"{country}_Output.xlsx"
+        out_path = output_root / f"{country}_Output.csv"
         #print("DEBUG output_root:", output_root)
         #print("DEBUG type(output_root):", type(output_root))
-        df_out.to_excel(out_path, index=False)
+        df_out.to_csv(out_path, index=False, encoding='utf-8')
         print(f" Saved: {out_path}")
 
 if __name__ == "__main__": 

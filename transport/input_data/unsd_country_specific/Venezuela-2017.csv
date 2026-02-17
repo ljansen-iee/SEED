@@ -1,0 +1,54 @@
+Country (2017),Transactions(down)/Commodity(right),Primary Coal and Peat,Coal and Peat Products,Primary Oil,Oil Products,Natural Gas,Biofuels and Waste,Nuclear,Electricity,Heat,Total Energy,memo: Of which Renewables
+Venezuela (Bolivarian Republic of),Primary production,17271,---,4802723,---,874967,32940,---,252504,---,5980405,285444
+Venezuela (Bolivarian Republic of),Imports,---,---,---,341849,0,---,---,0,---,341849,---
+Venezuela (Bolivarian Republic of),Exports,-11859,---,-3487121,-525935,---,---,---,-3944,---,-4028860,---
+Venezuela (Bolivarian Republic of),International marine bunkers,---,---,---,-6913,---,---,---,---,---,-6913,---
+Venezuela (Bolivarian Republic of),International aviation bunkers,---,---,---,-14149,---,---,---,---,---,-14149,---
+Venezuela (Bolivarian Republic of),Stock changes,---,---,---,0,---,---,---,---,---,0,---
+Venezuela (Bolivarian Republic of),Total energy supply,5413,---,1315601,-205148,874967,32940,---,248560,---,2272333,285444
+Venezuela (Bolivarian Republic of),Statistical differences,0,---,-78450,35663,21764,0,---,0,---,-21023,252504
+Venezuela (Bolivarian Republic of),Transfers and recycled products,---,---,223596,-230374,---,---,---,---,---,-6778,---
+Venezuela (Bolivarian Republic of),Transformation,---,---,-1617647,1393547,*-234151,-524,---,151563,---,-307213,-524
+Venezuela (Bolivarian Republic of),Electricity  CHP & Heat Plants,---,---,---,*-164702,*-234151,*-340,---,151563,---,*-247630,*-340
+Venezuela (Bolivarian Republic of),Electricity Plants,---,---,---,*-164702,*-234151,*-340,---,151504,---,*-247689,*-340
+Venezuela (Bolivarian Republic of),CHP plants,---,---,---,---,---,---,---,59,---,59,---
+Venezuela (Bolivarian Republic of),Heat plants,---,---,---,---,---,---,---,---,---,---,---
+Venezuela (Bolivarian Republic of),Coke ovens,---,---,---,---,---,---,---,---,---,---,---
+Venezuela (Bolivarian Republic of),Briquetting plants,---,---,---,---,---,---,---,---,---,---,---
+Venezuela (Bolivarian Republic of),Liquefaction plants,---,---,---,---,---,---,---,---,---,---,---
+Venezuela (Bolivarian Republic of),Gas works,---,---,---,---,---,---,---,---,---,---,---
+Venezuela (Bolivarian Republic of),Blast furnaces,---,---,---,---,---,---,---,---,---,---,---
+Venezuela (Bolivarian Republic of),NGL & gas blending,---,---,-100035,106728,---,---,---,---,---,6694,---
+Venezuela (Bolivarian Republic of),Oil refineries,---,---,-1517613,1451520,---,---,---,---,---,-66093,---
+Venezuela (Bolivarian Republic of),Other transformation,---,---,---,---,---,-184,---,---,---,-184,-184
+Venezuela (Bolivarian Republic of),Energy industries own use,---,---,---,-189198,-294185,---,---,-21247,---,-504630,---
+Venezuela (Bolivarian Republic of),Losses,---,---,---,---,-70391,---,---,-116189,---,-186580,---
+Venezuela (Bolivarian Republic of),Final consumption,5413,---,---,733165,254476,32416,---,262686,---,1288156,32416
+Venezuela (Bolivarian Republic of),Final Energy Consumption,5413,---,---,671533,254476,32416,---,262686,---,1226524,32416
+Venezuela (Bolivarian Republic of),Manufacturing  const. and mining,5413,---,---,*61397,211770,22003,---,59858,---,360440,22003
+Venezuela (Bolivarian Republic of),Iron and steel,---,---,---,---,37983,---,---,6476,---,44460,---
+Venezuela (Bolivarian Republic of),Chemical and petrochemical,---,---,---,---,124617,---,---,3549,---,128166,---
+Venezuela (Bolivarian Republic of),Non-ferrous metals,---,---,---,---,5984,---,---,11618,---,17601,---
+Venezuela (Bolivarian Republic of),Non-metallic minerals,5413,---,---,1567,11707,---,---,---,---,18687,---
+Venezuela (Bolivarian Republic of),Transport equipment,---,---,---,---,---,---,---,---,---,---,---
+Venezuela (Bolivarian Republic of),Machinery,---,---,---,---,---,---,---,---,---,---,---
+Venezuela (Bolivarian Republic of),Mining and quarrying,---,---,---,---,---,---,---,26,---,26,---
+Venezuela (Bolivarian Republic of),Food and tobacco,---,---,---,---,---,13752,---,---,---,13752,13752
+Venezuela (Bolivarian Republic of),Paper  pulp and printing,---,---,---,---,---,---,---,298,---,298,---
+Venezuela (Bolivarian Republic of),Wood and wood products,---,---,---,---,---,---,---,---,---,---,---
+Venezuela (Bolivarian Republic of),Textile and leather,---,---,---,---,---,---,---,---,---,---,---
+Venezuela (Bolivarian Republic of),Construction,---,---,---,---,---,---,---,---,---,---,---
+Venezuela (Bolivarian Republic of),Industry n.e.s,0,---,---,*59830,31479,8251,---,37892,---,137452,8251
+Venezuela (Bolivarian Republic of),Transport,---,---,---,566027,780,---,---,846,---,567653,---
+Venezuela (Bolivarian Republic of),Road,---,---,---,560364,---,---,---,---,---,560364,---
+Venezuela (Bolivarian Republic of),Rail,---,---,---,---,---,---,---,846,---,846,---
+Venezuela (Bolivarian Republic of),Domestic aviation,---,---,---,5663,---,---,---,---,---,5663,---
+Venezuela (Bolivarian Republic of),Domestic navigation,---,---,---,---,---,---,---,---,---,---,---
+Venezuela (Bolivarian Republic of),Pipeline transport,---,---,---,---,---,---,---,---,---,---,---
+Venezuela (Bolivarian Republic of),Transport n.e.s,---,---,---,---,780,---,---,---,---,780,---
+Venezuela (Bolivarian Republic of),Other Consumption,---,---,---,44109,41926,10413,---,201982,---,298431,10413
+Venezuela (Bolivarian Republic of),Agriculture  forestry and fishing,---,---,---,---,---,---,---,1685,---,1685,---
+Venezuela (Bolivarian Republic of),Commerce and public services,---,---,---,11770,10532,1945,---,45857,---,70103,1945
+Venezuela (Bolivarian Republic of),Households,---,---,---,32340,31394,8468,---,123928,---,196129,8468
+Venezuela (Bolivarian Republic of),Other consumption n.e.s,---,---,---,---,---,---,---,30513,---,30513,---
+Venezuela (Bolivarian Republic of),Non-energy use,---,---,---,61632,---,---,---,---,---,61632,---

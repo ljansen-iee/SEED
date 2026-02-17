@@ -1,0 +1,54 @@
+Country (2012),Transactions(down)/Commodity(right),Primary Coal and Peat,Coal and Peat Products,Primary Oil,Oil Products,Natural Gas,Biofuels and Waste,Nuclear,Electricity,Heat,Total Energy,memo: Of which Renewables
+Kenya,Primary production,---,---,---,---,---,*621128,---,14509,54572,*690210,*690210
+Kenya,Imports,8849,---,42173,133223,---,---,---,141,---,184386,---
+Kenya,Exports,---,---,-1142,-1769,---,---,---,-118,---,-3029,---
+Kenya,International marine bunkers,---,---,---,-528,---,---,---,---,---,-528,---
+Kenya,International aviation bunkers,---,---,---,-29591,---,---,---,---,---,-29591,---
+Kenya,Stock changes,---,---,-42,-322,---,---,---,---,---,-364,---
+Kenya,Total energy supply,8849,---,40989,101013,---,*621128,---,14532,54572,*841084,*690210
+Kenya,Statistical differences,0,---,0,-44,---,*0,---,-1244,0,*-1288,*19966
+Kenya,Transfers and recycled products,---,---,---,---,---,---,---,---,---,---,---
+Kenya,Transformation,---,---,-40989,16792,---,*-174412,---,13757,-54572,*-239424,*-223527
+Kenya,Electricity  CHP & Heat Plants,---,---,---,-24658,---,*-16800,---,13757,-54572,-82274,*-65915
+Kenya,Electricity Plants,---,---,---,-24658,---,*-16800,---,13379,-54572,-82652,*-65915
+Kenya,CHP plants,---,---,---,---,---,---,---,378,---,378,---
+Kenya,Heat plants,---,---,---,---,---,---,---,---,---,---,---
+Kenya,Coke ovens,---,---,---,---,---,---,---,---,---,---,---
+Kenya,Briquetting plants,---,---,---,---,---,---,---,---,---,---,---
+Kenya,Liquefaction plants,---,---,---,---,---,---,---,---,---,---,---
+Kenya,Gas works,---,---,---,---,---,---,---,---,---,---,---
+Kenya,Blast furnaces,---,---,---,---,---,---,---,---,---,---,---
+Kenya,NGL & gas blending,---,---,---,---,---,---,---,---,---,---,---
+Kenya,Oil refineries,---,---,-40989,41450,---,---,---,---,---,461,---
+Kenya,Other transformation,---,---,---,---,---,*-157612,---,---,---,*-157612,*-157612
+Kenya,Energy industries own use,---,---,---,-2164,---,---,---,-142,---,-2306,---
+Kenya,Losses,---,---,---,---,---,---,---,-5055,---,-5055,---
+Kenya,Final consumption,8849,---,---,115686,---,*446717,---,24336,---,*595588,*446717
+Kenya,Final Energy Consumption,8849,---,---,103867,---,*446717,---,24336,---,*583769,*446717
+Kenya,Manufacturing  const. and mining,8849,---,---,21030,---,14057,---,13270,---,57206,14057
+Kenya,Iron and steel,---,---,---,---,---,---,---,---,---,---,---
+Kenya,Chemical and petrochemical,---,---,---,---,---,---,---,---,---,---,---
+Kenya,Non-ferrous metals,---,---,---,---,---,---,---,---,---,---,---
+Kenya,Non-metallic minerals,8849,---,---,---,---,---,---,---,---,8849,---
+Kenya,Transport equipment,---,---,---,---,---,---,---,---,---,---,---
+Kenya,Machinery,---,---,---,---,---,---,---,---,---,---,---
+Kenya,Mining and quarrying,---,---,---,---,---,---,---,---,---,---,---
+Kenya,Food and tobacco,---,---,---,---,---,---,---,886,---,886,---
+Kenya,Paper  pulp and printing,---,---,---,---,---,---,---,---,---,---,---
+Kenya,Wood and wood products,---,---,---,---,---,---,---,---,---,---,---
+Kenya,Textile and leather,---,---,---,---,---,---,---,---,---,---,---
+Kenya,Construction,---,---,---,---,---,---,---,---,---,---,---
+Kenya,Industry n.e.s,0,---,---,21030,---,14057,---,12384,---,47471,14057
+Kenya,Transport,---,---,---,66237,---,---,---,---,---,66237,---
+Kenya,Road,---,---,---,65551,---,---,---,---,---,65551,---
+Kenya,Rail,---,---,---,597,---,---,---,---,---,597,---
+Kenya,Domestic aviation,---,---,---,89,---,---,---,---,---,89,---
+Kenya,Domestic navigation,---,---,---,---,---,---,---,---,---,---,---
+Kenya,Pipeline transport,---,---,---,---,---,---,---,---,---,---,---
+Kenya,Transport n.e.s,---,---,---,---,---,---,---,---,---,---,---
+Kenya,Other Consumption,---,---,---,16601,---,*432660,---,11066,---,*460327,*432660
+Kenya,Agriculture  forestry and fishing,---,---,---,792,---,---,---,---,---,792,---
+Kenya,Commerce and public services,---,---,---,993,---,---,---,3575,---,4568,---
+Kenya,Households,---,---,---,14018,---,309885,---,5512,---,329414,309885
+Kenya,Other consumption n.e.s,---,---,---,797,---,*122774,---,1980,---,*125552,*122774
+Kenya,Non-energy use,---,---,---,11819,---,---,---,---,---,11819,---

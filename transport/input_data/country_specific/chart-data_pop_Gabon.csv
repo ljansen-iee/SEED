@@ -1,0 +1,15 @@
+ ,Unit,2018,2030,2040,2050,2060,2070
+SSP1,million,2.0484400000000003,2.4061,2.6175,2.7796,2.8649,2.8687
+SSP2,million,2.0635600000000003,2.535,2.8703,3.1574,3.3723,3.5085
+SSP3,million,2.0738800000000004,2.6277,3.0543,3.4588,3.8322,4.1632
+SSP4,million,2.0782000000000003,2.6704,3.1312,3.5568,3.9393,4.2609
+SSP5,million,2.0520400000000003,2.4505,2.7078,2.9117,3.0334,3.0671
+
+
+"When using the datasets, please cite as detailed below."
+
+"Hazards, impacts, and exposure data:"
+"Michaela Werning, Stefan Frank, Bing Nguyen, Peter Rafaj, Yusuke Satoh, Volker Krey, Keywan Riahi, Bas von Ruivjen, Edward Byers. 2023 Climate Solutions Explorer - hazard, impacts and exposure data. Doi: 10.5281/zenodo.7971430"
+
+"Downscaled country-level IAM scenarios:"
+"Fabio Sferra, Oliver Fricko, Edward Byers, Michaela Werning, Volker Krey, Keywan Riahi, Bas von Ruijven. 2023 Climate Solutions Explorer - downscaled country-level IAM scenarios. Doi: 10.5281/zenodo.7971574"
