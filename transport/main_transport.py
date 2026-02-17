@@ -14,8 +14,43 @@ from build_load_factors import get_Load_factor_Car, Load_factor_Bus, Load_factor
 from build_energy_intensities import generate_energy_intensities, expand_intensity
 from build_technology_share import Share_of_Direct_Electric_Passenger_Train, share_technology, TECHNOLOGY_OVERRIDES, enforce_share_constraints, apply_technology_overrides
 from config_loader import load_transport_config
+<<<<<<< HEAD
 from build_CAGR import poly_project, expand_with_cagr, expand_constant, as_fraction, get_cagr
 from helpers import refresh_unsd_master_data, UNSD_GLOBAL_OUTPUT
+=======
+<<<<<<< HEAD
+from build_macro_indicators import validate_scenarios_and_ssp
+# === Constants DEFAULT VALUES ===
+# TODO: @rakesh, can the user change this too?
+
+# TODO. MAKE THIS A DICTIONARY
+SSP_ORDER = [
+    "SSP2", 
+    "SSP2", 
+    "SSP1"
+    ]
+
+#TODO: @Rakesh, check the scenarios logic
+SCENARIOS = [
+    "Baseline",
+    "BAU", 
+    "AT"] # a max of three scenarios are possible.
+
+# map the scenario names with the corresponding SSP
+validate_scenarios_and_ssp(SCENARIOS, SSP_ORDER)
+
+TARGET_YEARS = [2035,2045,20250,2055]  # from 2030 up to 2055 in steps of 5 years possible. 
+
+
+# todo: let us use csv. 
+
+# === Transport assumptions file (user can change this) ===
+
+BASE_YEAR = 2025  # Define the start year for the projections. 2020 by default. Years between 2020 and 2025 are available (via interpolation),
+
+=======
+from CAGR import poly_project, expand_with_cagr, expand_constant, as_fraction, get_cagr
+>>>>>>> test_transport
 
 # === Constants ===
 BASE_YEAR = 2020  
@@ -27,6 +62,7 @@ validate_scenarios_and_ssp(SCENARIOS, SSP_ORDER)
 TARGET_YEARS = [2030, 2035, 2040, 2045, 2050] 
 
 # === Transport assumptions file ===
+>>>>>>> main
 TRANSPORT_CONFIG_FILE = "trans_config.xlsx"
 TRANSPORT_CONFIG_PATH = Path(__file__).resolve().parent / TRANSPORT_CONFIG_FILE
 
@@ -42,11 +78,42 @@ devkopsys_countries = ["Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Ke
                        "India", "Indonesia", "Italy", "Japan", "Mexico","Russia", "Saudi Arabia", 
                        "South Africa", "South Korea", "United Kingdom", "United States of America"]
 
+<<<<<<< HEAD
+selected_countries = ["Congo",
+                       "Egypt",
+                       "Ethiopia",
+                       "Ghana",
+                       "Kenya",
+                       "Namibia",
+                       "Niger",
+                       #"Algeria",
+                       "Morocco",
+                       "Tunisia",
+                       "Tanzania",
+                       "South Africa",
+                       # "Libya"
+                       # "Argentina","Brazil","Chile","Colombia",,"Mexico",
+                        ]
+                            # "Namibia","Peru","Tunisia","Uruguay","Morocco","South Africa",
+                            # "Angola","Benin","Botswana","Burkina Faso","Burundi","Cameroon",
+                            # "Central African Republic","Chad","Comoros","Djibouti","Equatorial Guinea","Eritrea",
+                            # "Ethiopia","Gabon","Gambia","Ghana","Guinea","Guinea Bissau","Kenya","Lesotho",
+                            # "Liberia","Madagascar","Malawi","Mali","Mauritania","Mozambique","Namibia","Niger",
+                            # "Rwanda","Senegal","Sierra Leone","Somalia","Sudan","Tanzania","Togo","Uganda",
+                            # "Zambia","Zimbabwe","Seychelles","Cote D'Ivoire","Sao Tome and Principe",
+                            # "South Sudan","Cabo Verde", "Congo", "Eswatini" ]
+=======
 countries_to_load = devkopsys_countries + ["default"] 
+>>>>>>> main
 
 TRANSPORT_CONFIG = load_transport_config(
+<<<<<<< HEAD
+    excel_path=Path(__file__).resolve().parent / TRANSPORT_CONFIG_FILE,
+    countries=selected_countries,
+=======
     excel_path=TRANSPORT_CONFIG_PATH,
     countries=countries_to_load,
+>>>>>>> main
     scenarios=SCENARIOS
 )
 
@@ -97,7 +164,7 @@ def main(base_year=None, target_years=None, scenarios=None):
     units_dict = generate_units_dictionary()
 
     # === Loop through countries ===
-    for selected_country in devkopsys_countries:
+    for selected_country in selected_countries:
         print(f"\n🔹 Processing: {selected_country}")
         
         # === Load Data & Merge with Defaults ===
