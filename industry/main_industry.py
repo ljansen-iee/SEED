@@ -14,7 +14,7 @@ from industry.build_CAGR import load_industry_config, interpolate_or_extrapolate
 # === Steel ===
 from scripts.iron_and_steel.build_shares_steel import share_fuel_bf_ohf, share_fuel_bf_bof, share_fuel_dr_eaf, share_fuel_scrap_eaf,share_fuel_casting_rolling, share_fuel_unspecified_steel, override_steel_routes_positional
 from scripts.iron_and_steel.build_energy_intensities_steel import intensity_bf_ohf, intensity_bf_bof, intensity_dr_eaf, intensity_scrap_eaf, intensity_casting_rolling
-from helpers import extract_capacity_shares, extract_all_fuels, _build_rate_anchors_indexed,  _forecast_from_history_and_sparse_cagr, _get_value_by_index,  _interp_at, get_mapped_config_name, poly_project, get_historical_sector_data, validate_fuel_shares
+from helpers import extract_capacity_shares, extract_all_fuels, _build_rate_anchors_indexed,  _forecast_from_history_and_sparse_cagr, _get_value_by_index,  _interp_at, get_mapped_config_name, poly_project, get_historical_sector_data, validate_fuel_shares, country_to_iso2
 # PAPER & PULP
 from industry.scripts.paper_and_pulp.build_paper_and_pulp_production import process_paper_pulp_data
 from industry.scripts.paper_and_pulp.build_share_primary_pulp import share_fuel_primary_pulp, share_fuel_secondary_pulp, share_fuel_paper, share_primary_secondary_pulp, share_fuel_unspecified_paper_pulp, activity_factor_unspecified_paper_pulp
@@ -27,6 +27,8 @@ from industry.scripts.non_metallic_minerals.build_cement_production import get_c
 from scripts.chemical_and_petrochemical.ammonia.build_ammonia import ammonia_production, build_hvc_production_series, extract_for_countries_from_loader
 from scripts.chemical_and_petrochemical.ammonia.build_shares_ammonia import share_fuel_ammonia_smr_hb, share_fuel_ammonia_renewable, share_fuel_hvc_naphtha_cracking, share_fuel_hvc_lpg_cracking, share_fuel_hvc_methanol_route, share_fuel_unspecified_chemicals, share_HVC_production
 from scripts.chemical_and_petrochemical.ammonia.build_intensities_ammonia import intensity_ammonia_smr_hb, intensity_ammonia_renewable, intensity_hvc_naphtha_cracking, intensity_hvc_lpg_cracking, intensity_hvc_methanol_route, activity_factor_unspecified_chemicals
+# === HVC Production ===
+from scripts.chemical_and_petrochemical.HVC.build_hvc_production import get_hvc_production
 # === Food & Tobacco ===
 from scripts.food_and_tobacco.build_shares_food_and_tobacco import get_unsd_fuel_shares
 
@@ -119,9 +121,13 @@ def main():
     intens_ammonia_renew   = extract_all_fuels(intensity_ammonia_renewable,    target_years, scenarios)
 
     # HVC shares & intensities (if you want them now)
+    # === HVC production from industrial database ===
+    df_hvc_production = get_hvc_production(add_country_names=False)
+
     fuel_shares_hvc_naphtha = extract_all_fuels(share_fuel_hvc_naphtha_cracking, target_years, scenarios)
     fuel_shares_hvc_lpg     = extract_all_fuels(share_fuel_hvc_lpg_cracking,     target_years, scenarios)
     fuel_shares_hvc_meth    = extract_all_fuels(share_fuel_hvc_methanol_route,   target_years, scenarios)
+
 
     intens_hvc_naphtha = extract_all_fuels(intensity_hvc_naphtha_cracking, target_years, scenarios)
     intens_hvc_lpg     = extract_all_fuels(intensity_hvc_lpg_cracking,     target_years, scenarios)
@@ -136,7 +142,7 @@ def main():
     output_root = BASE_DIR / "output_data" / config_filename
     output_root.mkdir(parents=True, exist_ok=True)
 
-
+    
     for country in countries_to_process:
 
         cagr_cfg_nmm = get_metric_cagr_cfg_from_excel( industry_cagr_excel,country,"Activity factor of unspecified non metallic minerals")
@@ -148,16 +154,44 @@ def main():
             scenarios=scenarios,
             use_profile=False  # set True if you want to use the fixed level profile
         )
-        hvc_prod = build_hvc_production_series(
-        base_2020 = 10000.0,
-        target_years=target_years,                 
-        scenarios=scenarios,               
-        cagr_cfg = get_metric_cagr_cfg_from_excel(
-        industry_cagr_excel,
-        country,
-        "High value chemical production per year"),
+        # === HVC production source (real industrial database) ===
+        hvc_prod_source = {}
+        iso = country_to_iso2(country)
+        row_hvc = df_hvc_production[df_hvc_production["country"] == iso]
+
+        if not row_hvc.empty:
+            base_val = float(row_hvc["HVC_production_t_per_year"].iloc[0])
+        else:
+            base_val = 0.0
+
+        if base_val == 0.0:
+            print(f" No HVC data for {country} ({iso}) — using 0")
+
+        hvc_prod_source[base_year] = [base_val] * len(scenarios)
+
+        # === Project using CAGR (same logic as other sectors) ===
+        hvc_cagr_cfg = get_metric_cagr_cfg_from_excel(
+            industry_cagr_excel,
+            country,
+            "High value chemical production per year"
         )
- 
+
+        hvc_proj = expand_with_cagr_smooth(
+            base_value=base_val,
+            cagr_table=hvc_cagr_cfg,
+            base_year=base_year,
+            target_years=target_years,
+            scenarios=scenarios
+        )
+        
+        for key, val in hvc_proj.items():
+            year, scenario = key.split("_")
+            year = int(year)
+            if year not in hvc_prod_source:
+                hvc_prod_source[year] = [None] * len(scenarios)
+            idx = scenarios.index(scenario)
+            hvc_prod_source[year][idx] = val
+
         cagr_cfg_unspec_pp = get_metric_cagr_cfg_from_excel(
         industry_cagr_excel,
         country,
@@ -234,7 +268,7 @@ def main():
         ]
 
         results = {}
-        all_fuels = ['electricity', 'oil', 'gas', 'coal', 'biomass', 'hydrogen', 'ammonia', 'methanol', 'steel']
+        all_fuels = ['electricity', 'oil', 'gas', 'coal', 'biomass', 'hydrogen', 'ammonia', 'steel','methanol', 'heat', 'low-temperature heat', "process emissions"]
 
         for s_id, csv_name, metric_name in unsd_sectors:
             # A. Get Total Energy (GWh) from CSV
@@ -290,11 +324,6 @@ def main():
                         sc_name = scenarios[idx]
                         excel_val = excel_share_values.get(y, {}).get(sc_name)
                         
-                        # --- THE LOGIC FIX ---
-                        # We only use excel_val if it is NOT NaN and NOT 0.0 (as a placeholder)
-                        # If you want a real 0% share, you would enter 0.0001 or use a special flag.
-                        # But typically, if Morocco is empty, we want to REPLICATE history.
-                        
                         if excel_val is not None and not pd.isna(excel_val) and excel_val != 0.0:
                             # Use the specific instruction from Excel
                             vals.append(float(excel_val))
@@ -312,7 +341,6 @@ def main():
             results[s_id] = {"total": total_time_series, "shares": fuel_shares_proj}
         
         # === Define metrics dictionary follows here ===
-        metrics: Dict[str, Dict[str, Any]] = { ... }
         # --- Get cement base value (t/y), clinker ratio path, clinker production path
         cement_tpy_2020, clinker_ratio, clinker_prod = get_cement_and_clinker(
             country_name=country,
@@ -552,6 +580,16 @@ def main():
             },
             "Share of hydrogen for blast furnaces + open hearth furnace": {
                 "source": fuel_shares_bf_ohf["hydrogen"],
+                "unit": "% of BF + OHF",
+                "forecast": False,
+            },
+            "Share of low-temperature heat for blast furnaces + open hearth furnace": {
+            "source": fuel_shares_bf_ohf.get("low-temperature heat", {}),
+            "unit": "% of BF + OHF",
+            "forecast": False,
+            },
+            "Share of carrier for blast furnaces + open hearth furnace": {
+                "source": fuel_shares_bf_ohf.get("carrier", {}),
                 "unit": "% of BF + OHF",
                 "forecast": False,
             },
@@ -1405,7 +1443,7 @@ def main():
                 "unit": "MWh/t", 
                 "forecast": False},
             "High value chemical production per year": {
-                "source": hvc_prod,
+                "source": hvc_prod_source,
                 "unit": "tons/y",
                 "forecast": False,},
             "Share of Naphtha cracking for HVC production": {
