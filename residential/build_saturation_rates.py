@@ -44,20 +44,20 @@ def interpolation(years, values, new_years):
     linear_interp = interp1d(years, values, kind='linear', fill_value="extrapolate")
     return linear_interp(new_years)
 
-def build_saturation_sc():
+def  build_saturation_sc():
     graphic_data = {
-        "Tunisia": [40.3, 78, 88, 91.5], 
-        "Algeria": [37.2, 70, 81, 84.5 ],
-        "Morocco": [9.3, 22, 35, 49]
+        "Tunisia": [0.403, 0.78, 0.88, 0.915], 
+        "Algeria": [0.372, 0.70, 0.81, 0.845 ],
+        "Morocco": [0.93, 0.22, 0.35, 0.49]
     } # this was read manually from paper
 
     mena_sc_saturation = pd.DataFrame(graphic_data)
     mena_sc_saturation = mena_sc_saturation.transpose()
 
     iee_assumption_2050 = pd.DataFrame({
-        "Tunisia": [100], 
-        "Algeria": [95],
-        "Morocco": [70]
+        "Tunisia": [1], 
+        "Algeria": [0.95],
+        "Morocco": [0.70]
     }) # TODO: Define if this is realistic.... ask jochen?
 
     iee_assumption = iee_assumption_2050.transpose()
@@ -69,10 +69,14 @@ def build_saturation_sc():
     df =  mena_sc_saturation.transpose().reset_index()
     new_years = np.arange(2015,2051,1)
     df = {country: interpolation(pd.to_numeric(df['year']), df[country], new_years) for country in df.columns[1:]}
-    df = round(pd.DataFrame(df, index=new_years),2)
+    df = round(pd.DataFrame(df, index=new_years), 2)
     df = df.transpose()
     df.index.name = "country"
     mena_sc_saturation = df.copy()
+
+    # Normalize to decimals if values look like percentages
+    if mena_sc_saturation.max().max() > 1.5:
+        mena_sc_saturation = round(mena_sc_saturation / 100, 4)
 
     macro_indicators = create_macro_indicators_all()
     df_population, df_gdp_ssp, df_m2_p_all, df_person_dw, df_economics  = macro_indicators
@@ -153,7 +157,7 @@ def build_saturation_sc():
 
     df_sc_saturation_prediction = predict_weighted(models,df_gdp_ssp2)
 
-    df_sc_saturation_prediction = round(df_sc_saturation_prediction/100,2)
+    df_sc_saturation_prediction = round(df_sc_saturation_prediction / 100, 4)
     
     mena_sc_saturation = mena_sc_saturation.transpose()
 
@@ -229,11 +233,86 @@ def create_saturation_rates_all():
 
     return df_sh_saturation, df_sc_saturation, df_appliances_saturation, df_cooking_saturation
 
+
+def prepare_sh_saturation(df_sh_saturation, target_years, scenario_map):
+    df = df_sh_saturation.reset_index().copy()
+    df["Scenario"] = df["Scenario"].map(scenario_map).fillna(df["Scenario"])
+    df["Year"] = df["Year"].astype(int)
+
+    frames = []
+    for scenario in df["Scenario"].unique():
+        series = df[df["Scenario"] == scenario].set_index("Year")["Value in %"]
+        series = series.reindex(target_years).astype(float).interpolate().ffill().bfill()
+        temp = series.reset_index()
+        temp["Scenario"] = scenario
+        frames.append(temp)
+
+    result = pd.concat(frames, ignore_index=True)
+    result = result.set_index(["Scenario", "Year"])
+    return result
+
+
+def prepare_country_saturation(df_country, target_years):
+    df = df_country.copy()
+    col_years = pd.to_numeric(df.columns, errors="coerce")
+    if col_years.isna().all():
+        df = df.T
+        col_years = pd.to_numeric(df.columns, errors="coerce")
+    df.columns = col_years.astype(int)
+    df = df.reindex(columns=target_years).interpolate(axis=1).ffill(axis=1).bfill(axis=1)
+    return df
+
+
+def add_scenario_columns(df_country, scenario_names):
+    columns = []
+    data = []
+    for scenario in scenario_names:
+        for year in df_country.columns:
+            columns.append((scenario, year))
+            data.append(df_country[year])
+
+    df_multi = pd.concat(data, axis=1)
+    df_multi.columns = pd.MultiIndex.from_tuples(columns, names=["scenario", "year"])
+    df_multi.index = df_country.index
+    return df_multi
+
+
+def create_saturation_rates_all_prepared(target_years, scenario_map, scenario_names):
+    df_sh_saturation, df_sc_saturation, df_appliances_saturation, df_cooking_saturation = (
+        create_saturation_rates_all()
+    )
+
+    df_sh_saturation = prepare_sh_saturation(df_sh_saturation, target_years, scenario_map)
+    df_sc_saturation = prepare_country_saturation(df_sc_saturation, target_years)
+    df_sc_saturation = add_scenario_columns(df_sc_saturation, scenario_names)
+    df_appliances_saturation = prepare_country_saturation(df_appliances_saturation, target_years)
+    df_cooking_saturation = prepare_country_saturation(df_cooking_saturation, target_years)
+
+    return df_sh_saturation, df_sc_saturation, df_appliances_saturation, df_cooking_saturation
+
 # Only necessary for local testing
 if __name__=="__main__":
-    df_sh_saturation, df_sc_saturation, df_appliances_saturation, df_cooking_saturation = create_saturation_rates_all()
+    target_years = [2020, 2030, 2035, 2040, 2045, 2050]
+    scenario_map = {
+        "baseline": "BAU",
+        "Current Policies": "BAU",
+        "Progessive Measuraments": "Progressive",
+        "Ambitious Net Zero": "Optimistic",
+    }
+    scenario_names = ["BAU", "Progressive", "Optimistic"]
 
-    print(df_sh_saturation)
+    df_sh_saturation, df_sc_saturation, df_appliances_saturation, df_cooking_saturation = (
+        create_saturation_rates_all_prepared(target_years, scenario_map, scenario_names)
+    )
+
+    print("Space Heating Saturation (prepared):")
+    print(df_sh_saturation.head())
+    print("Space Cooling Saturation (prepared):")
+    print(df_sc_saturation.head())
+    print("Appliances Saturation (prepared):")
+    print(df_appliances_saturation.head())
+    print("Cooking Saturation (prepared):")
+    print(df_cooking_saturation.head())
 
     
    

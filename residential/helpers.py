@@ -1,6 +1,12 @@
 import os
 import pandas as pd
 import tabula
+from pathlib import Path
+import glob
+import build_energy_intensities as build_en_int
+
+DEFAULT_TARGET_YEARS = [2020, 2030, 2035, 2040, 2045, 2050]
+
 
 def open_pdf(file_path, pages="1", multiple_tables=False, encoding="latin1", **kwargs):
     """
@@ -70,3 +76,210 @@ def load_all_files(energy_sector="residential", base_dir=None):
             elif folder_name == 'global':
                 dfs_global = load_files_from_folder(folder_path)
     return dfs_country_spe, dfs_global
+
+def generate_units_dictionary():
+    data_units_dict = {
+    "Population": "persons",
+    "Residential Area per Person": "m2/p",
+    "Persons per Dwelling": "p/dw",
+
+    "Saturation of Space Heating": "% of m2",
+    "Saturation of Space Cooling": "% of m2",
+    "Saturation of Water Heating": "% of dw",
+    "Saturation of Cooking": "% of dw",
+    "Saturation of Appliances": "% of dw",
+    
+    "Share of Oil Boilers for Space Heating" : "% of Space Heating",
+    "Share of LPG Boilers for Space Heating": "% of Space Heating",
+    "Share of Natural Gas Boilers for Space Heating": "% of Space Heating",
+    "Share of Kerosene Boilers for Space Heating": "% of Space Heating",
+    "Share of Coal Boilers for Space Heating": "% of Space Heating",
+    "Share of Biogas Boilers for Space Heating": "% of Space Heating",
+    "Share of Traditional Biomass Boilers for Space Heating": "% of Space Heating",
+    "Share of Modern Biomass Boilers for Space Heating": "% of Space Heating",
+    "Share of Hydrogen Boilers for Space Heating": "% of Space Heating",
+    "Share of Solar Heating for Space Heating": "% of Space Heating",
+    "Share of District Heating for Space Heating": "% of Space Heating",
+    "Share of Electric Heaters for Space Heating": "% of Space Heating",
+    "Share of Heat Pumps for Space Heating": "% of Space Heating",
+
+    "Share of Heat Pumps for Space Cooling": "% of Space Cooling",
+    "Share of Air Conditioning for Space Cooling": "% of Space Cooling",
+
+    "Share of Oil Boilers for Water Heating": "% of Water Heating",
+    "Share of LPG Boilers for Water Heating": "% of Water Heating",
+    "Share of Natural Gas Boilers for Water Heating": "% of Water Heating",
+    "Share of Kerosene Boilers for Water Heating": "% of Water Heating",
+    "Share of Coal Boilers for Water Heating": "% of Water Heating",
+    "Share of Biogas Boilers for Water Heating": "% of Water Heating",
+    "Share of Traditional Biomass Boilers for Water Heating": "% of Water Heating",
+    "Share of Modern Biomass Boilers for Water Heating": "% of Water Heating",
+    "Share of Hydrogen Boilers for Water Heating": "% of Water Heating",
+    "Share of Solar Heating for Water Heating": "% of Water Heating",
+    "Share of District Heating for Water Heating": "% of Water Heating",
+    "Share of Electric Heaters for Water Heating": "% of Water Heating",
+    "Share of Heat Pumps for Water Heating": "% of Water Heating",
+
+    "Share of Electric Stoves for Cooking": "% of Cooking",
+    "Share of Natural Gas Stoves for Cooking": "% of Cooking",
+    "Share of LPG Stoves for Cooking": "% of Cooking",
+    "Share of Kerosene Stoves for Cooking": "% of Cooking",
+    "Share of Traditional Biomass Stoves for Cooking": "% of Cooking",
+
+    "Final Energy Intensity of Oil Boilers for Space Heating": "kWh/m2",
+    "Final Energy Intensity of LPG Boilers for Space Heating": "kWh/m2",
+    "Final Energy Intensity of Natural Gas Boilers for Space Heating": "kWh/m2",
+    "Final Energy Intensity of Kerosene Boilers for Space Heating": "kWh/m2",
+    "Final Energy Intensity of Coal Boilers for Space Heating": "kWh/m2",
+    "Final Energy Intensity of Biogas Boilers for Space Heating": "kWh/m2",
+    "Final Energy Intensity of Traditional Biomass Boilers for Space Heating": "kWh/m2",
+    "Final Energy Intensity of Modern Biomass Boilers for Space Heating": "kWh/m2",
+    "Final Energy Intensity of Hydrogen Boilers for Space Heating": "kWh/m2",
+    "Final Energy Intensity of Solar Heating for Space Heating": "kWh/m2",
+    "Final Energy Intensity of District Heating for Space Heating": "kWh/m2",
+    "Final Energy Intensity of Electric Heaters for Space Heating": "kWh/m2",
+    "Final Energy Intensity of Heat Pumps for Space Heating": "kWh/m2",
+    "Final Energy Intensity of Heat Pumps for Space Cooling": "kWh/m2",
+    "Final Energy Intensity of Air Conditioning for Space Cooling": "kWh/m2",
+    "Final Energy Intensity of Oil Boilers for Water Heating": "kWh/dw",
+    "Final Energy Intensity of LPG Boilers for Water Heating": "kWh/dw",
+    "Final Energy Intensity of Natural Gas Boilers for Water Heating": "kWh/dw",
+    "Final Energy Intensity of Kerosene Boilers for Water Heating": "kWh/dw",
+    "Final Energy Intensity of Coal Boilers for Water Heating": "kWh/dw",
+    "Final Energy Intensity of Biogas Boilers for Water Heating": "kWh/dw",
+    "Final Energy Intensity of Traditional Biomass Boilers for Water Heating": "kWh/dw",
+    "Final Energy Intensity of Modern Biomass Boilers for Water Heating": "kWh/dw",
+    "Final Energy Intensity of Hydrogen Boilers for Water Heating": "kWh/dw",
+    "Final Energy Intensity of Solar Heating for Water Heating": "kWh/dw",
+    "Final Energy Intensity of District Heating for Water Heating": "kWh/dw",
+    "Final Energy Intensity of Electric Heaters for Water Heating": "kWh/dw",
+    "Final Energy Intensity of Heat Pumps for Water Heating": "kWh/dw",
+    "Final Energy Intensity of Electric Stoves for Cooking": "kWh/dw",
+    "Final Energy Intensity of Natural Gas Stoves for Cooking": "kWh/dw",
+    "Final Energy Intensity of LPG Stoves for Cooking": "kWh/dw",
+    "Final Energy Intensity of Kerosene Stoves for Cooking": "kWh/dw",
+    "Final Energy Intensity of Traditional Biomass Stoves for Cooking": "kWh/dw",
+    "Final Energy Intensity of Electrical Appliances": "kWh/dw",
+
+    }
+    return data_units_dict
+
+
+SH_METRICS = {
+    "residential oil_share": "Share of Oil Boilers for Space Heating",
+    "lpg_share": "Share of LPG Boilers for Space Heating",
+    "residential gas_share": "Share of Natural Gas Boilers for Space Heating",
+    "kerosene_share": "Share of Kerosene Boilers for Space Heating",
+    "coal_share": "Share of Coal Boilers for Space Heating",
+    "biogas_share": "Share of Biogas Boilers for Space Heating",
+    "residential biomass_share": "Share of Traditional Biomass Boilers for Space Heating",
+    "modern_biomass_share": "Share of Modern Biomass Boilers for Space Heating",
+    "hydrogen_share": "Share of Hydrogen Boilers for Space Heating",
+    "solar_share": "Share of Solar Heating for Space Heating",
+    "district_heating_share": "Share of District Heating for Space Heating",
+    "electricity residential_share": "Share of Electric Heaters for Space Heating",
+    "heat_pumps_share": "Share of Heat Pumps for Space Heating",
+}
+
+COOKING_METRICS = {
+    "Share of Electric Stoves for Cooking": "electricity",
+    "Share of Natural Gas Stoves for Cooking": "natural gas",
+    "Share of LPG Stoves for Cooking": None,
+    "Share of Kerosene Stoves for Cooking": "kerosene",
+    "Share of Traditional Biomass Stoves for Cooking": "biomass",
+}
+
+CAGR_SCENARIO_MAP = {
+    "Current Policies": "BAU",
+    "Progessive Measuraments": "Progressive",
+    "Ambitious Net Zero": "Optimistic",
+}
+
+CAGR_UNITS_MAP = {
+    "Final Energy Intensity of Space Heating": "kWh/m2",
+    "Final Energy Intensity of Space Cooling": "kWh/m2",
+    "Final Energy Intensity of Water Heating": "kWh/dw",
+    "Final Energy Intensity of Cooking": "kWh/dw",
+    "Final Energy Intensity of Electrical Appliances": "kWh/dw",
+}
+
+SATURATION_SCENARIO_MAP = {
+    "baseline": "BAU",
+    "Current Policies": "BAU",
+    "Progessive Measuraments": "Progressive",
+    "Ambitious Net Zero": "Optimistic",
+}
+
+INTENSITY_METRICS_MAP = {
+    "Final Energy Intensity of Space Heating": build_en_int.SPACE_HEATING_INTENSITY_METRICS,
+    "Final Energy Intensity of Space Cooling": build_en_int.SPACE_COOLING_INTENSITY_METRICS,
+    "Final Energy Intensity of Water Heating": build_en_int.WATER_HEATING_INTENSITY_METRICS,
+    "Final Energy Intensity of Cooking": build_en_int.COOKING_INTENSITY_METRICS,
+    "Final Energy Intensity of Electrical Appliances": build_en_int.APPLIANCES_INTENSITY_METRICS,
+}
+
+
+def load_residential_config(path: Path, countries: list, scenarios: list):
+
+    df = pd.read_csv(path)
+    df.columns = df.columns.str.strip()
+
+    required_cols = {
+        "Assumption Type",
+        "Metric Name",
+        "Year",
+        "Scenario",
+        "default"
+    }
+    if not required_cols.issubset(df.columns):
+        raise ValueError(f"Excel must contain columns: {required_cols}")
+
+    SCENARIO_ALIAS_MAP = {"sc_a": 0, "sc_b": 1, "sc_c": 2}
+
+    config = {c: {} for c in countries}
+
+    for _, row in df.iterrows():
+        metric = str(row["Metric Name"]).strip()
+
+        try:
+            year = int(row["Year"])
+        except Exception:
+            continue
+
+        scenario_val = str(row["Scenario"]).strip()
+        scenario_val_lower = scenario_val.lower()
+        default_val = row["default"]
+
+        for country in countries:
+            if country in df.columns and pd.notna(row[country]):
+                val = float(row[country])
+            elif pd.notna(default_val):
+                val = float(default_val)
+            else:
+                continue
+
+            # Resolve scenario
+            if scenario_val in scenarios:
+                target_scenarios = [scenario_val]
+            elif scenario_val_lower == "all":
+                target_scenarios = scenarios
+            elif scenario_val_lower in SCENARIO_ALIAS_MAP:
+                idx = SCENARIO_ALIAS_MAP[scenario_val_lower]
+                if idx < len(scenarios):
+                    target_scenarios = [scenarios[idx]]
+                else:
+                    continue
+            else:
+                continue
+
+            for s in target_scenarios:
+                entry = config[country].setdefault(
+                    metric,
+                    {
+                        "assumption_type": str(row["Assumption Type"]).strip().upper(),
+                        "values": {}
+                    }
+                )
+                entry["values"].setdefault(year, {})[s] = val
+
+    return config

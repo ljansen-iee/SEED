@@ -47,10 +47,16 @@ def main():
     print("===============================\n")
 
     # ---- Countries ----
+<<<<<<< HEAD
     countries_to_process = ["Morocco", "South Africa", "Egypt", "Chile"
                           #"Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Nigeria",
                           #"Algeria","Argentina","Brazil","Chile","Colombia","Peru","Venezuela",
                           #"Morocco","Tunisia","Tanzania", "South Africa","Libya",
+=======
+    selected_countries = ["Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
+                          "Algeria","Argentina","Brazil","Chile","Colombia","Peru","Venezuela",
+                          "Morocco","Tunisia","Tanzania", "South Africa","Libya",
+>>>>>>> main
                           #G20 countries
                            #"Australia", "Canada", "China", "France", "Germany",  
                           #"India", "Indonesia", "Italy", "Japan", "Mexico","Russia", "Saudi Arabia", 
@@ -59,7 +65,11 @@ def main():
 
     industry_cagr_excel = load_industry_config(
     excel_path=INDUSTRY_CFG_PATH,
+<<<<<<< HEAD
     countries=countries_to_process,
+=======
+    countries=selected_countries,
+>>>>>>> main
     scenarios=scenarios,)
 
     # ---- Load input data ----
@@ -137,7 +147,11 @@ def main():
     output_root.mkdir(parents=True, exist_ok=True)
 
 
+<<<<<<< HEAD
     for country in countries_to_process:
+=======
+    for country in selected_countries:
+>>>>>>> main
 
         cagr_cfg_nmm = get_metric_cagr_cfg_from_excel( industry_cagr_excel,country,"Activity factor of unspecified non metallic minerals")
         nmm_activity = activity_factor_unspecified_nmm(
