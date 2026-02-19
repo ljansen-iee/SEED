@@ -19,6 +19,7 @@ AVAILABLE_COUNTRIES = ["Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Ke
                           "India", "Indonesia", "Italy", "Japan", "Mexico","Russia", "Saudi Arabia", 
                           "South Africa", "South Korea", "United Kingdom", "United States"]
 
+# todo select_output_data = [""]
 
 # Order of carriers in the new "carrier" sheet
 CARRIER_ORDER = [

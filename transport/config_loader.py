@@ -68,6 +68,7 @@ def load_transport_config(excel_path: Path, countries: list, scenarios: list):
     return config
 
 
+# TODO: this is not used!?
 def get_assumption(config, metric, expected_type):
     entry = config.get(metric)
     if entry is None:
