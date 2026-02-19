@@ -17,7 +17,6 @@ from config_loader import load_transport_config
 from build_CAGR import poly_project, expand_with_cagr, expand_constant, as_fraction, get_cagr
 from helpers import refresh_unsd_master_data, UNSD_GLOBAL_OUTPUT
 =======
-<<<<<<< HEAD
 from build_macro_indicators import validate_scenarios_and_ssp
 # === Constants DEFAULT VALUES ===
 # TODO: @rakesh, can the user change this too?
@@ -47,9 +46,6 @@ TARGET_YEARS = [2035,2045,20250,2055]  # from 2030 up to 2055 in steps of 5 year
 
 BASE_YEAR = 2025  # Define the start year for the projections. 2020 by default. Years between 2020 and 2025 are available (via interpolation),
 
-=======
-from CAGR import poly_project, expand_with_cagr, expand_constant, as_fraction, get_cagr
->>>>>>> test_transport
 
 # === basics ===
 BASE_YEAR = 2020  # from 2019 until 2023
@@ -108,13 +104,13 @@ selected_countries = ["Republic of the Congo",
                       "United States of America"
                       ]
 
-countries_to_load = devkopsys_countries + ["default"] 
+countries_to_load = selected_countries + ["default"] 
 
 TRANSPORT_CONFIG = load_transport_config(
-<<<<<<< HEAD
+
     excel_path=Path(__file__).resolve().parent / TRANSPORT_CONFIG_FILE,
     countries=selected_countries,
-=======
+
     excel_path=TRANSPORT_CONFIG_PATH,
     countries=countries_to_load,
     scenarios=SCENARIOS
