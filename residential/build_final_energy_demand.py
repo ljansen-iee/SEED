@@ -180,6 +180,7 @@ def compute_space_heating_demand(df: pd.DataFrame) -> pd.DataFrame:
 			"District Heating": "District Heating",
 			"Electric Heaters": "Electricity",
 			"Heat Pumps": "Electricity",
+			"Air Conditioning":"Electricity",
 		}
 		for key, val in fuel_map.items():
 			if key in tech:
@@ -235,8 +236,7 @@ def compute_space_cooling_demand(df: pd.DataFrame) -> pd.DataFrame:
 
 	def map_fuel(tech: str) -> str:
 		fuel_map = {
-			"Air Conditioners": "Electricity",
-			"Fans": "Electricity",
+			"Air Conditioning": "Electricity",
 			"Heat Pumps": "Electricity",
 		}
 		for key, val in fuel_map.items():
@@ -307,6 +307,7 @@ def compute_water_heating_demand(df: pd.DataFrame) -> pd.DataFrame:
 			"District Heating": "District Heating",
 			"Electric Heaters": "Electricity",
 			"Heat Pumps": "Electricity",
+			"Air Conditioning":"Electricity",
 		}
 		for key, val in fuel_map.items():
 			if key in tech:
