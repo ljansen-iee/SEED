@@ -13,15 +13,15 @@ import pandas as pd
 CHOOSE_FOLDER = "industry_config"
 
 # Countries to run – you just edit this list
-AVAILABLE_COUNTRIES = ["Morocco", "South Africa", "Egypt", "Chile"]
+AVAILABLE_COUNTRIES = ["Chile", "Morocco", "Egypt","South Africa"]
                         #"Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
                         # "Algeria","Argentina","Brazil","Chile","Colombia","Mexico","Peru","Venezuela",
                         #"Morocco","Tunisia","Tanzania", "South Africa","Libya",
 
-                          #G20 countries
-                          #"Argentina", "Australia", "Brazil", "Canada", "China", "France", "Germany",  
-                          #"India", "Indonesia", "Italy", "Japan", "Mexico","Russia", "Saudi Arabia", 
-                          #"South Africa", "South Korea", "United Kingdom", "United States"]
+                        #G20 countries
+                        #"Argentina", "Australia", "Brazil", "Canada", "China", "France", "Germany",  
+                        #"India", "Indonesia", "Italy", "Japan", "Mexico","Russia", "Saudi Arabia", 
+                        #"South Africa", "South Korea", "United Kingdom", "United States"]
 
 # todo select_output_data = [""]
 

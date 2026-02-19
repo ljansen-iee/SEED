@@ -20,7 +20,7 @@ CHOOSE_FOLDER = "trans_config"
 
 
 # List of countries to process
-COUNTRY = [ "Morocco","Egypt","Chile","South Africa"]
+COUNTRY = [ "Egypt"]
     #"Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
     #"Algeria","Argentina","Brazil","Chile","Colombia","Mexico","Peru","Venezuela",
     #"Morocco","Tunisia","Tanzania", "South Africa","Libya",

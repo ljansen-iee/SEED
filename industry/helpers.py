@@ -558,3 +558,52 @@ def validate_fuel_shares(rows, base_year, target_years, scenarios):
             # Warn if not 100%
             if abs(total - 100) > 0.1 and total > 0:
                 print(f" FUEL SHARE WARNING: {label} totals {total:.2f}% in {col}")
+
+
+# ==============================
+# COUNTRY NAME → ISO2 CONVERSION
+# ==============================
+
+def country_to_iso2(country_name: str) -> str:
+    """
+    Convert full country name to ISO2 code.
+    Example: 'Morocco' -> 'MA'
+    """
+
+    if not country_name:
+        return None
+
+    name = country_name.strip()
+
+    # --- Try pycountry first (most reliable) ---
+    try:
+        import pycountry
+        country = pycountry.countries.lookup(name)
+        return country.alpha_2
+    except Exception:
+        pass
+
+    # --- Fallback manual mapping (common mismatches) ---
+    fallback = {
+        "South Africa": "ZA",
+        "Egypt": "EG",
+        "Morocco": "MA",
+        "Chile": "CL",
+        "Republic of the Congo": "CG",
+        "Congo": "CG",
+        "Democratic Republic of the Congo": "CD",
+        "Tanzania": "TZ",
+        "United States": "US",
+        "United States of America": "US",
+        "Russia": "RU",
+        "South Korea": "KR",
+        "North Korea": "KP",
+        "Vietnam": "VN",
+        "Iran": "IR",
+        "Syria": "SY",
+        "Bolivia": "BO",
+        "Venezuela": "VE",
+        "Libya": "LY",
+    }
+
+    return fallback.get(name)
