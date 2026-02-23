@@ -19,7 +19,7 @@ def load_oecd_transport_file(base_dir=None):
 
     # If base_dir not provided, auto-detect project root
     if base_dir is None:
-        base_dir = Path(__file__).resolve().parents[2]
+        base_dir = Path(__file__).resolve().parents[1]
 
     file_path = base_dir / "transport" / "input_data" / "global" / "OECD.Stat-EEI_TRANSPORT.csv"
 

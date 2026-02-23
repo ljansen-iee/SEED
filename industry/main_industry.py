@@ -8,27 +8,28 @@ from pathlib import Path
 # === Project imports ===
 BASE_DIR = Path(__file__).resolve().parent
 UNSD_PATH = BASE_DIR / "input_data" / "country_specific"
-from industry.scripts.iron_and_steel.build_steel_production import load_and_process_both, share_steel
-from industry.build_CAGR import load_industry_config, interpolate_or_extrapolate, get_metric_cagr_cfg_from_excel, expand_with_cagr_smooth
+
+from scripts.iron_and_steel.build_steel_production import load_and_process_both, share_steel
+from build_CAGR import load_industry_config, interpolate_or_extrapolate, get_metric_cagr_cfg_from_excel, expand_with_cagr_smooth
 
 # === Steel ===
 from scripts.iron_and_steel.build_shares_steel import share_fuel_bf_ohf, share_fuel_bf_bof, share_fuel_dr_eaf, share_fuel_scrap_eaf,share_fuel_casting_rolling, share_fuel_unspecified_steel, override_steel_routes_positional
 from scripts.iron_and_steel.build_energy_intensities_steel import intensity_bf_ohf, intensity_bf_bof, intensity_dr_eaf, intensity_scrap_eaf, intensity_casting_rolling
 from helpers import extract_capacity_shares, extract_all_fuels, _build_rate_anchors_indexed,  _forecast_from_history_and_sparse_cagr, _get_value_by_index,  _interp_at, get_mapped_config_name, poly_project, get_historical_sector_data, validate_fuel_shares, country_to_iso2
 # PAPER & PULP
-from industry.scripts.paper_and_pulp.build_paper_and_pulp_production import process_paper_pulp_data
-from industry.scripts.paper_and_pulp.build_share_primary_pulp import share_fuel_primary_pulp, share_fuel_secondary_pulp, share_fuel_paper, share_primary_secondary_pulp, share_fuel_unspecified_paper_pulp, activity_factor_unspecified_paper_pulp
+from scripts.paper_and_pulp.build_paper_and_pulp_production import process_paper_pulp_data
+from scripts.paper_and_pulp.build_share_primary_pulp import share_fuel_primary_pulp, share_fuel_secondary_pulp, share_fuel_paper, share_primary_secondary_pulp, share_fuel_unspecified_paper_pulp, activity_factor_unspecified_paper_pulp
 from scripts.paper_and_pulp.build_energy_intensities_paper_pulp import intensity_primary_pulp, intensity_secondary_pulp, intensity_paper_production
 # CEMENT
 from scripts.non_metallic_minerals.build_energy_intensities_cement import intensity_cement_production, activity_factor_unspecified_nmm, build_unspecified_nmm_intensity
 from scripts.non_metallic_minerals.build_shares_cement import share_fuel_cement_production, share_fuel_unspecified_nmm
-from industry.scripts.non_metallic_minerals.build_cement_production import get_cement_and_clinker
+from scripts.non_metallic_minerals.build_cement_production import get_cement_and_clinker
 # === Ammonia ===
 from scripts.chemical_and_petrochemical.ammonia.build_ammonia import ammonia_production, build_hvc_production_series, extract_for_countries_from_loader
 from scripts.chemical_and_petrochemical.ammonia.build_shares_ammonia import share_fuel_ammonia_smr_hb, share_fuel_ammonia_renewable, share_fuel_hvc_naphtha_cracking, share_fuel_hvc_lpg_cracking, share_fuel_hvc_methanol_route, share_fuel_unspecified_chemicals, share_HVC_production
 from scripts.chemical_and_petrochemical.ammonia.build_intensities_ammonia import intensity_ammonia_smr_hb, intensity_ammonia_renewable, intensity_hvc_naphtha_cracking, intensity_hvc_lpg_cracking, intensity_hvc_methanol_route, activity_factor_unspecified_chemicals
 # === HVC Production ===
-from scripts.chemical_and_petrochemical.HVC.build_hvc_production import get_hvc_production
+# from scripts.chemical_and_petrochemical.HVC.build_hvc_production import get_hvc_production
 # === Food & Tobacco ===
 from scripts.food_and_tobacco.build_shares_food_and_tobacco import get_unsd_fuel_shares
 
@@ -36,8 +37,8 @@ from scripts.food_and_tobacco.build_shares_food_and_tobacco import get_unsd_fuel
 def main():
     # ---- USER SETTINGS ----
     base_year = 2020
-    target_years = [2030,2050]
-    scenarios = ["Baseline","AP","NZ"]
+    target_years = [2030,2035,2040,2045, 2050]
+    scenarios = ["Baseline", "Progressive", "Optimistic"]
 
 
     INDUSTRY_CFG_PATH = BASE_DIR / "industry_config.csv"
@@ -49,29 +50,15 @@ def main():
     print("===============================\n")
 
     # ---- Countries ----
-<<<<<<< HEAD
-    countries_to_process = ["Morocco", "South Africa", "Egypt", "Chile"
-                          #"Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Nigeria",
-                          #"Algeria","Argentina","Brazil","Chile","Colombia","Peru","Venezuela",
-                          #"Morocco","Tunisia","Tanzania", "South Africa","Libya",
-=======
-    selected_countries = ["Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
-                          "Algeria","Argentina","Brazil","Chile","Colombia","Peru","Venezuela",
-                          "Morocco","Tunisia","Tanzania", "South Africa","Libya",
->>>>>>> main
-                          #G20 countries
-                           #"Australia", "Canada", "China", "France", "Germany",  
-                          #"India", "Indonesia", "Italy", "Japan", "Mexico","Russia", "Saudi Arabia", 
-                           #"South Korea", "United Kingdom","United States of America"
-                           ]
+    countries_to_process = ["Morocco", "Egypt", "Egypt",
+                        "Tunisia","Tanzania","Libya",
+                        "South Africa",                      
+                        "Ethiopia", "Ghana","Kenya",
+                        "Namibia","Nigeria", "Algeria"]
 
     industry_cagr_excel = load_industry_config(
     excel_path=INDUSTRY_CFG_PATH,
-<<<<<<< HEAD
     countries=countries_to_process,
-=======
-    countries=selected_countries,
->>>>>>> main
     scenarios=scenarios,)
 
     # ---- Load input data ----
@@ -154,9 +141,6 @@ def main():
 
     
     for country in countries_to_process:
-=======
-    for country in selected_countries:
->>>>>>> main
 
         cagr_cfg_nmm = get_metric_cagr_cfg_from_excel( industry_cagr_excel,country,"Activity factor of unspecified non metallic minerals")
         nmm_activity = activity_factor_unspecified_nmm(

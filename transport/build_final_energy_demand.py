@@ -20,13 +20,11 @@ CHOOSE_FOLDER = "trans_config"
 
 
 # List of countries to process
-COUNTRY = [ "Egypt"]
-    #"Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
-    #"Algeria","Argentina","Brazil","Chile","Colombia","Mexico","Peru","Venezuela",
-    #"Morocco","Tunisia","Tanzania", "South Africa","Libya",
-    #"Australia", "Canada", "China", "France", "Germany",  
-    #"India", "Indonesia", "Italy", "Japan", "Russia", "Saudi Arabia", 
-   # "South Korea", "United Kingdom", "United States of America"]
+COUNTRY = [ "Morocco", "Egypt", "Egypt",
+                        "Tunisia","Tanzania","Libya",
+                        "South Africa",                      
+                        "Ethiopia", "Ghana","Kenya",
+                        "Namibia","Nigeria", "Algeria"]
 
 def get_iso2_country_code(c):
     try:
