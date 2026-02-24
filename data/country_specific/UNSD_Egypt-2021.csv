@@ -1,0 +1,54 @@
+Country (2021),Transactions(down)/Commodity(right),Primary Coal and Peat,Coal and Peat Products,Primary Oil,Oil Products,Natural Gas,Biofuels and Waste,Nuclear,Electricity,Heat,Total Energy,memo: Of which Renewables
+Egypt,Primary production,---,---,1325442,---,2431549,171243,---,88171,5173,4021577,264587
+Egypt,Imports,80651,15485,405685,400534,140562,58,---,632,---,1043607,58
+Egypt,Exports,---,---,-335710,-196177,-322940,-3093,---,-5916,---,-863836,-3093
+Egypt,International marine bunkers,---,---,---,-16455,---,---,---,---,---,-16455,---
+Egypt,International aviation bunkers,---,---,---,-11785,---,---,---,---,---,-11785,---
+Egypt,Stock changes,---,---,---,---,---,---,---,---,---,---,---
+Egypt,Total energy supply,80651,15485,1395417,176118,2249171,168208,---,82888,5173,4173109,261552
+Egypt,Statistical differences,0,0,-66395,1002,152702,0,---,25666,0,112975,89896
+Egypt,Transfers and recycled products,---,---,---,---,---,---,---,---,---,---,---
+Egypt,Transformation,---,-6205,-1400433,1154263,-1266476,*-85419,---,648522,-5173,-960921,*-88868
+Egypt,Electricity  CHP & Heat Plants,---,---,---,-139857,-1266476,*-5869,---,648522,-5173,-768853,*-9318
+Egypt,Electricity Plants,---,---,---,-139857,-1266476,*-5869,---,648522,-5173,-768853,*-9318
+Egypt,CHP plants,---,---,---,---,---,---,---,---,---,---,---
+Egypt,Heat plants,---,---,---,---,---,---,---,---,---,---,---
+Egypt,Coke ovens,---,---,---,---,---,---,---,---,---,---,---
+Egypt,Briquetting plants,---,---,---,---,---,---,---,---,---,---,---
+Egypt,Liquefaction plants,---,---,---,---,---,---,---,---,---,---,---
+Egypt,Gas works,---,---,---,---,---,---,---,---,---,---,---
+Egypt,Blast furnaces,---,-6205,---,---,---,---,---,---,---,-6205,---
+Egypt,NGL & gas blending,---,---,-50750,55540,---,---,---,---,---,4790,---
+Egypt,Oil refineries,---,---,-1349683,1238581,---,---,---,---,---,-111103,---
+Egypt,Other transformation,---,---,---,---,---,*-79551,---,---,---,*-79551,*-79551
+Egypt,Energy industries own use,---,---,---,-45603,-232685,---,---,-6877,---,-285165,---
+Egypt,Losses,---,---,---,---,---,---,---,-129901,---,-129901,---
+Egypt,Final consumption,80651,9280,61379,1283775,597308,82789,---,568966,---,2684147,82789
+Egypt,Final Energy Consumption,80651,9280,---,1185444,362862,82789,---,568966,---,2289992,82789
+Egypt,Manufacturing  const. and mining,80651,9280,---,216858,243424,*20857,---,156619,---,727689,*20857
+Egypt,Iron and steel,---,9280,---,---,57863,---,---,---,---,67143,---
+Egypt,Chemical and petrochemical,---,---,---,---,---,---,---,---,---,---,---
+Egypt,Non-ferrous metals,---,---,---,---,---,---,---,---,---,---,---
+Egypt,Non-metallic minerals,80651,---,---,---,---,---,---,---,---,80651,---
+Egypt,Transport equipment,---,---,---,---,---,---,---,---,---,---,---
+Egypt,Machinery,---,---,---,---,---,---,---,---,---,---,---
+Egypt,Mining and quarrying,---,---,---,---,---,---,---,---,---,---,---
+Egypt,Food and tobacco,---,---,---,---,---,---,---,---,---,---,---
+Egypt,Paper  pulp and printing,---,---,---,---,---,---,---,---,---,---,---
+Egypt,Wood and wood products,---,---,---,---,---,---,---,---,---,---,---
+Egypt,Textile and leather,---,---,---,---,---,---,---,---,---,---,---
+Egypt,Construction,---,---,---,---,---,---,---,---,---,---,---
+Egypt,Industry n.e.s,0,0,---,216858,185561,*20857,---,156619,---,579895,*20857
+Egypt,Transport,---,---,---,542901,20756,---,---,2837,---,566494,---
+Egypt,Road,---,---,---,507252,20756,---,---,---,---,528008,---
+Egypt,Rail,---,---,---,---,---,---,---,2837,---,2837,---
+Egypt,Domestic aviation,---,---,---,27651,---,---,---,---,---,27651,---
+Egypt,Domestic navigation,---,---,---,7997,---,---,---,---,---,7997,---
+Egypt,Pipeline transport,---,---,---,---,---,---,---,---,---,---,---
+Egypt,Transport n.e.s,---,---,---,---,---,---,---,---,---,---,---
+Egypt,Other Consumption,---,---,---,425686,98682,61931,---,409510,---,995809,61931
+Egypt,Agriculture  forestry and fishing,---,---,---,36398,---,---,---,29459,---,65857,---
+Egypt,Commerce and public services,---,---,---,---,---,---,---,148067,---,148067,---
+Egypt,Households,---,---,---,144849,98682,61931,---,231985,---,537447,61931
+Egypt,Other consumption n.e.s,---,---,---,244439,---,---,---,---,---,244439,---
+Egypt,Non-energy use,---,---,61379,98331,234446,---,---,---,---,394155,---

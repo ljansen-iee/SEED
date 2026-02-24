@@ -1,0 +1,54 @@
+Country (2019),Transactions(down)/Commodity(right),Primary Coal and Peat,Coal and Peat Products,Primary Oil,Oil Products,Natural Gas,Biofuels and Waste,Nuclear,Electricity,Heat,Total Energy,memo: Of which Renewables
+Tunisia,Primary production,---,---,77571,---,79366,45864,---,2466,6826,212094,50906
+Tunisia,Imports,---,---,5301,189116,151977,---,---,1698,---,348093,---
+Tunisia,Exports,---,---,-67483,-3237,---,---,---,-2271,---,-72990,---
+Tunisia,International marine bunkers,---,---,---,-417,---,---,---,---,---,-417,---
+Tunisia,International aviation bunkers,---,---,---,-13229,---,---,---,---,---,-13229,---
+Tunisia,Stock changes,---,---,-3934,3227,---,---,---,---,---,-707,---
+Tunisia,Total energy supply,---,---,11456,175460,231343,45864,---,1894,6826,472843,50906
+Tunisia,Statistical differences,---,---,769,-1482,-162,0,---,141,0,-734,2466
+Tunisia,Transfers and recycled products,---,---,---,482,---,---,---,---,---,482,---
+Tunisia,Transformation,---,---,-10528,10253,-166757,-9709,---,76784,-4250,-104207,-9709
+Tunisia,Electricity  CHP & Heat Plants,---,---,---,-578,-166757,---,---,76784,-4250,-94801,---
+Tunisia,Electricity Plants,---,---,---,-578,-164507,---,---,74533,-4250,-94802,---
+Tunisia,CHP plants,---,---,---,---,-2250,---,---,2251,---,1,---
+Tunisia,Heat plants,---,---,---,---,---,---,---,---,---,---,---
+Tunisia,Coke ovens,---,---,---,---,---,---,---,---,---,---,---
+Tunisia,Briquetting plants,---,---,---,---,---,---,---,---,---,---,---
+Tunisia,Liquefaction plants,---,---,---,---,---,---,---,---,---,---,---
+Tunisia,Gas works,---,---,---,---,---,---,---,---,---,---,---
+Tunisia,Blast furnaces,---,---,---,---,---,---,---,---,---,---,---
+Tunisia,NGL & gas blending,---,---,-4516,4833,---,---,---,---,---,317,---
+Tunisia,Oil refineries,---,---,-6011,5998,---,---,---,---,---,-13,---
+Tunisia,Other transformation,---,---,---,---,---,-9709,---,---,---,-9709,-9709
+Tunisia,Energy industries own use,---,---,-160,-565,-6826,---,---,-3102,0,-10653,---
+Tunisia,Losses,---,---,---,---,---,---,---,-13108,---,-13108,---
+Tunisia,Final consumption,---,---,---,187112,57922,*36155,---,62327,2576,346092,*38731
+Tunisia,Final Energy Consumption,---,---,---,177998,57922,*36155,---,62327,2576,336979,*38731
+Tunisia,Manufacturing  const. and mining,---,---,---,34048,33722,---,---,20675,3,88448,3
+Tunisia,Iron and steel,---,---,---,---,338,---,---,992,---,1330,---
+Tunisia,Chemical and petrochemical,---,---,---,---,4449,---,---,2804,---,7253,---
+Tunisia,Non-ferrous metals,---,---,---,---,---,---,---,---,---,---,---
+Tunisia,Non-metallic minerals,---,---,---,22538,18551,---,---,5756,---,46845,---
+Tunisia,Transport equipment,---,---,---,---,---,---,---,---,---,---,---
+Tunisia,Machinery,---,---,---,---,---,---,---,1686,---,1686,---
+Tunisia,Mining and quarrying,---,---,---,---,339,---,---,1141,---,1480,---
+Tunisia,Food and tobacco,---,---,---,---,3643,---,---,3207,---,6851,---
+Tunisia,Paper  pulp and printing,---,---,---,---,1758,---,---,835,---,2593,---
+Tunisia,Wood and wood products,---,---,---,---,---,---,---,---,---,---,---
+Tunisia,Textile and leather,---,---,---,---,2457,---,---,1792,3,4252,3
+Tunisia,Construction,---,---,---,---,---,---,---,---,---,---,---
+Tunisia,Industry n.e.s,---,---,---,11510,2186,---,---,2462,0,16158,0
+Tunisia,Transport,---,---,---,98104,4102,---,---,338,---,102544,---
+Tunisia,Road,---,---,---,97471,---,---,---,---,---,97471,---
+Tunisia,Rail,---,---,---,432,---,---,---,240,---,671,---
+Tunisia,Domestic aviation,---,---,---,201,---,---,---,---,---,201,---
+Tunisia,Domestic navigation,---,---,---,---,---,---,---,---,---,---,---
+Tunisia,Pipeline transport,---,---,---,---,4102,---,---,98,---,4201,---
+Tunisia,Transport n.e.s,---,---,---,---,---,---,---,---,---,---,---
+Tunisia,Other Consumption,---,---,---,45847,20098,*36155,---,41314,2573,145987,*38727
+Tunisia,Agriculture  forestry and fishing,---,---,---,15980,1187,---,---,4052,---,21220,---
+Tunisia,Commerce and public services,---,---,---,4075,8254,493,---,17333,111,30264,603
+Tunisia,Households,---,---,---,25792,10657,*35662,---,19930,2462,94503,*38124
+Tunisia,Other consumption n.e.s,---,---,---,---,---,---,---,---,---,---,---
+Tunisia,Non-energy use,---,---,---,9113,---,---,---,---,---,9113,---
