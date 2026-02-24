@@ -63,6 +63,7 @@ We categorized input_data into country-specific and global
             ]
 
 * IMPORTANT NOTE: in the parameters.csv it is possible to change only the CAGR for the final energy intensity. If final energy intensity absolute values are change in this conf file, it wont be possible to overwrite the values.
+*District heating is disable 
 
 # Steps in PyPSA
 
