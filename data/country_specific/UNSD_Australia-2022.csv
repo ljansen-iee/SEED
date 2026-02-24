@@ -1,0 +1,54 @@
+Country (2022),Transactions(down)/Commodity(right),Primary Coal and Peat,Coal and Peat Products,Primary Oil,Oil Products,Natural Gas,Biofuels and Waste,Nuclear,Electricity,Heat,Total Energy,memo: Of which Renewables
+Australia,Primary production,11416084,---,806790,---,5515008,200758,---,288311,21456,18248406,506904
+Australia,Imports,2904,12123,359453,1492141,136846,---,---,---,---,2003467,---
+Australia,Exports,-9650097,-17226,-592664,-157360,-4173094,---,---,---,---,-14590442,---
+Australia,International marine bunkers,---,---,---,-24029,---,---,---,---,---,-24029,---
+Australia,International aviation bunkers,---,---,---,-73459,---,---,---,---,---,-73459,---
+Australia,Stock changes,-170601,---,-4007,2747,25052,---,---,---,---,-146809,---
+Australia,Total energy supply,1598290,-5103,569572,1240040,1503811,200758,---,288311,21456,5417134,506904
+Australia,Statistical differences,-78795,0,-93592,76034,117545,1,---,0,0,21193,288330
+Australia,Transfers and recycled products,---,---,43325,60794,---,---,---,---,---,104119,---
+Australia,Transformation,-1591674,59972,-705397,668427,-463449,*-36713,---,686633,-56,-1382257,*-36750
+Australia,Electricity  CHP & Heat Plants,-1481598,---,---,-42644,-463407,*-36713,---,686633,-56,-1337785,*-36750
+Australia,Electricity Plants,-1473646,---,---,-41901,-347075,-15582,---,631227,-56,-1247033,-15620
+Australia,CHP plants,-7952,---,---,-743,-116333,*-21130,---,55406,---,-90751,*-21130
+Australia,Heat plants,---,---,---,---,---,---,---,---,---,---,---
+Australia,Coke ovens,-110076,85082,---,---,---,---,---,---,---,-24994,---
+Australia,Briquetting plants,---,---,---,---,---,---,---,---,---,---,---
+Australia,Liquefaction plants,---,---,---,---,---,---,---,---,---,---,---
+Australia,Gas works,---,---,---,---,-42,---,---,---,---,-42,---
+Australia,Blast furnaces,---,-25156,---,---,---,---,---,---,---,-25156,---
+Australia,NGL & gas blending,---,46,-152926,159291,---,---,---,---,---,6411,---
+Australia,Oil refineries,---,---,-552471,551780,---,---,---,---,---,-691,---
+Australia,Other transformation,---,---,---,---,---,---,---,---,---,---,---
+Australia,Energy industries own use,---,-35642,-1092,-181864,-394626,---,---,-131906,---,-745130,---
+Australia,Losses,---,---,---,---,-2957,---,---,-48011,---,-50968,---
+Australia,Final consumption,85411,19227,---,1711364,525234,*164044,---,795027,21400,3321706,*181824
+Australia,Final Energy Consumption,85411,19227,---,1558529,473483,*164044,---,795027,21400,3117121,*181824
+Australia,Manufacturing  const. and mining,85303,19181,---,191772,263691,*111742,---,283067,---,954756,*108122
+Australia,Iron and steel,188,10802,---,783,9345,---,---,12398,---,33517,---
+Australia,Chemical and petrochemical,7209,469,---,4644,36528,3856,---,13239,---,65945,*394
+Australia,Non-ferrous metals,44229,3785,---,10407,119017,*1729,---,114638,---,293805,*1729
+Australia,Non-metallic minerals,17873,108,---,6844,42385,*3219,---,10956,---,81386,*3219
+Australia,Transport equipment,---,---,---,---,---,---,---,---,---,---,---
+Australia,Machinery,---,---,---,715,495,---,---,4812,---,6022,---
+Australia,Mining and quarrying,2910,1161,---,134594,4664,*11,---,81713,---,225054,*11
+Australia,Food and tobacco,6483,---,---,5473,30015,*76811,---,22414,---,*141196,*76653
+Australia,Paper  pulp and printing,1380,---,---,2003,12866,*14800,---,11512,---,42561,*14800
+Australia,Wood and wood products,161,---,---,400,1830,*11316,---,2911,---,*16618,*11316
+Australia,Textile and leather,430,---,---,265,4035,---,---,515,---,5245,---
+Australia,Construction,---,---,---,25095,2416,---,---,7346,---,34857,---
+Australia,Industry n.e.s,4439,2856,---,549,93,*0,---,613,---,8550,*0
+Australia,Transport,---,---,---,1229100,17516,4005,---,24282,---,1274902,4005
+Australia,Road,---,---,---,1053495,804,4005,---,454,---,1058758,4005
+Australia,Rail,---,---,---,48754,---,---,---,11787,---,60541,---
+Australia,Domestic aviation,---,---,---,86247,---,---,---,---,---,86247,---
+Australia,Domestic navigation,---,---,---,30778,---,---,---,---,---,30778,---
+Australia,Pipeline transport,---,---,---,---,15834,---,---,1029,---,16863,---
+Australia,Transport n.e.s,---,---,---,9825,878,---,---,11012,---,21715,---
+Australia,Other Consumption,108,46,---,137657,192277,*48297,---,487678,21400,887463,*69697
+Australia,Agriculture  forestry and fishing,---,---,---,97261,1102,---,---,6351,---,104715,---
+Australia,Commerce and public services,108,46,---,29135,43248,1054,---,231878,600,306068,1654
+Australia,Households,---,---,---,9982,147927,---,---,249449,20800,428157,20800
+Australia,Other consumption n.e.s,---,---,---,1279,---,*47243,---,---,---,*48522,*47243
+Australia,Non-energy use,---,---,---,152835,51750,---,---,---,---,204585,---

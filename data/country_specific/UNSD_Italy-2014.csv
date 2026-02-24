@@ -1,0 +1,54 @@
+Country (2014),Transactions(down)/Commodity(right),Primary Coal and Peat,Coal and Peat Products,Primary Oil,Oil Products,Natural Gas,Biofuels and Waste,Nuclear,Electricity,Heat,Total Energy,memo: Of which Renewables
+Italy-San Marino,Primary production,2286,---,250492,---,245139,464833,---,345704,226683,1535138,988747
+Italy-San Marino,Imports,515086,35235,2258867,732046,1911908,*117118,---,168289,---,5738549,*117118
+Italy-San Marino,Exports,-27,-9889,-15086,-877809,-8127,-5944,---,-10912,---,-927794,-5944
+Italy-San Marino,International marine bunkers,---,---,---,-80807,---,---,---,---,---,-80807,---
+Italy-San Marino,International aviation bunkers,---,---,---,-132079,---,---,---,---,---,-132079,---
+Italy-San Marino,Stock changes,2393,2233,-11336,32480,-25958,736,---,---,---,548,736
+Italy-San Marino,Total energy supply,519738,27579,2482937,-326170,2122962,576743,---,503082,226683,6133554,1100657
+Italy-San Marino,Statistical differences,41,-6815,-31011,-58118,0,-27,---,-4,0,-95933,367741
+Italy-San Marino,Transfers and recycled products,---,---,271546,-271546,---,---,---,---,---,0,---
+Italy-San Marino,Transformation,-499710,5616,-2785493,2680891,-746471,-265935,---,655513,-8552,-964141,-421289
+Italy-San Marino,Electricity  CHP & Heat Plants,-417070,-34456,---,-176577,-746471,-265614,---,655513,-8552,-993227,-420968
+Italy-San Marino,Electricity Plants,-414885,-15121,---,-28020,-225828,-127307,---,348973,-212976,-675163,-298788
+Italy-San Marino,CHP plants,-2186,-19335,---,-148557,-520643,-134839,---,306540,202448,-316571,-117948
+Italy-San Marino,Heat plants,---,---,---,---,---,*-3468,---,---,1976,*-1492,*-4232
+Italy-San Marino,Coke ovens,-59430,65442,---,---,---,---,---,---,---,6012,---
+Italy-San Marino,Briquetting plants,---,---,---,---,---,---,---,---,---,---,---
+Italy-San Marino,Liquefaction plants,---,---,---,---,---,---,---,---,---,---,---
+Italy-San Marino,Gas works,---,---,---,---,---,---,---,---,---,---,---
+Italy-San Marino,Blast furnaces,-23210,-31006,---,---,---,---,---,---,---,-54216,---
+Italy-San Marino,NGL & gas blending,---,---,---,---,---,---,---,---,---,---,---
+Italy-San Marino,Oil refineries,---,---,-2785493,2861081,---,---,---,---,---,75588,---
+Italy-San Marino,Other transformation,---,5636,---,-3613,---,*-321,---,---,---,1702,*-321
+Italy-San Marino,Energy industries own use,-156,-933,---,-109423,-49909,---,---,-75182,-48316,-283919,---
+Italy-San Marino,Losses,---,---,---,---,-11420,---,---,-70024,-763,-82207,---
+Italy-San Marino,Final consumption,19832,39077,---,2031869,1315163,*310836,---,1013393,169052,4899221,*311628
+Italy-San Marino,Final Energy Consumption,16579,39077,---,1753346,1293835,*310836,---,1013393,169052,4596117,*311628
+Italy-San Marino,Manufacturing  const. and mining,16579,39077,---,94775,357824,24610,---,406505,110536,1049906,*13683
+Italy-San Marino,Iron and steel,3357,38700,---,3050,49697,0,---,66078,3921,164803,0
+Italy-San Marino,Chemical and petrochemical,---,58,---,20526,43054,3492,---,51131,37766,156027,284
+Italy-San Marino,Non-ferrous metals,0,58,---,1166,16631,---,---,9079,29,26963,---
+Italy-San Marino,Non-metallic minerals,13222,174,---,42973,82276,11756,---,33030,5455,188887,*4407
+Italy-San Marino,Transport equipment,---,---,---,---,---,---,---,12024,3633,15657,---
+Italy-San Marino,Machinery,---,---,---,11260,56693,*21,---,70312,644,138930,*21
+Italy-San Marino,Mining and quarrying,---,---,---,1197,1376,0,---,2315,204,5092,0
+Italy-San Marino,Food and tobacco,---,---,---,6389,48109,1241,---,43099,15826,114663,1241
+Italy-San Marino,Paper  pulp and printing,---,---,---,2571,25121,17,---,31219,35044,93972,17
+Italy-San Marino,Wood and wood products,---,---,---,---,1262,*4131,---,10418,1519,17330,*4131
+Italy-San Marino,Textile and leather,---,---,---,3029,23916,4,---,18853,1863,47665,4
+Italy-San Marino,Construction,---,---,---,1337,8907,0,---,4504,30,14778,0
+Italy-San Marino,Industry n.e.s,0,87,---,1276,782,3948,---,54443,4602,65138,*3578
+Italy-San Marino,Transport,---,---,---,1444215,44886,44262,---,37667,---,1571029,44262
+Italy-San Marino,Road,---,---,---,1374745,36107,44262,---,245,---,1455359,44262
+Italy-San Marino,Rail,---,---,---,774,---,---,---,17892,---,18666,---
+Italy-San Marino,Domestic aviation,---,---,---,27739,---,---,---,---,---,27739,---
+Italy-San Marino,Domestic navigation,---,---,---,40956,---,---,---,---,---,40956,---
+Italy-San Marino,Pipeline transport,---,---,---,---,8779,---,---,1537,---,10316,---
+Italy-San Marino,Transport n.e.s,---,---,---,---,---,---,---,17993,---,17993,---
+Italy-San Marino,Other Consumption,---,---,---,214357,891125,*241964,---,569221,58516,1975183,*253683
+Italy-San Marino,Agriculture  forestry and fishing,---,---,---,89301,5075,*894,---,19343,2478,117091,2431
+Italy-San Marino,Commerce and public services,---,---,---,25088,251715,*3525,---,318560,15746,614634,8125
+Italy-San Marino,Households,---,---,---,95645,634335,*237545,---,231318,39846,1238690,*243127
+Italy-San Marino,Other consumption n.e.s,---,---,---,4322,---,---,---,---,446,4768,---
+Italy-San Marino,Non-energy use,3253,---,---,278523,21328,---,---,---,---,303104,---
