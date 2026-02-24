@@ -137,6 +137,31 @@ def build_tech_intensity_frame(
 	return tech_frame.reset_index()
 
 
+def split_heat_pump_demand_with_geothermal(df: pd.DataFrame) -> pd.DataFrame:
+	df = df.copy()
+	heat_pump_mask = df["tech"].str.contains("Heat Pumps", case=False, na=False)
+
+	if not heat_pump_mask.any():
+		df["final_energy_demand_twh"] = df["final_energy_demand_kwh"] / 1e9
+		return df
+
+	non_heat_pump = df.loc[~heat_pump_mask].copy()
+	heat_pump = df.loc[heat_pump_mask].copy()
+
+	heat_pump_electricity = heat_pump.copy()
+	heat_pump_electricity["fuel"] = "Electricity"
+	heat_pump_electricity["final_energy_demand_kwh"] = heat_pump_electricity["final_energy_demand_kwh"] * 0.3
+
+	heat_pump_geothermal = heat_pump.copy()
+	heat_pump_geothermal["fuel"] = "Geothermal"
+	heat_pump_geothermal["final_energy_demand_kwh"] = heat_pump_geothermal["final_energy_demand_kwh"] * 0.7
+
+	result = pd.concat([non_heat_pump, heat_pump_electricity, heat_pump_geothermal], ignore_index=True)
+	result["final_energy_demand_twh"] = result["final_energy_demand_kwh"] / 1e9
+
+	return result
+
+
 def compute_space_heating_demand(df: pd.DataFrame) -> pd.DataFrame:
 	df_long = prepare_long_df(df)
 
@@ -188,17 +213,15 @@ def compute_space_heating_demand(df: pd.DataFrame) -> pd.DataFrame:
 		return "Unknown"
 
 	merged["fuel"] = merged["tech"].map(map_fuel)
-	merged["electricity_part"] = np.where(merged["tech"].str.contains("Heat Pumps", na=False), 0.3, 1.0)
 	merged["final_energy_demand_kwh"] = (
 		merged["population"]
 		* merged["area_per_person"]
 		* merged["saturation"]
 		* merged["share"]
 		* merged["intensity"]
-		* merged["electricity_part"]
 	)
-	merged["final_energy_demand_twh"] = merged["final_energy_demand_kwh"] / 1e9
 	merged["end_use"] = "Space Heating"
+	merged = split_heat_pump_demand_with_geothermal(merged)
 
 	return merged[["country", "scenario", "year", "end_use", "tech", "fuel", "final_energy_demand_kwh", "final_energy_demand_twh"]]
 
@@ -315,7 +338,6 @@ def compute_water_heating_demand(df: pd.DataFrame) -> pd.DataFrame:
 		return "Unknown"
 
 	merged["fuel"] = merged["tech"].map(map_fuel)
-	merged["electricity_part"] = np.where(merged["tech"].str.contains("Heat Pumps", na=False), 0.3, 1.0)
 	merged["dwellings"] = merged["population"] / merged["persons_per_dwelling"]
 	merged = merged.replace([np.inf, -np.inf], np.nan)
 	merged = merged.dropna(subset=["dwellings"])
@@ -324,10 +346,9 @@ def compute_water_heating_demand(df: pd.DataFrame) -> pd.DataFrame:
 		* merged["saturation"]
 		* merged["share"]
 		* merged["intensity"]
-		* merged["electricity_part"]
 	)
-	merged["final_energy_demand_twh"] = merged["final_energy_demand_kwh"] / 1e9
 	merged["end_use"] = "Water Heating"
+	merged = split_heat_pump_demand_with_geothermal(merged)
 
 	return merged[["country", "scenario", "year", "end_use", "tech", "fuel", "final_energy_demand_kwh", "final_energy_demand_twh"]]
 
@@ -473,6 +494,117 @@ def compute_appliances_demand(df: pd.DataFrame) -> pd.DataFrame:
 	return merged[["country", "scenario", "year", "end_use", "tech", "fuel", "final_energy_demand_kwh", "final_energy_demand_twh"]]
 
 
+def build_residential_yearly_summary(final_df: pd.DataFrame, output_dir: Path) -> pd.DataFrame:
+	keys = ["country", "scenario", "year"]
+	df = final_df.copy()
+	df["fuel_norm"] = df["fuel"].astype(str).str.strip().str.lower()
+	df["end_use_norm"] = df["end_use"].astype(str).str.strip().str.lower()
+
+	biomass_fuels = {
+		"coal",
+		"traditional biomass",
+		"modern biomass",
+		"wood",
+	}
+	gas_fuels = {
+		"natural gas",
+		"gas",
+		"biogas",
+	}
+	oil_fuels = {
+		"kerosene",
+		"oil",
+		"diesel",
+		"lpg",
+	}
+	hydrogen_fuels = {"hydrogen"}
+	renewable_heat_fuels = {
+		"geothermal",
+		"solar",
+		"solar heating",
+		"district heating",
+	}
+
+	space_end_uses = {"space heating", "space cooling"}
+	non_cooking_end_uses = {"space heating", "space cooling", "water heating", "electrical appliances"}
+
+	base = df[keys].drop_duplicates().set_index(keys).sort_index()
+
+	def grouped_sum(mask: pd.Series) -> pd.Series:
+		return df.loc[mask].groupby(keys)["final_energy_demand_twh"].sum()
+
+	base["electricity residential space"] = grouped_sum(
+		(df["fuel_norm"] == "electricity") & (df["end_use_norm"].isin(space_end_uses))
+	)
+	base["electricity residential water"] = grouped_sum(
+		(df["fuel_norm"] == "electricity") & (df["end_use_norm"] == "water heating")
+	)
+	base["electricity residential"] = grouped_sum(df["fuel_norm"] == "electricity")
+
+	base["residential heat biomass with cooking"] = grouped_sum(df["fuel_norm"].isin(biomass_fuels))
+	base["residential heat gas with cooking"] = grouped_sum(df["fuel_norm"].isin(gas_fuels))
+	base["residential heat oil with cooking"] = grouped_sum(df["fuel_norm"].isin(oil_fuels))
+	base["residential hydrogen with cooking"] = grouped_sum(df["fuel_norm"].isin(hydrogen_fuels))
+	base["exog. renewable heat"] = grouped_sum(df["fuel_norm"].isin(renewable_heat_fuels))
+
+	base["residential heat biomass"] = grouped_sum(
+		(df["fuel_norm"].isin(biomass_fuels)) & (df["end_use_norm"].isin(non_cooking_end_uses))
+	)
+	base["residential heat gas"] = grouped_sum(
+		(df["fuel_norm"].isin(gas_fuels)) & (df["end_use_norm"].isin(non_cooking_end_uses))
+	)
+	base["residential heat oil"] = grouped_sum(
+		(df["fuel_norm"].isin(oil_fuels)) & (df["end_use_norm"].isin(non_cooking_end_uses))
+	)
+	base["residential hydrogen"] = grouped_sum(df["fuel_norm"].isin(hydrogen_fuels))
+
+	heat_space_mask = (df["fuel_norm"].isin(biomass_fuels | gas_fuels | oil_fuels | hydrogen_fuels)) & (
+		df["end_use_norm"] == "space heating"
+	)
+	heat_water_mask = (df["fuel_norm"].isin(biomass_fuels | gas_fuels | oil_fuels | hydrogen_fuels)) & (
+		df["end_use_norm"] == "water heating"
+	)
+
+	base["total residential space"] = (
+		base["electricity residential space"] + grouped_sum(heat_space_mask)
+	)
+	base["total residential water"] = (
+		base["electricity residential water"] + grouped_sum(heat_water_mask)
+	)
+
+	summary_df = base.fillna(0).reset_index()
+
+	summary_df = summary_df[
+		[
+			"country",
+			"scenario",
+			"year",
+			"electricity residential space",
+			"electricity residential water",
+			"electricity residential",
+			"residential heat biomass with cooking",
+			"residential heat gas with cooking",
+			"residential heat oil with cooking",
+			"residential hydrogen with cooking",
+			"exog. renewable heat",
+			"residential heat biomass",
+			"residential heat gas",
+			"residential heat oil",
+			"residential hydrogen",
+			"total residential space",
+			"total residential water",
+		]
+	]
+
+	summary_df.to_csv(output_dir / "residential_energy_summary_all_years.csv", index=False)
+
+	for year_value, year_df in summary_df.groupby("year"):
+		year_file = output_dir / f"residential_energy_summary_{int(year_value)}.csv"
+		year_df.to_csv(year_file, index=False)
+
+	return summary_df
+
+
 def main():
 	if not residential_config_path.exists():
 		raise FileNotFoundError(f"Input file not found: {residential_config_path}")
@@ -491,6 +623,7 @@ def main():
 		ignore_index=True,
 	)
 	final_df.to_csv(output_dir / "final_energy_demand_all_end_uses.csv", index=False)
+	build_residential_yearly_summary(final_df, output_dir)
 
 
 if __name__ == "__main__":
