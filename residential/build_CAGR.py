@@ -266,7 +266,7 @@ def export_all_countries_cagr_csv(output_path=None):
             for col in df_cagr.columns
         ]
     if output_path is None:
-        output_dir = Path(__file__).resolve().parent / "output_data/macro_indicators"
+        output_dir = Path(__file__).resolve().parent / "output_data/interim_indicators/macro_indicators"
         output_dir.mkdir(parents=True, exist_ok=True)
         output_path = output_dir / "CAGR_residential.csv"
     df_cagr.to_csv(output_path, index=False)

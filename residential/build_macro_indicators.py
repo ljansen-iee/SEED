@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import os
+from pathlib import Path
 from sklearn.metrics import r2_score, mean_squared_error
 from helpers import load_all_files
 # from .helpers import load_all_files
@@ -379,18 +380,33 @@ def create_macro_indicators_all():
 
     return df_population, df_gdp_ssp, df_m2_p_all, df_person_dw, df_economics
 
+
+def export_macro_indicators_csv(output_dir=None):
+    df_population, df_gdp_ssp, df_m2_p_all, df_person_dw, df_economics = create_macro_indicators_all()
+
+    if output_dir is None:
+        output_dir = Path(__file__).resolve().parent / "output_data/interim_indicators/macro_indicators"
+    else:
+        output_dir = Path(output_dir)
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    output_files = {
+        "population": output_dir / "population.csv",
+        "gdp_ssp": output_dir / "gdp_ssp.csv",
+        "m2_pp": output_dir / "m2_pp.csv",
+        "person_dw": output_dir / "person_dw.csv",
+        "economic_ind": output_dir / "economic_ind.csv",
+    }
+
+    df_population.to_csv(output_files["population"], index=True)
+    df_gdp_ssp.to_csv(output_files["gdp_ssp"], index=True)
+    df_m2_p_all.to_csv(output_files["m2_pp"], index=True)
+    df_person_dw.to_csv(output_files["person_dw"], index=True)
+    df_economics.to_csv(output_files["economic_ind"], index=True)
+
+    return output_files
+
 ## Only necessary for local testing
 # if __name__=="__main__":
-#     df_population, df_gdp_ssp, df_m2_p_all, df_person_dw, df_economics = create_macro_indicators_all()
-
-    # print(df_population, df_gdp_ssp, df_m2_p_all, df_person_dw, df_economics)
-
-    # out_dir = os.path.join(os.path.dirname(__file__), "output_data\macro_indicators")
-    # os.makedirs(out_dir, exist_ok=True)
-    # print(out_dir, os.path.exists(out_dir))
-
-    # df_population.to_csv(os.path.join(out_dir, "population.csv"), index=True)
-    # df_gdp_ssp.to_csv(os.path.join(out_dir, "gdp_ssp.csv"), index=True)
-    # df_m2_p_all.to_csv(os.path.join(out_dir, "m2_pp.csv"), index=True)
-    # df_person_dw.to_csv(os.path.join(out_dir, "person_dw.csv"), index=True)
-    # df_economics.to_csv(os.path.join(out_dir, "economic_ind.csv"), index=True)
+#     export_macro_indicators_csv()
