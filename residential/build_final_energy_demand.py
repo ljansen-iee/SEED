@@ -1,4 +1,5 @@
 import os
+import re
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -596,11 +597,15 @@ def build_residential_yearly_summary(final_df: pd.DataFrame, output_dir: Path) -
 		]
 	]
 
-	summary_df.to_csv(output_dir / "residential_energy_summary_all_years.csv", index=False)
+	summary_df.to_csv(
+		output_dir / "residential_all_scenarios_years_countries.csv",
+		index=False,
+	)
 
-	for year_value, year_df in summary_df.groupby("year"):
-		year_file = output_dir / f"residential_energy_summary_{int(year_value)}.csv"
-		year_df.to_csv(year_file, index=False)
+	for (scenario_value, year_value), group_df in summary_df.groupby(["scenario", "year"]):
+		scenario_slug = re.sub(r"[^A-Za-z0-9]+", "_", str(scenario_value)).strip("_").lower()
+		file_name = f"residential_{scenario_slug}_{int(year_value)}.csv"
+		group_df.to_csv(output_dir / file_name, index=False)
 
 	return summary_df
 

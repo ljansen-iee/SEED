@@ -8,7 +8,12 @@ DEFAULT_SECTOR_LABELS = [
     "Agriculture  forestry and fishing",
     "Commerce and public services",
     "Non-energy use",
-    "Other Consumption",
+    "Other consumption n.e.s",
+]
+
+BASE_PERIODS = [
+    (2011, 2016),
+    (2017, 2023),
 ]
 
 
@@ -53,9 +58,34 @@ def _validate_share_sum(shares: dict, tolerance: float = 1e-3):
     return share_sum, is_valid
 
 
+def _normalize_shares(shares: dict, decimals: int = 4):
+    total = sum(shares.values())
+    if total <= 0:
+        return _default_share_dict()
+    return {
+        fuel: round(value / total, decimals)
+        for fuel, value in shares.items()
+    }
+
+
 def _sector_slug(sector_label: str):
     slug = re.sub(r"[^a-z0-9]+", "_", sector_label.lower()).strip("_")
     return slug if slug else "sector"
+
+
+def _sector_column_prefix(sector_label: str):
+    normalized = " ".join(str(sector_label).lower().split())
+    mapping = {
+        "agriculture forestry and fishing": "agriculture",
+        "commerce and public services": "services",
+        "non-energy use": "non energy",
+        "other consumption": "ohter",
+    }
+    return mapping.get(normalized, normalized)
+
+
+def _sector_output_file_prefix(sector_label: str):
+    return _sector_column_prefix(sector_label).replace(" ", "_")
 
 
 def _get_candidate_dirs(base_path: Path):
@@ -140,6 +170,41 @@ def get_sector_shares(
     return shares
 
 
+def _get_sector_totals_by_fuel(
+    base_path: Path,
+    country: str,
+    year: int,
+    sector_label: str,
+    fuel_mapping: dict = None,
+):
+    filename = f"UNSD_{country}-{year}.csv"
+    candidates = [directory / filename for directory in _get_candidate_dirs(base_path)]
+    file_path = next((candidate for candidate in candidates if candidate.exists()), candidates[0])
+
+    if fuel_mapping is None:
+        fuel_mapping = _default_fuel_mapping()
+
+    if not file_path.exists():
+        return 0.0, _default_share_dict()
+
+    df = pd.read_csv(file_path)
+    sector_col = "Transactions(down)/Commodity(right)"
+    row = df[df[sector_col].str.strip().str.lower() == sector_label.lower()]
+
+    if row.empty:
+        return 0.0, _default_share_dict()
+
+    total_tj = _clean_val(row["Total Energy"].iloc[0])
+    if total_tj <= 0:
+        return 0.0, _default_share_dict()
+
+    fuel_totals = {}
+    for category, headers in fuel_mapping.items():
+        fuel_totals[category] = sum([_clean_val(row[h].iloc[0]) for h in headers if h in df.columns])
+
+    return total_tj, fuel_totals
+
+
 def get_sector_shares_historical_average(
     base_path: Path,
     country: str,
@@ -153,30 +218,28 @@ def get_sector_shares_historical_average(
     if not years:
         return _default_share_dict()
 
-    valid_shares = []
+    aggregate_total_tj = 0.0
+    aggregate_fuel_totals = _default_share_dict()
+
     for historical_year in years:
-        year_shares = get_sector_shares(
+        year_total_tj, year_fuel_totals = _get_sector_totals_by_fuel(
             base_path=base_path,
             country=country,
             year=historical_year,
             sector_label=sector_label,
             fuel_mapping=fuel_mapping,
         )
-        if any(value > 0 for value in year_shares.values()):
-            valid_shares.append(year_shares)
+        if year_total_tj <= 0:
+            continue
 
-    if not valid_shares:
+        aggregate_total_tj += year_total_tj
+        for fuel in aggregate_fuel_totals.keys():
+            aggregate_fuel_totals[fuel] += year_fuel_totals.get(fuel, 0.0)
+
+    if aggregate_total_tj <= 0:
         return _default_share_dict()
 
-    averaged = {}
-    categories = valid_shares[0].keys()
-    for category in categories:
-        averaged[category] = round(
-            sum(share[category] for share in valid_shares) / len(valid_shares),
-            4,
-        )
-
-    return averaged
+    return _normalize_shares(aggregate_fuel_totals, decimals=4)
 
 
 def export_sector_shares_all_countries(
@@ -187,12 +250,12 @@ def export_sector_shares_all_countries(
     fuel_mapping: dict = None,
 ):
     countries = _discover_countries(base_path=base_path)
-    sector_slug = _sector_slug(sector_label)
-    output_csv_path = Path(output_dir) / f"{sector_slug}_shares_all_countries.csv"
+    output_prefix = _sector_output_file_prefix(sector_label)
+    output_csv_path = Path(output_dir) / f"{output_prefix}_shares_all_countries.csv"
 
     if not countries:
         output_csv_path.parent.mkdir(parents=True, exist_ok=True)
-        pd.DataFrame(columns=["sector", "country", "share_mode", "year", *_default_share_dict().keys()]).to_csv(
+        pd.DataFrame(columns=["sector", "country", "share_mode", "share_sum", "share_sum_is_valid", *_default_share_dict().keys()]).to_csv(
             output_csv_path, index=False
         )
         return output_csv_path
@@ -200,10 +263,12 @@ def export_sector_shares_all_countries(
     rows = []
     for country in countries:
         if year is None:
+            all_years = _discover_country_years(base_path=base_path, country=country)
             shares = get_sector_shares_historical_average(
                 base_path=base_path,
                 country=country,
                 sector_label=sector_label,
+                years=all_years,
                 fuel_mapping=fuel_mapping,
             )
             share_sum, share_sum_is_valid = _validate_share_sum(shares)
@@ -211,11 +276,34 @@ def export_sector_shares_all_countries(
                 "sector": sector_label,
                 "country": country,
                 "share_mode": "historical_average",
-                "year": "all_available",
                 "share_sum": share_sum,
                 "share_sum_is_valid": share_sum_is_valid,
                 **shares,
             }
+            rows.append(row)
+
+            for start_year, end_year in BASE_PERIODS:
+                period_years = [historical_year for historical_year in all_years if start_year <= historical_year <= end_year]
+                if not period_years:
+                    continue
+
+                period_shares = get_sector_shares_historical_average(
+                    base_path=base_path,
+                    country=country,
+                    sector_label=sector_label,
+                    years=period_years,
+                    fuel_mapping=fuel_mapping,
+                )
+                period_share_sum, period_share_sum_is_valid = _validate_share_sum(period_shares)
+                period_row = {
+                    "sector": sector_label,
+                    "country": country,
+                    "share_mode": f"base_period_{start_year}_{end_year}",
+                    "share_sum": period_share_sum,
+                    "share_sum_is_valid": period_share_sum_is_valid,
+                    **period_shares,
+                }
+                rows.append(period_row)
         else:
             shares = get_sector_shares(
                 base_path=base_path,
@@ -229,12 +317,11 @@ def export_sector_shares_all_countries(
                 "sector": sector_label,
                 "country": country,
                 "share_mode": "single_year",
-                "year": year,
                 "share_sum": share_sum,
                 "share_sum_is_valid": share_sum_is_valid,
                 **shares,
             }
-        rows.append(row)
+            rows.append(row)
 
     output_df = pd.DataFrame(rows)
     output_csv_path.parent.mkdir(parents=True, exist_ok=True)
