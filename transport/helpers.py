@@ -530,9 +530,6 @@ def generate_units_dictionary():
         "Share of Biokerosene in Internal Aviation Fuel": "% of km",
         "Share of ICE Fuel in Plugin Hybrid": "% of km",
         
-        # === OPTIONAL/ADDITIONAL METRICS ===
-        "Final Energy Intensity - Kerosene Freight Plane": "kWh/vkm",
-        "Final Energy Intensity - Diesel Passenger Ship": "kWh/vkm",
     }
 
 import pandas as pd

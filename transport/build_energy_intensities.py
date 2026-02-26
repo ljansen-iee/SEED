@@ -69,11 +69,7 @@ def get_base_intensity_values():
         "Final Energy Intensity - BEV Freight Ship": 145.80,
         "Final Energy Intensity - FCEV Freight Ship": 0.071 * 508.00,
 
-        # ---------- Freight Aviation ----------
-        "Final Energy Intensity - Kerosene Freight Plane": 0.0,
 
-        # ---------- Passenger Navigation ----------
-        "Final Energy Intensity - Diesel Passenger Ship": 0.0,
     }
     return base_intensity
 

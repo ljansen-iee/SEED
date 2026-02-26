@@ -35,7 +35,7 @@ print("Running transport sector pipeline")
 print(f"Transport assumptions file: {transport_config_file}")
 print("===============================\n")
 
-countries_to_process = ["Morocco"]
+countries_to_process = ["Morocco","Egypt","South Africa"]
                        #"Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Nigeria"]
                        #"Algeria","Argentina","Brazil","Chile","Colombia","Mexico","Peru","Venezuela",
                        #"Morocco","Tunisia","Tanzania","Libya",

@@ -32,7 +32,7 @@ transport_config = {}
 
 # List of countries to process
 
-countries = ["Egypt", "Morocco","South Africa", "Chile"]
+countries = ["Egypt", "Morocco","South Africa"]
     #"Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
     #"Algeria","Argentina","Brazil","Chile","Colombia","Mexico","Peru","Venezuela",
     #"Morocco","Tunisia","Tanzania", "South Africa","Libya",
