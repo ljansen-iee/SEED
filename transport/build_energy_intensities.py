@@ -77,10 +77,10 @@ def get_base_intensity_values():
     }
     return base_intensity
 
-def expand_intensity(metric_name, base_value, BASE_YEAR, TARGET_YEARS, SCENARIOS, CAGR_VALUES):
+def expand_intensity(metric_name, base_value, BASE_YEAR, TARGET_YEARS, SCENARIOS, cagr_values):
     try:
         # 1. Get the raw entry from the config
-        entry = CAGR_VALUES.get(metric_name)
+        entry = cagr_values.get(metric_name)
 
         # --- SAFETY GUARD 1: Check Base Value ---
         if (
@@ -149,7 +149,7 @@ def generate_energy_intensities(
     BASE_YEAR,
     TARGET_YEARS,
     SCENARIOS,
-    CAGR_VALUES,
+    cagr_values,
     BACKEND=None
 ):
     intensity_base = get_base_intensity_values()
@@ -163,7 +163,7 @@ def generate_energy_intensities(
                 BASE_YEAR=BASE_YEAR,
                 TARGET_YEARS=TARGET_YEARS,
                 SCENARIOS=SCENARIOS,
-                CAGR_VALUES=CAGR_VALUES
+                cagr_values=cagr_values
             )
             result[metric] = expanded
         except Exception as e:

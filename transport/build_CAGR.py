@@ -296,11 +296,8 @@ def build_cagr_values(result_df, base_values, base_year=2020):
     return values
 
 
-
-
-# === Step 6: Import base 2020 values from YAML ===
 try:
-    from config_loader import load_expert_config
+    from helpers import load_expert_config
     BASE_VALUES = load_expert_config()   # <-- NO ARGUMENTS NOW
 except Exception as e:
     #print(f" Could not load base values from YAML: {e}")
@@ -527,8 +524,8 @@ def as_fraction(val):
     except Exception:
         return 0.0
 
-def get_cagr(CAGR_VALUES, metric):
-    entry = CAGR_VALUES.get(metric)
+def get_cagr(cagr_values, metric):
+    entry = cagr_values.get(metric)
     if entry is None:
         raise KeyError(f"CAGR not found for metric: {metric}")
     if entry.get("assumption_type") != "CAGR":
@@ -537,15 +534,15 @@ def get_cagr(CAGR_VALUES, metric):
 
 
 
-def get_cagr(CAGR_VALUES, metric):
+def get_cagr(cagr_values, metric):
     """
     Retrieves the CAGR value dictionary for a specific metric.
-    Expects CAGR_VALUES to be a dictionary where keys are metric names.
+    Expects cagr_values to be a dictionary where keys are metric names.
     """
-    if not isinstance(CAGR_VALUES, dict):
-        raise ValueError("CAGR_VALUES must be a dictionary.")
+    if not isinstance(cagr_values, dict):
+        raise ValueError("cagr_values must be a dictionary.")
         
-    entry = CAGR_VALUES.get(metric)
+    entry = cagr_values.get(metric)
     
     if entry is None:
         # It's better to return an empty dict than crash, 
@@ -700,7 +697,7 @@ def poly_project(years, values, target_years, degree=2):
         print(f"poly_project error: {e}")
         return {int(t): np.nan for t in target_years}
     
-def apply_load_factor(metric, base_value, values_dict, assumption_types, base_year, target_years, scenarios):
+def apply_load_factor(metric, base_value, cagr_values, assumption_types, base_year, target_years, scenarios):
 
     if assumption_types.get(metric) == "LOAD_FACTOR":
 
@@ -711,7 +708,7 @@ def apply_load_factor(metric, base_value, values_dict, assumption_types, base_ye
 
                 key = f"{year}_{scenario}"
 
-                val = values_dict.get(metric, {}).get(year, {}).get(scenario)
+                val = cagr_values.get(metric, {}).get(year, {}).get(scenario)
 
                 if val is not None:
                     expanded[key] = val

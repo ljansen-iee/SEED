@@ -71,29 +71,37 @@ def get_country_population_value(df_population, country, year="2018", scenario="
     except Exception as e:
         return f"Error: {str(e)}"
 
-def extract_population_values(df_population, country, years=[2030, 2050], scenarios=["Baseline", "RF", "EL"], ssp_scenarios=None):
-    if ssp_scenarios is None:
-        ssp_scenarios = {
-            2030: {"Baseline": "SSP2", "RF": "SSP2", "EL": "SSP1"},
-            2050: {"Baseline": "SSP2", "RF": "SSP2", "EL": "SSP1"}
-        }
-    
+def extract_population_values(df_population, country, base_year=2020, years=None, scenarios=None, ssp_order=None):
+    """
+    Extracts population values by matching the SCENARIOS list to the SSP_ORDER list
+    based on their position (index).
+    """
+    # Ensure we have lists to work with
+    if years is None: years = [2030, 2050]
+    if scenarios is None: scenarios = []
+    if ssp_order is None: ssp_order = []
+
     result = {}
-    base_year = '2018'
-    try:
-        result['2018'] = df_population.loc[(country, 'SSP1'), base_year]
-    except (KeyError, IndexError):
-        print(f"Warning: Missing {base_year} SSP2 population for {country}")
-        result['2018'] = np.nan
     
+    # 1. Get Base Year Value (using the first SSP in your order as the reference)
+    try:
+        base_ssp = ssp_order[0] if ssp_order else "SSP2"
+        result[str(base_year)] = df_population.loc[(country, base_ssp), str(base_year)]
+    except (KeyError, IndexError):
+        result[str(base_year)] = np.nan
+    
+    # 2. MATCHING LOGIC:
+    # This matches scenarios[0] with ssp_order[0], scenarios[1] with ssp_order[1], etc.
     for year in years:
-        for scenario in scenarios:
-            ssp = ssp_scenarios[year][scenario]
+        for idx, scenario in enumerate(scenarios):
+            # Get the SSP that matches this scenario's position
+            ssp = ssp_order[idx] 
+            
             col_name = f"{year}_{scenario}"
             try:
                 result[col_name] = df_population.loc[(country, ssp), str(year)]
             except (KeyError, IndexError):
-                print(f"Warning: Missing {ssp} {year} population for {country}")
+                print(f"Warning: Missing data for {country} | {ssp} | {year}")
                 result[col_name] = np.nan
     
     return result
@@ -118,19 +126,31 @@ def load_data(input_path=None):
     return dfs_country_spe
 
 def validate_scenarios_and_ssp(scenarios, ssp_order):
+    """
+    Validates that the lists match in length. 
+    REMOVED: The requirement for the first scenario to be named 'Baseline'.
+    """
     if not scenarios:
         raise ValueError("SCENARIOS cannot be empty.")
 
-    if scenarios[0] != "Baseline":
-        raise ValueError("Baseline must be the first scenario in SCENARIOS.")
+    # FIX: We no longer check if scenarios[0] == "Baseline". 
+    # This allows you to name your scenarios whatever you want.
 
     if len(scenarios) != len(ssp_order):
         raise ValueError(
             "SCENARIOS and SSP_ORDER must have the same length.\n"
             f"SCENARIOS={scenarios}\nSSP_ORDER={ssp_order}"
         )
+    
 def get_ssp_for_scenario(scenario, scenarios, ssp_order):
-    idx = scenarios.index(scenario)
-    return ssp_order[idx]
+    """
+    Finds the SSP associated with a scenario by its position in the list.
+    """
+    try:
+        idx = scenarios.index(scenario)
+        return ssp_order[idx]
+    except ValueError:
+        # If the scenario name isn't found, fallback to the first SSP
+        return ssp_order[0]
 
 

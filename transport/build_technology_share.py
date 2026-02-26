@@ -68,21 +68,21 @@ def interpolate_overrides(metric, year, scenario, overrides):
 
 
 
-def apply_technology_overrides(rows, target_years, scenarios, CAGR_VALUES, ASSUMPTION_TYPES):
+def apply_technology_overrides(rows, target_years, scenarios, cagr_values, assumption_types):
 
     new_rows = []
 
     tech_metrics = {
-        m for m, t in ASSUMPTION_TYPES.items() if t == "TECH_SHARE"
+        m for m, t in assumption_types.items() if t == "TECH_SHARE"
     }
 
     excel_overrides = {}
 
     for metric in tech_metrics:
-        if metric not in CAGR_VALUES:
+        if metric not in cagr_values:
             continue
 
-        values_dict = CAGR_VALUES.get(metric, {})
+        values_dict = cagr_values.get(metric, {})
 
         if not isinstance(values_dict, dict):
             continue
@@ -183,7 +183,6 @@ def share_technology(country, year):
     technology_kerosene_passenger_plane = get_share("P_AIR", "Jet fuel and aviation gasoline (PJ)")
     technology_bev_passenger_plane = 0.0
     technology_fcev_passenger_plane = 0.0
-    technology_kerosene_freight_plane = technology_kerosene_passenger_plane
 
     #  Trucks
     technology_diesel_ice_ldt = get_share("P_LDT", "Diesel and light fuel oil (PJ)")
@@ -202,7 +201,6 @@ def share_technology(country, year):
     technology_ammonia_freight_ship = 0.0
     technology_bev_freight_ship = 0.0
     technology_fcev_freight_ship = 0.0
-    technology_diesel_passenger_ship = technology_diesel_ice_freight_ship
 
     # Biofuels (keep assumptions)
     bioethanol_in_road_gasoline = 0.0
@@ -233,9 +231,6 @@ def share_technology(country, year):
 
         technology_diesel_ice_freight_ship, technology_methanol_freight_ship, technology_ammonia_freight_ship,
         technology_bev_freight_ship, technology_fcev_freight_ship,
-
-        technology_kerosene_freight_plane,
-        technology_diesel_passenger_ship,
 
         bioethanol_in_road_gasoline, biodiesel_in_road_diesel, biodiesel_in_rail_diesel,
         biodiesel_in_internal_navigation_diesel, biokerosene_in_internal_aviation_fuel,
@@ -292,10 +287,6 @@ TECHNOLOGY_OVERRIDES = {
     "Share of Technology - Ammonia Freight Ship": {},
     "Share of Technology - BEV Freight Ship": {},
     "Share of Technology - FCEV Freight Ship": {},
-    
-    "Share of Technology - Kerosene Freight Plane": {},
-    "Share of Technology - Diesel Passenger Ship": {},
-    
     "Share of Bioethanol in Road Gasoline": {},
     "Share of Biodiesel in Road Diesel": {},
     "Share of Biodiesel in Rail Diesel": {},
@@ -357,12 +348,6 @@ TECHNOLOGY_GROUPS = {
         "Share of Technology - Ammonia Freight Ship",
         "Share of Technology - BEV Freight Ship",
         "Share of Technology - FCEV Freight Ship",
-    ],
-    "Passenger Ship": [
-        "Share of Technology - Diesel Passenger Ship",
-    ],
-    "Freight Plane": [
-        "Share of Technology - Kerosene Freight Plane",
     ]
 }
 
@@ -380,8 +365,6 @@ TECH_SHARE_METRICS = [
     "Share of Technology - Direct Electric Passenger Train",
     "Share of Technology - FCEV Passenger Train",
     "Share of Technology - Kerosene Passenger Plane",
-    "Share of Technology - Kerosene Freight Plane",
-    "Share of Technology - Diesel Passenger Ship",
 ]
 
 def convert_shares_to_percent_numbers(df):

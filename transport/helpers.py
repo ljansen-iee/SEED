@@ -4,21 +4,23 @@ import numpy as np
 import tabula
 import pycountry
 from pathlib import Path
-import os
 
 # === Dynamic Paths for UNSD Aggregation ===
 # This identifies the 'transport' folder where helpers.py resides
-TRANSPORT_DIR = Path(__file__).resolve().parent
+transport_dir = Path(__file__).resolve().parent
 
 # Path to the folder containing individual country CSVs (Algeria-2021.csv, etc.)
-UNSD_INPUT_FOLDER = TRANSPORT_DIR / "input_data" / "unsd_country_specific"
+unsd_input_folder = transport_dir / "input_data" / "unsd_country_specific"
 
 # Path to the global folder where the merged master file lives
-UNSD_GLOBAL_DIR = TRANSPORT_DIR / "input_data" / "global"
-UNSD_GLOBAL_OUTPUT = UNSD_GLOBAL_DIR / "aggregated_transport_data.xlsx"
+unsd_global_dir = transport_dir / "input_data" / "global"
+unsd_global_output = unsd_global_dir / "international_marine_and_aviation_data.xlsx"
 
 # Ensure the global directory exists immediately upon import
-os.makedirs(UNSD_GLOBAL_DIR, exist_ok=True)
+os.makedirs(unsd_global_dir, exist_ok=True)
+
+# Default target years used across transport scripts when not overridden
+DEFAULT_TARGET_YEARS = [2030, 2050]
 
 def find_input_folder():
     start_dir = os.path.dirname(os.path.abspath(__file__))
@@ -408,67 +410,57 @@ def reorder_and_filter_columns(df, base_year, target_years, scenarios):
 
 
 def generate_units_dictionary():
+    """
+    Returns an ordered dictionary of metrics and their units.
+    The order of keys defines the output order in CSV files.
+    """
     return {
-        "Population": "p",
+        # === PASSENGER TRANSPORT SECTION ===
+        "Population": "million",
         "Mobility per capita - Passenger": "pkm/p",
+        # Subsector shares - Passenger
         "Share per Subsector - Road Passenger": "% of pkm",
         "Share per Subsector - Rail Passenger = Train": "% of pkm",
         "Share per Subsector - Aviation Passenger = Plane": "% of pkm",
+        # Mode shares - Passenger
         "Share per Mode - LDV": "% of Road pkm",
         "Share per Mode - Bus": "% of Road pkm",
         "Share per Mode - 2&3W": "% of Road pkm",
+        # Load factors - Passenger
         "Load Factor - LDV": "p/vehicle",
         "Load Factor - Bus": "p/vehicle",
         "Load Factor - 2&3W": "p/vehicle",
         "Load Factor - Passenger Train": "p/vehicle",
         "Load Factor - Passenger Plane": "p/vehicle",
-        "Load Factor - Freight Ship": "t/vehicle",
-        "Share of Technology - Gasoline ICE LDV": "% of LDV km",
-        "Share of Technology - Diesel ICE LDV": "% of LDV km",
-        "Share of Technology - BEV LDV": "% of LDV km",
-        "Share of Technology - LPG ICE LDV": "% of LDV km",
-        "Share of Technology - Gasoline Plugin Hybrid LDV": "% of LDV km",
-        "Share of Technology - Diesel Plugin Hybrid LDV": "% of LDV km",
-        "Share of Technology - FCEV LDV": "% of LDV km",
-        "Share of Technology - Diesel ICE Bus": "% of Bus km",
-        "Share of Technology - BEV Bus": "% of Bus km",
-        "Share of Technology - FCEV Bus": "% of Bus km",
-        "Share of Technology - Diesel Plugin Hybrid Bus": "% of Bus km",
-        "Share of Technology - Gasoline ICE 2&3W": "% of 2&3W km",
-        "Share of Technology - BEV 2&3W": "% of 2&3W km",
-        "Share of Technology - Diesel ICE Passenger Train": "% of Passenger Train km",
-        "Share of Technology - Direct Electric Passenger Train": "% of Passenger Train km",
-        "Share of Technology - FCEV Passenger Train": "% of Passenger Train km",
-        "Share of Technology - Kerosene Passenger Plane": "% of Passenger Plane km",
-        "Share of Technology - Diesel ICE LDT": "% of LDT km",
-        "Share of Technology - BEV LDT": "% of LDT km",
-        "Share of Technology - FCEV LDT": "% of LDT km",
-        "Share of Technology - Diesel Plugin Hybrid LDT": "% of LDT km",
-        "Share of Technology - Diesel ICE HDT": "% of HDT km",
-        "Share of Technology - BEV HDT": "% of HDT km",
-        "Share of Technology - FCEV HDT": "% of HDT km",
-        "Share of Technology - Diesel Plugin Hybrid HDT": "% of HDT km",
-        "Share of Technology - Diesel ICE Freight Train": "% of Freight Train km",
-        "Share of Technology - Direct Electric Freight Train": "% of Freight Train km",
-        "Share of Technology - FCEV Freight Train": "% of Freight Train km",
-        "Share of Technology - Diesel ICE Freight Ship": "% of Freight Ship km",
-        "Share of Technology - Methanol Freight Ship": "% of Freight Ship km",
-        "Share of Technology - Ammonia Freight Ship": "% of Freight Ship km",
-        "Share of Technology - BEV Freight Ship": "% of Freight Ship km",
-        "Share of Technology - FCEV Freight Ship": "% of Freight Ship km",
-        "Share of Technology - Kerosene Freight Plane": "% of Freight Plane km",
-        "Share of Technology - Diesel Passenger Ship": "% of Passenger Ship km",
-        "Mobility per capita - Freight": "tkm/p",
-        "Share per Subsector - Road Freight": "% of tkm",
-        "Share per Subsector - Rail Freight = Train": "% of tkm",
-        "Final Energy Intensity - Diesel ICE Bus": "kWh/vkm",
+        # Technology shares - Passenger
+        "Share of Technology - Gasoline ICE LDV": "% of km",
+        "Share of Technology - Diesel ICE LDV": "% of km",
+        "Share of Technology - LPG ICE LDV": "% of km",
+        "Share of Technology - BEV LDV": "% of km",
+        "Share of Technology - FCEV LDV": "% of km",
+        "Share of Technology - Diesel Plugin Hybrid LDV": "% of km",
+        "Share of Technology - Gasoline Plugin Hybrid LDV": "% of km",
+        "Share of Technology - Diesel ICE Bus": "% of km",
+        "Share of Technology - BEV Bus": "% of km",
+        "Share of Technology - FCEV Bus": "% of km",
+        "Share of Technology - Diesel Plugin Hybrid Bus": "% of km",
+        "Share of Technology - Gasoline ICE 2&3W": "% of km",
+        "Share of Technology - BEV 2&3W": "% of km",
+        "Share of Technology - Diesel ICE Passenger Train": "% of km",
+        "Share of Technology - Direct Electric Passenger Train": "% of km",
+        "Share of Technology - FCEV Passenger Train": "% of km",
+        "Share of Technology - Kerosene Passenger Plane": "% of km",
+        "Share of Technology - BEV Passenger Plane": "% of km",
+        "Share of Technology - FCEV Passenger Plane": "% of km",
+        # Final energy intensities - Passenger
         "Final Energy Intensity - Gasoline ICE LDV": "kWh/vkm",
         "Final Energy Intensity - Diesel ICE LDV": "kWh/vkm",
         "Final Energy Intensity - LPG ICE LDV": "kWh/vkm",
         "Final Energy Intensity - BEV LDV": "kWh/vkm",
         "Final Energy Intensity - FCEV LDV": "kWh/vkm",
-        "Final Energy Intensity - Gasoline Plugin Hybrid LDV": "kWh/vkm",
         "Final Energy Intensity - Diesel Plugin Hybrid LDV": "kWh/vkm",
+        "Final Energy Intensity - Gasoline Plugin Hybrid LDV": "kWh/vkm",
+        "Final Energy Intensity - Diesel ICE Bus": "kWh/vkm",
         "Final Energy Intensity - BEV Bus": "kWh/vkm",
         "Final Energy Intensity - FCEV Bus": "kWh/vkm",
         "Final Energy Intensity - Diesel Plugin Hybrid Bus": "kWh/vkm",
@@ -477,13 +469,42 @@ def generate_units_dictionary():
         "Final Energy Intensity - Diesel ICE Passenger Train": "kWh/vkm",
         "Final Energy Intensity - Direct Electric Passenger Train": "kWh/vkm",
         "Final Energy Intensity - FCEV Passenger Train": "kWh/vkm",
+        "Final Energy Intensity - Kerosene Passenger Plane": "kWh/vkm",
         "Final Energy Intensity - BEV Passenger Plane": "kWh/vkm",
         "Final Energy Intensity - FCEV Passenger Plane": "kWh/vkm",
-        "Final Energy Intensity - Kerosene Passenger Plane": "kWh/vkm",
+        
+        # === FREIGHT TRANSPORT SECTION ===
+        "Mobility per capita - Freight": "tkm/p",
+        # Subsector shares - Freight
+        "Share per Subsector - Road Freight": "% of tkm",
+        "Share per Subsector - Rail Freight = Train": "% of tkm",
+        "Share per Subsector - Navigation Freight = Ship": "% of tkm",
+        # Mode shares - Freight
+        "Share per Mode - LDT": "% of Road Freight tkm",
+        "Share per Mode - HDT": "% of Road Freight tkm",
+        # Load factors - Freight
         "Load Factor - LDT": "t/vehicle",
         "Load Factor - HDT": "t/vehicle",
-        "Load Factor - Passenger Ship": "p/vehicle",
         "Load Factor - Freight Train": "t/vehicle",
+        "Load Factor - Freight Ship": "t/vehicle",
+        # Technology shares - Freight
+        "Share of Technology - Diesel ICE LDT": "% of km",
+        "Share of Technology - BEV LDT": "% of km",
+        "Share of Technology - FCEV LDT": "% of km",
+        "Share of Technology - Diesel Plugin Hybrid LDT": "% of km",
+        "Share of Technology - Diesel ICE HDT": "% of km",
+        "Share of Technology - BEV HDT": "% of km",
+        "Share of Technology - FCEV HDT": "% of km",
+        "Share of Technology - Diesel Plugin Hybrid HDT": "% of km",
+        "Share of Technology - Diesel ICE Freight Train": "% of km",
+        "Share of Technology - Direct Electric Freight Train": "% of km",
+        "Share of Technology - FCEV Freight Train": "% of km",
+        "Share of Technology - Diesel ICE Freight Ship": "% of km",
+        "Share of Technology - Methanol Freight Ship": "% of km",
+        "Share of Technology - Ammonia Freight Ship": "% of km",
+        "Share of Technology - BEV Freight Ship": "% of km",
+        "Share of Technology - FCEV Freight Ship": "% of km",
+        # Final energy intensities - Freight
         "Final Energy Intensity - Diesel ICE LDT": "kWh/vkm",
         "Final Energy Intensity - BEV LDT": "kWh/vkm",
         "Final Energy Intensity - FCEV LDT": "kWh/vkm",
@@ -500,6 +521,16 @@ def generate_units_dictionary():
         "Final Energy Intensity - Ammonia Freight Ship": "kWh/vkm",
         "Final Energy Intensity - BEV Freight Ship": "kWh/vkm",
         "Final Energy Intensity - FCEV Freight Ship": "kWh/vkm",
+        
+        # === BIOFUELS AND OTHER ===
+        "Share of Bioethanol in Road Gasoline": "% of km",
+        "Share of Biodiesel in Road Diesel": "% of km",
+        "Share of Biodiesel in Rail Diesel": "% of km",
+        "Share of Biodiesel in Internal Navigation Diesel": "% of km",
+        "Share of Biokerosene in Internal Aviation Fuel": "% of km",
+        "Share of ICE Fuel in Plugin Hybrid": "% of km",
+        
+        # === OPTIONAL/ADDITIONAL METRICS ===
         "Final Energy Intensity - Kerosene Freight Plane": "kWh/vkm",
         "Final Energy Intensity - Diesel Passenger Ship": "kWh/vkm",
     }
@@ -514,14 +545,14 @@ from pathlib import Path
 def refresh_unsd_master_data():
     """Aggregates all country CSVs into one master Excel in the global folder."""
     # Ensure the global directory exists before trying to save
-    UNSD_GLOBAL_OUTPUT.parent.mkdir(parents=True, exist_ok=True)
+    unsd_global_output.parent.mkdir(parents=True, exist_ok=True)
     
     all_data = []
     # Using the path defined in this same file
-    csv_files = glob.glob(os.path.join(UNSD_INPUT_FOLDER, "*.csv"))
+    csv_files = glob.glob(os.path.join(unsd_input_folder, "*.csv"))
     
     if not csv_files:
-        print(f" No UNSD CSV files found in {UNSD_INPUT_FOLDER}")
+        print(f" No UNSD CSV files found in {unsd_input_folder}")
         return
 
     for file_path in csv_files:
@@ -561,8 +592,8 @@ def refresh_unsd_master_data():
     
     # Finalize columns and save
     master_df.columns = ['Country', 'Year', 'Aviation_Bunkers_TWh', 'Marine_Bunkers_TWh']
-    master_df.to_excel(UNSD_GLOBAL_OUTPUT, index=False)
-    #print(f" UNSD Master Data Refreshed: {UNSD_GLOBAL_OUTPUT}")
+    master_df.to_excel(unsd_global_output, index=False)
+    #print(f" UNSD Master Data Refreshed: {unsd_global_output}")
 
 def check_technology_groups(df, tech_groups, base_year, target_years, scenarios, tolerance=0.01):
 
@@ -584,7 +615,7 @@ def check_technology_groups(df, tech_groups, base_year, target_years, scenarios,
                 )
 
 # === Technology validation groups ===
-TECH_GROUPS = {
+tech_groups = {
 
     "LDV": [
         "Share of Technology - Gasoline ICE LDV",
@@ -687,3 +718,137 @@ def get_interpolated_value(df, ssp, year):
 
 
 
+
+
+def load_transport_config(excel_path: Path, countries: list, scenarios: list):
+    """
+    Robustly loads the transport configuration (CSV or Excel) and merges 
+    country-specific values with defaults.
+    """
+    # --- NEW: Robust Path Check ---
+    excel_path = Path(excel_path)
+    if not excel_path.exists():
+        # Try adding .csv if it was missing
+        if excel_path.suffix == "":
+            excel_path = excel_path.with_suffix(".csv")
+    
+    if not excel_path.exists():
+        raise FileNotFoundError(f"Could not find config file at {excel_path}")
+
+    # --- NEW: Handle both CSV and Excel ---
+    if excel_path.suffix.lower() == ".csv":
+        df = pd.read_csv(excel_path)
+    else:
+        df = pd.read_excel(excel_path)
+    # Strip any spaces from column headers (e.g. "Morocco " -> "Morocco")
+    df.columns = df.columns.str.strip()
+
+    required_cols = {
+        "Assumption Type",
+        "Metric Name",
+        "Year",
+        "Scenario",
+        "default"
+    }
+    
+    if not required_cols.issubset(df.columns):
+        raise ValueError(f"Excel must contain columns: {required_cols}")
+
+    SCENARIO_ALIAS_MAP = {"sc_a": 0, "sc_b": 1, "sc_c": 2}
+    config = {c: {} for c in countries}
+
+    # Helper function to clean text and convert to float safely
+    def safe_float(val):
+        if pd.isna(val):
+            return None
+        s_val = str(val).strip()
+        if s_val == "" or s_val.lower() == "nan":
+            return None
+        
+        try:
+            # Handle the case where someone types "1%" in the CSV
+            if "%" in s_val:
+                return float(s_val.replace("%", "")) / 100.0
+            
+            return float(s_val)
+        except ValueError:
+            return None
+
+    for _, row in df.iterrows():
+        metric = str(row["Metric Name"]).strip()
+        
+        try:
+            year = int(row["Year"])
+        except (ValueError, TypeError):
+            continue
+
+        scenario_val_raw = str(row["Scenario"]).strip()
+        scenario_val_lower = scenario_val_raw.lower()
+        
+        # Pre-clean the default value for this row
+        default_num = safe_float(row["default"])
+
+        for country in countries:
+            # 1. Get and clean the country-specific value
+            country_raw = row[country] if country in df.columns else np.nan
+            val = safe_float(country_raw)
+
+            # 2. FALLBACK: If country value is empty, use the default value
+            if val is None:
+                val = default_num
+
+            # 3. If BOTH are empty, skip this entry
+            if val is None:
+                continue
+
+            # 4. Resolve which scenarios this applies to
+            if scenario_val_raw in scenarios:
+                target_scenarios = [scenario_val_raw]
+            elif scenario_val_lower == "all":
+                target_scenarios = scenarios
+            elif scenario_val_lower in SCENARIO_ALIAS_MAP:
+                idx = SCENARIO_ALIAS_MAP[scenario_val_lower]
+                if idx < len(scenarios):
+                    target_scenarios = [scenarios[idx]]
+                else:
+                    continue
+            else:
+                continue
+
+            # 5. Store in the config dictionary
+            for s in target_scenarios:
+                if metric not in config[country]:
+                    config[country][metric] = {
+                        "assumption_type": str(row["Assumption Type"]).strip().upper(),
+                        "values": {}
+                    }
+                
+                if year not in config[country][metric]["values"]:
+                    config[country][metric]["values"][year] = {}
+                
+                config[country][metric]["values"][year][s] = val
+
+    return config
+
+def extract_config_data(config, country):
+
+    values = {}
+    assumption_types = {}
+
+    for metric, data in config.get(country, {}).items():
+        values[metric] = data.get("values", {})
+        assumption_types[metric] = data.get("assumption_type", "")
+
+    return values, assumption_types
+
+def get_assumption(config, metric, expected_type):
+    entry = config.get(metric)
+    if entry is None:
+        raise KeyError(f"Metric not found in config: {metric}")
+
+    if entry["assumption_type"] != expected_type:
+        raise ValueError(
+            f"{metric}: expected {expected_type}, got {entry['assumption_type']}"
+        )
+
+    return entry["values"]
