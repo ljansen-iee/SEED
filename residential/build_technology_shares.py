@@ -2,9 +2,9 @@ import os
 import numpy as np
 import pandas as pd
 import tabula
+from pathlib import Path
 
-# from helpers import load_all_files
-from helpers import load_all_files, open_pdf
+from helpers import open_pdf
 from build_macro_indicators import*
 
 # from helpers import load_all_files # Only if I want to run the code directly, otherwise relative path
@@ -173,32 +173,43 @@ def clean_cooking_shares_default(df):
     df = aggregate_biomass(df)
     df = df/100
     return df
-    
-def create_technology_shares_all():
 
-    # Set base_dir to the parent directory of this script (i.e., the 'residential' folder)
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    # If this script is already in 'residential', use its parent
-    if os.path.basename(base_dir).lower() != 'residential':
-        base_dir = os.path.join(base_dir, 'residential')
-    dfs_country_spe, dfs_global = load_all_files("", base_dir=base_dir)  # robust to script location
 
-    # NOTE: For Space Heating we use the UNSD data shares of the residential sector
-    df = pd.concat([df for key, df in dfs_country_spe.items() if key.startswith('UNSD')], ignore_index=True)
-    df_unsd = clean_unsd(df)
-    df_sh_shares = extract_unsd_residential(df_unsd)
-    df_sh_shares = clean_unsd_residential (df_sh_shares)    
+def load_centralized_residential_shares(share_mode: str = "base_period_2017_2023"):
+    root_dir = Path(__file__).resolve().parents[1]
+    shares_path = root_dir / "output_data" / "interim" / "shares" / "households_shares_all_countries.csv"
+    if not shares_path.exists():
+        raise FileNotFoundError(
+            f"Centralized residential shares not found: {shares_path}. Run top-level build_shares.py first."
+        )
 
-    # calculate energy shares
-    columns_to_calculate = [
-        'residential oil', 
-        'residential gas', 
-        'residential biomass',
-        'electricity residential', 
-        'heat'
+    shares_df = pd.read_csv(shares_path)
+    mode_mask = shares_df["share_mode"].astype(str).str.lower() == str(share_mode).strip().lower()
+    shares_df = shares_df[mode_mask].copy()
+    if shares_df.empty:
+        raise ValueError(f"No rows found for share_mode '{share_mode}' in {shares_path}.")
+
+    shares_df = shares_df.rename(
+        columns={
+            "country": "Country",
+            "oil": "residential oil_share",
+            "gas": "residential gas_share",
+            "biomass": "residential biomass_share",
+            "electricity": "electricity residential_share",
+        }
+    )
+
+    required_share_cols = [
+        "residential oil_share",
+        "residential gas_share",
+        "residential biomass_share",
+        "electricity residential_share",
     ]
+    for column in required_share_cols:
+        shares_df[column] = pd.to_numeric(shares_df[column], errors="coerce").fillna(0.0)
 
-    df_sh_shares[[f'{col}_share' for col in columns_to_calculate]] = df_sh_shares[columns_to_calculate].apply(lambda x: round(x / df_sh_shares["total GWh"],2), axis= 0)
+    df_sh_shares = shares_df[["Country", *required_share_cols]].copy()
+    df_sh_shares.set_index("Country", drop=True, inplace=True)
 
     zero_share_columns = [
         "lpg_share",
@@ -214,6 +225,11 @@ def create_technology_shares_all():
     for col in zero_share_columns:
         if col not in df_sh_shares.columns:
             df_sh_shares[col] = 0.0
+
+    return df_sh_shares
+    
+def create_technology_shares_all():
+    df_sh_shares = load_centralized_residential_shares(share_mode="base_period_2017_2023")
 
     # Load tables for cooking
     # cwd =os.getcwd()

@@ -1,23 +1,26 @@
 from pathlib import Path
+from importlib import util
 
 import pandas as pd
 
-
-DEFAULT_SECTOR_LABELS = [
+SECTORS_TO_BUILD = [
     "Agriculture  forestry and fishing",
     "Commerce and public services",
     "Non-energy use",
     "Other consumption n.e.s",
 ]
 
-from build_shares import (
-    _clean_val,
-    _default_share_dict,
-    _discover_countries,
-    _discover_country_years,
-    _get_candidate_dirs,
-    get_sector_shares,
-)
+_CORE_SHARES_PATH = Path(__file__).resolve().parents[1] / "build_shares.py"
+_CORE_SHARES_SPEC = util.spec_from_file_location("_core_build_shares", _CORE_SHARES_PATH)
+_CORE_SHARES = util.module_from_spec(_CORE_SHARES_SPEC)
+_CORE_SHARES_SPEC.loader.exec_module(_CORE_SHARES)
+
+_clean_val = _CORE_SHARES._clean_val
+_default_fuel_mapping = _CORE_SHARES._default_fuel_mapping
+_default_share_dict = _CORE_SHARES._default_share_dict
+_discover_countries = _CORE_SHARES._discover_countries
+_discover_country_years = _CORE_SHARES._discover_country_years
+_get_candidate_dirs = _CORE_SHARES._get_candidate_dirs
 
 
 def _load_average_shares_from_csv(shares_csv_path: Path, share_mode: str):
@@ -53,10 +56,15 @@ def _normalize_sector_label(sector_label: str):
     return " ".join(str(sector_label).strip().lower().split())
 
 
+def _find_sector_row(df: pd.DataFrame, sector_col: str, sector_label: str):
+    normalized_sector = _normalize_sector_label(sector_label)
+    return df[df[sector_col].astype(str).apply(_normalize_sector_label) == normalized_sector]
+
+
 def _load_suggested_cagr_from_csv(cagr_csv_path: Path, sector_label: str):
     if not cagr_csv_path.exists():
         raise FileNotFoundError(
-            f"CAGR CSV not found: {cagr_csv_path}. Run build_CAGR_all_sectors.py first."
+            f"CAGR CSV not found: {cagr_csv_path}. Run build_CAGR.py first."
         )
 
     cagr_df = pd.read_csv(cagr_csv_path)
@@ -96,13 +104,49 @@ def get_sector_total_TWh(
 
     df = pd.read_csv(file_path)
     sector_col = "Transactions(down)/Commodity(right)"
-    row = df[df[sector_col].str.strip().str.lower() == sector_label.lower()]
+    row = _find_sector_row(df=df, sector_col=sector_col, sector_label=sector_label)
 
     if row.empty:
         return 0.0
 
     total_tj = _clean_val(row["Total Energy"].iloc[0])
     return round(total_tj * 0.000277778, 6)
+
+
+def get_sector_shares(
+    base_path: Path,
+    country: str,
+    year: int,
+    sector_label: str,
+    fuel_mapping: dict = None,
+):
+    filename = f"UNSD_{country}-{year}.csv"
+    candidates = [directory / filename for directory in _get_candidate_dirs(base_path)]
+    file_path = next((candidate for candidate in candidates if candidate.exists()), candidates[0])
+
+    if fuel_mapping is None:
+        fuel_mapping = _default_fuel_mapping()
+
+    if not file_path.exists():
+        return _default_share_dict()
+
+    df = pd.read_csv(file_path)
+    sector_col = "Transactions(down)/Commodity(right)"
+    row = _find_sector_row(df=df, sector_col=sector_col, sector_label=sector_label)
+
+    if row.empty:
+        return _default_share_dict()
+
+    total_tj = _clean_val(row["Total Energy"].iloc[0])
+    if total_tj == 0:
+        return _default_share_dict()
+
+    shares = {}
+    for category, headers in fuel_mapping.items():
+        category_sum = sum([_clean_val(row[h].iloc[0]) for h in headers if h in df.columns])
+        shares[category] = round(category_sum / total_tj, 6)
+
+    return shares
 
 
 def _fuel_demand_from_total(total_energy_twh: float, shares: dict):
@@ -118,7 +162,9 @@ def _sector_column_prefix(sector_label: str):
         "agriculture forestry and fishing": "agriculture",
         "commerce and public services": "services",
         "non-energy use": "non energy",
-        "other consumption": "ohter",
+        "other consumption n.e.s": "other",
+        "households":"residential",
+
     }
     return mapping.get(normalized, normalized)
 
@@ -150,9 +196,9 @@ def build_sector_fuel_demand_history_and_future(
 
     output_prefix = _sector_output_file_prefix(sector_label)
     if shares_csv_path is None:
-        shares_csv_path = Path(output_dir) / f"{output_prefix}_shares_all_countries.csv"
+        shares_csv_path = Path(__file__).resolve().parents[1] / "output_data" / "interim" / "shares" / f"{output_prefix}_shares_all_countries.csv"
     if cagr_csv_path is None:
-        cagr_csv_path = Path(output_dir) / "all_sectors_country_year_cagr.csv"
+        cagr_csv_path = Path(__file__).resolve().parents[1] / "output_data" / "interim" / "cagr" / f"{output_prefix}_cagr_all_countries.csv"
 
     output_csv_path = Path(output_dir) / f"{output_prefix}_fuel_demand_history_future.csv"
 
@@ -266,14 +312,13 @@ def build_sector_fuel_demand_history_and_future(
 def build_fuel_demand_for_multiple_sectors(
     base_path: Path,
     output_dir: Path,
-    sector_labels: list,
     base_year_for_projection: int,
     future_years: list = None,
     cagr_csv_path: Path = None,
     projection_share_mode: str = "base_period_2017_2023",
 ):
     output_files = []
-    for sector_label in sector_labels:
+    for sector_label in SECTORS_TO_BUILD:
         output_files.append(
             build_sector_fuel_demand_history_and_future(
                 base_path=base_path,
@@ -295,9 +340,7 @@ if __name__ == "__main__":
     demand_files = build_fuel_demand_for_multiple_sectors(
         base_path=base_path,
         output_dir=output_dir,
-        sector_labels=DEFAULT_SECTOR_LABELS,
         base_year_for_projection=2023,
-        cagr_csv_path=output_dir / "all_sectors_country_year_cagr.csv",
         projection_share_mode="base_period_2017_2023",
         # historical_average
         # base_period_2011_2016

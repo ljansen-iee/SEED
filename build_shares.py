@@ -9,12 +9,27 @@ DEFAULT_SECTOR_LABELS = [
     "Commerce and public services",
     "Non-energy use",
     "Other consumption n.e.s",
+    "Households",
+    # "Chemical and petrochemical",
+    # "Construction",
+    # "Food and tobacco",
+    # "International aviation bunkers",
+    # "International marine bunkers",
+    # "Iron and steel",
+    # "Machinery",
+    # "Mining and quarrying",
+    # "Non-ferrous metals",
+    # "Non-metallic minerals",
+    # "Paper pulp and printing",
+    # "Textile and leather",
+    # "Transport equipment",
+    # "Wood and wood products",
 ]
 
 BASE_PERIODS = [
     (2011, 2016),
     (2017, 2023),
-]
+] # this are the historical available years.
 
 
 def _clean_val(val):
@@ -79,7 +94,7 @@ def _sector_column_prefix(sector_label: str):
         "agriculture forestry and fishing": "agriculture",
         "commerce and public services": "services",
         "non-energy use": "non energy",
-        "other consumption": "ohter",
+        "other consumption n.e.s": "other",
     }
     return mapping.get(normalized, normalized)
 
@@ -91,7 +106,7 @@ def _sector_output_file_prefix(sector_label: str):
 def _get_candidate_dirs(base_path: Path):
     return [
         Path(base_path),
-        Path(__file__).resolve().parents[1] / "data" / "country_specific",
+        Path(__file__).resolve().parent / "data" / "country_specific",
     ]
 
 
@@ -255,9 +270,16 @@ def export_sector_shares_all_countries(
 
     if not countries:
         output_csv_path.parent.mkdir(parents=True, exist_ok=True)
-        pd.DataFrame(columns=["sector", "country", "share_mode", "share_sum", "share_sum_is_valid", *_default_share_dict().keys()]).to_csv(
-            output_csv_path, index=False
-        )
+        pd.DataFrame(
+            columns=[
+                "sector",
+                "country",
+                "share_mode",
+                "share_sum",
+                "share_sum_is_valid",
+                *_default_share_dict().keys(),
+            ]
+        ).to_csv(output_csv_path, index=False)
         return output_csv_path
 
     rows = []
@@ -283,7 +305,9 @@ def export_sector_shares_all_countries(
             rows.append(row)
 
             for start_year, end_year in BASE_PERIODS:
-                period_years = [historical_year for historical_year in all_years if start_year <= historical_year <= end_year]
+                period_years = [
+                    historical_year for historical_year in all_years if start_year <= historical_year <= end_year
+                ]
                 if not period_years:
                     continue
 
@@ -351,8 +375,8 @@ def export_shares_for_multiple_sectors(
 
 
 if __name__ == "__main__":
-    base_path = Path(__file__).resolve().parents[1] / "data" / "country_specific"
-    output_dir = Path(__file__).resolve().parent / "output_data"
+    base_path = Path(__file__).resolve().parent / "data" / "country_specific"
+    output_dir = Path(__file__).resolve().parent / "output_data" / "interim" / "shares"
 
     shares_files = export_shares_for_multiple_sectors(
         base_path=base_path,

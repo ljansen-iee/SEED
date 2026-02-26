@@ -29,7 +29,7 @@ def load_additional_sectors_data(additional_output_dir: Path):
 		"agriculture_fuel_demand_history_future.csv",
 		"services_fuel_demand_history_future.csv",
 		"non_energy_fuel_demand_history_future.csv",
-		"ohter_fuel_demand_history_future.csv",
+		"other_fuel_demand_history_future.csv",
 	]
 
 	merged_df = None
@@ -98,7 +98,7 @@ if __name__ == "__main__":
 	root = Path(__file__).resolve().parent
 	residential_output_dir = root / "residential" / "output_data"
 	additional_output_dir = root / "additional sectors" / "output_data"
-	output_dir = root / "output_analysis" / "results"
+	output_dir = root / "output_data" / "energy_totals"
 
 	files = export_energy_totals_by_scenario_year(
 		residential_output_dir=residential_output_dir,
