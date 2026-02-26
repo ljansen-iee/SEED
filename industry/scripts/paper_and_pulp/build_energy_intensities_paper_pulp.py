@@ -6,7 +6,7 @@ from typing import Dict, List, Optional
 
 # Go up two levels to import helpers
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
-from industry.build_CAGR import interpolate_or_extrapolate
+from build_CAGR import interpolate_or_extrapolate
 
 
 # =====================================================================

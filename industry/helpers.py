@@ -13,7 +13,7 @@ def convert_wide_to_long(df_wide, country):
     df_long["Year"] = df_long["Year"].astype(int)
     return df_long
 
-from industry.build_CAGR import interpolate_or_extrapolate
+from build_CAGR import interpolate_or_extrapolate
 
 def extract_capacity_shares(df, country, steel_types, base_year=2020, target_years=None, all_types=None):
     """

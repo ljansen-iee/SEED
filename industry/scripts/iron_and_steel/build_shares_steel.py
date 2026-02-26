@@ -7,7 +7,7 @@ import sys
 # Add parent directories to Python path to import cagr_helper
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
-from industry.build_CAGR import interpolate_or_extrapolate
+from build_CAGR import interpolate_or_extrapolate
 
 
 # =====================================================================
@@ -54,6 +54,7 @@ def _interpolate_shares(
     return result
 
 
+from build_CAGR import interpolate_or_extrapolate
 
 
 # =====================================================================
@@ -325,7 +326,7 @@ def share_fuel_unspecified_steel(target_years: List[int], scenarios: Optional[Li
 
 # helpers_routes_overrides.py
 from typing import Dict, List, Optional
-from industry.build_CAGR import interpolate_or_extrapolate
+from build_CAGR import interpolate_or_extrapolate
 
 COUNTRY_ROUTE_OVERRIDES_POS: Dict[str, Dict[int, Dict[str, List[float]]]] = {
     "Morocco": {

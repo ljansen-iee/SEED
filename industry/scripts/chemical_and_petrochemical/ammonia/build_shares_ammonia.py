@@ -7,7 +7,8 @@ import sys
 # Go up two levels (ammonia → chemicals → scripts)
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
-from industry.build_CAGR import interpolate_or_extrapolate
+from build_CAGR import interpolate_or_extrapolate
+
 
 
 # ============================================================
@@ -48,7 +49,6 @@ def share_fuel_ammonia_smr_hb(target_years: List[int], scenarios: Optional[List[
             2030: [0, 0, 40], 
             2050: [0, 0, 0]},
     }
-
     return _interpolate_shares(base_data, target_years, scenarios)
 
 

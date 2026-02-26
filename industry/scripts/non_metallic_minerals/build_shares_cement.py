@@ -7,7 +7,7 @@ import sys
 # add parent path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
-from industry.build_CAGR import interpolate_or_extrapolate
+from build_CAGR import interpolate_or_extrapolate
 
 
 # ---------------------------------------------------------------------
