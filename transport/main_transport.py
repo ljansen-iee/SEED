@@ -35,7 +35,7 @@ print("Running transport sector pipeline")
 print(f"Transport assumptions file: {transport_config_file}")
 print("===============================\n")
 
-countries_to_process = ["Egypt", "Morocco","South Africa","Chile"]
+countries_to_process = ["Morocco"]
                        #"Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Nigeria"]
                        #"Algeria","Argentina","Brazil","Chile","Colombia","Mexico","Peru","Venezuela",
                        #"Morocco","Tunisia","Tanzania","Libya",
@@ -481,15 +481,20 @@ def main(base_year=None, target_years=None, scenarios=None):
                 for year in target_years:
                     for scenario in scenarios:
                         key = f"{year}_{scenario}"
-                        road_freight_expanded[key] = 100.0 - rail_freight_expanded[key]
+                        road_freight_expanded[key] = 100.0 - rail_freight_expanded[key] - ship_freight_expanded[key]
 
                 # Normalize
                 for year in [str(base_year)] + [f"{y}_{s}" for y in target_years for s in scenarios]:
-                    total = (rail_freight_expanded.get(year, 0) + road_freight_expanded.get(year, 0))
+                    total = (
+                        rail_freight_expanded.get(year, 0)
+                        + road_freight_expanded.get(year, 0)
+                        + ship_freight_expanded.get(year, 0)
+                    )
                     if abs(total - 100.0) > 1e-6 and total > 0:
                         scale = 100.0 / total
                         if year in rail_freight_expanded: rail_freight_expanded[year] *= scale
                         if year in road_freight_expanded: road_freight_expanded[year] *= scale
+                        if year in ship_freight_expanded: ship_freight_expanded[year] *= scale
 
                 all_rows.append({"Metric": "Share per Subsector - Road Freight", **road_freight_expanded, "Units": "% of tkm"})
                 all_rows.append({"Metric": "Share per Subsector - Rail Freight = Train", **rail_freight_expanded, "Units": "% of tkm"})

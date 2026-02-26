@@ -616,16 +616,42 @@ def build_summary(df, metrics_raw):
 
     for scn in list(fuel_summary.columns):
         be = share("Share of Bioethanol in Road Gasoline", scn)
-        bd = share("Share of Biodiesel in Road Diesel", scn)
+        bd_road = share("Share of Biodiesel in Road Diesel", scn)
+        bd_rail = share("Share of Biodiesel in Rail Diesel", scn)
+        bd_nav = share("Share of Biodiesel in Internal Navigation Diesel", scn)
         bk = share("Share of Biokerosene in Internal Aviation Fuel", scn)
 
         gas = fuel_summary.at["Gasoline", scn] if "Gasoline" in fuel_summary.index else 0.0
         die = fuel_summary.at["Diesel", scn]    if "Diesel" in fuel_summary.index    else 0.0
         ker = fuel_summary.at["Kerosene", scn] if "Kerosene" in fuel_summary.index else 0.0
 
-        gas_bio = gas * be
-        die_bio = die * bd
-        ker_bio = ker * bk
+        scn_df = df[df["Scenario"] == scn]
+
+        road_gas = scn_df[
+            (scn_df["Mode"] == "Road") & (scn_df["Fuel"] == "Gasoline")
+        ]["Final Energy Demand (GWh)"].sum()
+
+        road_die = scn_df[
+            (scn_df["Mode"] == "Road") & (scn_df["Fuel"] == "Diesel")
+        ]["Final Energy Demand (GWh)"].sum()
+        rail_die = scn_df[
+            (scn_df["Mode"] == "Rail") & (scn_df["Fuel"] == "Diesel")
+        ]["Final Energy Demand (GWh)"].sum()
+        nav_die = scn_df[
+            (scn_df["Mode"] == "Navigation") & (scn_df["Fuel"] == "Diesel")
+        ]["Final Energy Demand (GWh)"].sum()
+
+        aviation_ker = scn_df[
+            (scn_df["Mode"] == "Aviation") & (scn_df["Fuel"] == "Kerosene")
+        ]["Final Energy Demand (GWh)"].sum()
+
+        gas_bio = road_gas * be
+        die_bio = (road_die * bd_road) + (rail_die * bd_rail) + (nav_die * bd_nav)
+        ker_bio = aviation_ker * bk
+
+        gas_bio = min(gas, gas_bio)
+        die_bio = min(die, die_bio)
+        ker_bio = min(ker, ker_bio)
 
         fuel_summary.at["Bio Ethanol", scn]  = gas_bio
         fuel_summary.at["Bio Diesel", scn]   = die_bio
