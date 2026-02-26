@@ -187,11 +187,12 @@ def find_country_file(run_folder: Path, country: str) -> Path:
 
 def get_results_folder(country: str) -> Path:
     """
-    Create (if needed) .../industry/results/<Country> and return it.
+    Create (if needed) .../industry/results/country_specific/<Country> and return it.
+    Aligned with transport folder structure.
     """
     root = get_industry_root()
-    results_root = root / "results"
-    results_root.mkdir(exist_ok=True)
+    results_root = root / "results" / "country_specific"
+    results_root.mkdir(parents=True, exist_ok=True)
 
     country_folder = results_root / country.replace(" ", "_")
     country_folder.mkdir(exist_ok=True)
@@ -2288,7 +2289,8 @@ def build_presentation_summary(sec_all: pd.DataFrame, country_name: str) -> pd.D
 def export_energy_totals(all_countries_carrier_dfs: List[pd.DataFrame]):
     """
     Groups all collected data by Scenario and Year, then saves 
-    each group as a separate CSV in results/energy_totals.
+    each group as a separate CSV directly in results/ folder.
+    Aligned with transport folder structure.
     """
     if not all_countries_carrier_dfs:
         return
@@ -2296,7 +2298,7 @@ def export_energy_totals(all_countries_carrier_dfs: List[pd.DataFrame]):
     master_df = pd.concat(all_countries_carrier_dfs, ignore_index=True)
     
     root = get_industry_root()
-    total_dir = root / "results" / "energy_totals"
+    total_dir = root / "results"
     total_dir.mkdir(parents=True, exist_ok=True)
 
     groups = master_df.groupby(['scenario', 'year'])

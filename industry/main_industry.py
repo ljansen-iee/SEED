@@ -8,6 +8,14 @@ from pathlib import Path
 # === Project imports ===
 BASE_DIR = Path(__file__).resolve().parent
 UNSD_PATH = BASE_DIR / "input_data" / "country_specific"
+
+# === Module-level constants (defaults) ===
+BASE_YEAR = 2020
+TARGET_YEARS = [2030, 2035, 2040, 2045, 2050]
+SCENARIOS = ["BAU", "Progressive", "Optimistic"]
+INDUSTRY_CONFIG_FILE = "industry_config.csv"
+INDUSTRY_CONFIG_PATH = BASE_DIR / INDUSTRY_CONFIG_FILE
+
 # iron and steel
 from scripts.iron_and_steel.build_steel_production import load_and_process_both, share_steel
 from scripts.iron_and_steel.build_shares_steel import share_fuel_bf_ohf, share_fuel_bf_bof, share_fuel_dr_eaf, share_fuel_scrap_eaf,share_fuel_casting_rolling, share_fuel_unspecified_steel, override_steel_routes_positional
@@ -33,23 +41,21 @@ from scripts.food_and_tobacco.build_shares_food_and_tobacco import get_unsd_fuel
 from build_CAGR import load_industry_config, interpolate_or_extrapolate, get_metric_cagr_cfg_from_excel, expand_with_cagr_smooth
 
 def main():
-    # ---- USER SETTINGS ----
-    base_year = 2020
-    target_years = [2030,2035,2040,2045,2050]
-    scenarios = ["BAU", "Progressive", "Optimistic"] 
+    # ---- USER SETTINGS (defaults from module constants) ----
+    base_year = BASE_YEAR
+    target_years = TARGET_YEARS
+    scenarios = SCENARIOS
 
-
-    INDUSTRY_CFG_PATH = BASE_DIR / "industry_config.csv"
+    industry_cfg_path = INDUSTRY_CONFIG_PATH
   
 
     print("===============================")
     print("Industry configuration")
-    print(f"Using CAGR config file: {INDUSTRY_CFG_PATH}")
+    print(f"Using CAGR config file: {industry_cfg_path}")
     print("===============================\n")
 
     # ---- Countries ----
-    countries_to_process = ["Morocco", "Egypt","Tunisia","Tanzania","Libya","South Africa","Ethiopia", "Ghana","Kenya",
-                        "Namibia","Nigeria", "Algeria"
+    countries_to_process = ["Morocco"]
                           #"Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Nigeria",
                           #"Algeria","Argentina","Brazil","Chile","Colombia","Peru","Venezuela",
                           #"Morocco","Tunisia","Tanzania", "South Africa","Libya",
@@ -57,10 +63,9 @@ def main():
                            #"Australia", "Canada", "China", "France", "Germany",  
                           #"India", "Indonesia", "Italy", "Japan", "Mexico","Russia", "Saudi Arabia", 
                            #"South Korea", "United Kingdom","United States of America"
-                           ]
 
     industry_cagr_excel = load_industry_config(
-    excel_path=INDUSTRY_CFG_PATH,
+    excel_path=industry_cfg_path,
     countries=countries_to_process,
     scenarios=scenarios,)
 
@@ -136,10 +141,8 @@ def main():
     hvc_route_shares = share_HVC_production(target_years, scenarios)
     
     share_fuel_unspecified = extract_all_fuels(share_fuel_unspecified_chemicals, target_years, scenarios)
-    # Extract the name of the config file without extension (e.g., "industry_config")
-    config_filename = INDUSTRY_CFG_PATH.stem 
-    # Create output path using the config filename instead of the date
-    output_root = BASE_DIR / "output_data" / config_filename
+    # Create output path using country_parameters subfolder (aligned with transport)
+    output_root = BASE_DIR / "output_data" / "country_parameters"
     output_root.mkdir(parents=True, exist_ok=True)
 
     
