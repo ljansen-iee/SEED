@@ -1,0 +1,54 @@
+Country (2021),Transactions(down)/Commodity(right),Primary Coal and Peat,Coal and Peat Products,Primary Oil,Oil Products,Natural Gas,Biofuels and Waste,Nuclear,Electricity,Heat,Total Energy,memo: Of which Renewables
+Ethiopia,Primary production,11053,---,---,---,---,*1694083,---,55717,---,*1760853,*1749800
+Ethiopia,Imports,14446,---,---,203125,---,---,---,---,---,217570,---
+Ethiopia,Exports,---,---,---,---,---,---,---,-5995,---,-5995,---
+Ethiopia,International marine bunkers,---,---,---,---,---,---,---,---,---,---,---
+Ethiopia,International aviation bunkers,---,---,---,-36376,---,---,---,---,---,-36376,---
+Ethiopia,Stock changes,---,---,---,2416,---,-26,---,---,---,2390,-26
+Ethiopia,Total energy supply,25499,---,---,169165,---,*1694057,---,49722,---,*1938444,*1749774
+Ethiopia,Statistical differences,-895,---,---,14,---,*0,---,-153,---,*-1034,*55717
+Ethiopia,Transfers and recycled products,---,---,---,---,---,---,---,---,---,---,---
+Ethiopia,Transformation,---,---,---,-90,---,-350708,---,93,---,-350705,-350708
+Ethiopia,Electricity  CHP & Heat Plants,---,---,---,-90,---,*-525,---,93,---,*-522,*-525
+Ethiopia,Electricity Plants,---,---,---,-90,---,*-525,---,93,---,*-522,*-525
+Ethiopia,CHP plants,---,---,---,---,---,---,---,---,---,---,---
+Ethiopia,Heat plants,---,---,---,---,---,---,---,---,---,---,---
+Ethiopia,Coke ovens,---,---,---,---,---,---,---,---,---,---,---
+Ethiopia,Briquetting plants,---,---,---,---,---,---,---,---,---,---,---
+Ethiopia,Liquefaction plants,---,---,---,---,---,---,---,---,---,---,---
+Ethiopia,Gas works,---,---,---,---,---,---,---,---,---,---,---
+Ethiopia,Blast furnaces,---,---,---,---,---,---,---,---,---,---,---
+Ethiopia,NGL & gas blending,---,---,---,---,---,---,---,---,---,---,---
+Ethiopia,Oil refineries,---,---,---,---,---,---,---,---,---,---,---
+Ethiopia,Other transformation,---,---,---,---,---,-350183,---,---,---,-350183,-350183
+Ethiopia,Energy industries own use,---,---,---,---,---,---,---,-283,---,-283,---
+Ethiopia,Losses,---,---,---,---,---,---,---,-12852,---,-12852,---
+Ethiopia,Final consumption,26394,---,---,169061,---,*1343349,---,36833,---,*1575637,*1343349
+Ethiopia,Final Energy Consumption,26394,---,---,164837,---,*1343349,---,36833,---,*1571413,*1343349
+Ethiopia,Manufacturing  const. and mining,26394,---,---,42425,---,*2004,---,10167,---,80989,*2004
+Ethiopia,Iron and steel,---,---,---,---,---,---,---,---,---,---,---
+Ethiopia,Chemical and petrochemical,---,---,---,---,---,---,---,---,---,---,---
+Ethiopia,Non-ferrous metals,---,---,---,---,---,---,---,---,---,---,---
+Ethiopia,Non-metallic minerals,26394,---,---,9256,---,---,---,---,---,35650,---
+Ethiopia,Transport equipment,---,---,---,---,---,---,---,---,---,---,---
+Ethiopia,Machinery,---,---,---,---,---,---,---,---,---,---,---
+Ethiopia,Mining and quarrying,---,---,---,---,---,---,---,---,---,---,---
+Ethiopia,Food and tobacco,---,---,---,---,---,*2004,---,---,---,*2004,*2004
+Ethiopia,Paper  pulp and printing,---,---,---,---,---,---,---,---,---,---,---
+Ethiopia,Wood and wood products,---,---,---,---,---,---,---,---,---,---,---
+Ethiopia,Textile and leather,---,---,---,---,---,---,---,---,---,---,---
+Ethiopia,Construction,---,---,---,---,---,---,---,---,---,---,---
+Ethiopia,Industry n.e.s,0,---,---,33169,---,*0,---,10167,---,43336,*0
+Ethiopia,Transport,---,---,---,102386,---,310,---,243,---,102940,310
+Ethiopia,Road,---,---,---,102081,---,310,---,---,---,102392,310
+Ethiopia,Rail,---,---,---,---,---,---,---,243,---,243,---
+Ethiopia,Domestic aviation,---,---,---,305,---,---,---,---,---,305,---
+Ethiopia,Domestic navigation,---,---,---,---,---,---,---,---,---,---,---
+Ethiopia,Pipeline transport,---,---,---,---,---,---,---,---,---,---,---
+Ethiopia,Transport n.e.s,---,---,---,---,---,---,---,---,---,---,---
+Ethiopia,Other Consumption,---,---,---,20026,---,*1341035,---,26423,---,*1387484,*1341035
+Ethiopia,Agriculture  forestry and fishing,---,---,---,7623,---,---,---,---,---,7623,---
+Ethiopia,Commerce and public services,---,---,---,3218,---,12629,---,8297,---,24143,12629
+Ethiopia,Households,---,---,---,1563,---,*1328406,---,18126,---,*1348095,*1328406
+Ethiopia,Other consumption n.e.s,---,---,---,7623,---,---,---,---,---,7623,---
+Ethiopia,Non-energy use,---,---,---,4223,---,---,---,---,---,4223,---

@@ -1,0 +1,54 @@
+Country (2013),Transactions(down)/Commodity(right),Primary Coal and Peat,Coal and Peat Products,Primary Oil,Oil Products,Natural Gas,Biofuels and Waste,Nuclear,Electricity,Heat,Total Energy,memo: Of which Renewables
+Russian Federation,Primary production,7715181,---,22113392,---,23207659,304466,1878222,652162,16406,55887488,795419
+Russian Federation,Imports,631224,4700,80749,79135,282034,121,---,16942,---,1094905,121
+Russian Federation,Exports,-3663103,-73190,-10230690,*-5012656,-7289709,-542,---,-66175,---,-26336066,-542
+Russian Federation,International marine bunkers,---,---,---,-214783,---,---,---,---,---,-214783,---
+Russian Federation,International aviation bunkers,---,---,---,*-266921,---,---,---,---,---,*-266921,---
+Russian Federation,Stock changes,-105997,0,-61218,-24939,-31090,-1403,---,---,---,-224648,13
+Russian Federation,Total energy supply,4577304,-68490,11902233,*-5440164,16168893,302642,1878222,602928,16406,29939975,795010
+Russian Federation,Statistical differences,-41324,-251,-86692,-4363,138116,-2796,0,0,298730,301419,651175
+Russian Federation,Transfers and recycled products,---,---,---,---,---,---,---,---,---,---,---
+Russian Federation,Transformation,-4387018,442058,-11773111,11172707,-10038078,-185893,-1878222,3155159,5695341,-7797058,-51849
+Russian Federation,Electricity  CHP & Heat Plants,-2916316,-136020,-32909,-415967,-9970333,-184597,-1878222,3155159,5695341,-6683865,-50554
+Russian Federation,Electricity Plants,---,---,---,-28896,-100230,---,-1863086,648119,-15984,-1360078,-14386
+Russian Federation,CHP plants,-2332828,-121819,-381,-112227,-7484681,-81078,-15136,2507040,2946554,-4694556,-832
+Russian Federation,Heat plants,-583488,-14201,-32529,-274843,-2385422,-103519,---,---,2764771,-629231,-35336
+Russian Federation,Coke ovens,-1369304,1335962,---,---,---,---,---,---,---,-33343,---
+Russian Federation,Briquetting plants,-1485,722,---,---,---,---,---,---,---,-763,---
+Russian Federation,Liquefaction plants,---,---,*86616,---,---,---,---,---,---,*86616,---
+Russian Federation,Gas works,---,---,---,---,---,---,---,---,---,---,---
+Russian Federation,Blast furnaces,-99912,-758606,---,---,---,---,---,---,---,-858519,---
+Russian Federation,NGL & gas blending,---,---,---,---,---,---,---,---,---,---,---
+Russian Federation,Oil refineries,---,---,-11826817,11588673,---,---,---,---,---,-238144,---
+Russian Federation,Other transformation,---,---,---,---,-67745,*-1296,---,---,---,-69041,*-1296
+Russian Federation,Energy industries own use,-30050,-53457,-4061,-519676,-468712,-8578,---,-694181,-484934,-2263648,---
+Russian Federation,Losses,---,---,-207270,---,-195892,---,---,-385178,-407877,-1196218,---
+Russian Federation,Final consumption,201560,320362,4484,5217230,5328095,110967,---,2678728,4520206,18381632,91986
+Russian Federation,Final Energy Consumption,193162,320362,4484,3566149,4066284,110967,---,2678728,4520206,15460341,91986
+Russian Federation,Manufacturing  const. and mining,61431,319767,1396,506723,1411670,17514,---,1212091,1652043,5182635,4223
+Russian Federation,Iron and steel,---,310165,---,15675,549977,3819,---,208580,269864,1358081,78
+Russian Federation,Chemical and petrochemical,7120,348,846,289069,142951,1648,---,172246,448327,1062555,208
+Russian Federation,Non-ferrous metals,---,---,---,---,---,---,---,328705,---,328705,---
+Russian Federation,Non-metallic minerals,43612,4551,42,6775,443459,412,---,61888,82756,643494,25
+Russian Federation,Transport equipment,287,1190,---,9621,25610,199,---,49183,67964,154053,43
+Russian Federation,Machinery,391,1047,---,8029,42896,186,---,81875,198845,333269,15
+Russian Federation,Mining and quarrying,---,2263,---,44708,39200,817,---,82984,44033,214006,449
+Russian Federation,Food and tobacco,5423,145,423,12548,67609,957,---,60498,191995,339598,390
+Russian Federation,Paper  pulp and printing,328,---,---,8696,7898,2254,---,81943,163657,264776,1859
+Russian Federation,Wood and wood products,---,---,---,8721,4604,6796,---,17568,40899,78587,983
+Russian Federation,Textile and leather,52,---,---,473,1727,174,---,14893,33153,50472,1
+Russian Federation,Construction,4136,---,85,14012,79547,150,---,44258,61842,204030,150
+Russian Federation,Industry n.e.s,82,58,0,88396,6193,102,---,7470,48708,151009,22
+Russian Federation,Transport,---,---,---,2514255,1112902,---,---,326012,---,3953169,---
+Russian Federation,Road,---,---,---,2061773,1687,---,---,---,---,2063460,---
+Russian Federation,Rail,---,---,---,71187,---,---,---,172667,---,243854,---
+Russian Federation,Domestic aviation,---,---,---,261339,---,---,---,---,---,261339,---
+Russian Federation,Domestic navigation,---,---,---,36084,---,---,---,---,---,36084,---
+Russian Federation,Pipeline transport,---,---,---,12693,1111216,---,---,90518,---,1214427,---
+Russian Federation,Transport n.e.s,---,---,---,71178,---,---,---,62827,---,134005,---
+Russian Federation,Other Consumption,131732,595,3088,545171,1541712,93453,---,1140624,2868163,6324537,87763
+Russian Federation,Agriculture  forestry and fishing,2508,---,465,150688,44159,6601,---,55379,94631,354431,5133
+Russian Federation,Commerce and public services,85440,---,---,92112,94192,35121,---,582325,655243,1544434,30899
+Russian Federation,Households,43783,595,---,302371,1403360,50427,---,502920,2118289,4421746,50427
+Russian Federation,Other consumption n.e.s,---,---,2623,---,---,*1304,---,---,---,3927,*1304
+Russian Federation,Non-energy use,8398,---,---,1651081,1261812,---,---,---,---,2921291,---

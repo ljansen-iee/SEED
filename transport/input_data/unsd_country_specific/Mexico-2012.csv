@@ -1,0 +1,54 @@
+Country (2012),Transactions(down)/Commodity(right),Primary Coal and Peat,Coal and Peat Products,Primary Oil,Oil Products,Natural Gas,Biofuels and Waste,Nuclear,Electricity,Heat,Total Energy,memo: Of which Renewables
+Mexico,Primary production,332633,---,6395517,---,1706993,350165,94716,128304,215839,9224167,685386
+Mexico,Imports,177553,10453,15669,1352597,791129,---,---,7837,---,2355238,---
+Mexico,Exports,-6283,-27,-2985491,-309188,-310,---,---,-4018,---,-3305317,---
+Mexico,International marine bunkers,---,---,---,-39289,---,---,---,---,---,-39289,---
+Mexico,International aviation bunkers,---,---,---,-67255,---,---,---,---,---,-67255,---
+Mexico,Stock changes,17696,---,-12045,-6177,-14660,---,---,---,---,-15186,---
+Mexico,Total energy supply,521599,10426,3413650,930688,2483151,350165,94716,132124,215839,8152358,685386
+Mexico,Statistical differences,3482,-424,133664,19973,-136225,0,0,-41936,0,-21466,149245
+Mexico,Transfers and recycled products,---,---,11940,-11552,---,---,---,---,---,388,---
+Mexico,Transformation,-424700,44845,-3291926,2471648,-1347166,-52429,-94716,977717,-209412,-1926140,-231978
+Mexico,Electricity  CHP & Heat Plants,-344872,-4002,---,-520701,-1371224,-52429,-94716,977717,-209412,-1619639,-231978
+Mexico,Electricity Plants,-344872,-4002,---,-498414,-1237352,*-38719,-94716,935082,-209412,-1492406,*-226124
+Mexico,CHP plants,---,---,---,-22287,-133871,-13710,---,42635,---,-127233,*-5854
+Mexico,Heat plants,---,---,---,---,---,---,---,---,---,---,---
+Mexico,Coke ovens,-79828,74729,---,---,---,---,---,---,---,-5099,---
+Mexico,Briquetting plants,---,---,---,---,---,---,---,---,---,---,---
+Mexico,Liquefaction plants,---,---,2638,---,---,---,---,---,---,2638,---
+Mexico,Gas works,---,---,---,---,---,---,---,---,---,---,---
+Mexico,Blast furnaces,---,-25882,---,---,---,---,---,---,---,-25882,---
+Mexico,NGL & gas blending,---,---,-310658,327851,24058,---,---,---,---,41251,---
+Mexico,Oil refineries,---,---,-2983906,2664588,---,---,---,---,---,-319318,---
+Mexico,Other transformation,---,---,---,-90,---,---,---,---,---,-90,---
+Mexico,Energy industries own use,---,-17727,---,-263364,-672631,---,---,-101441,---,-1055163,---
+Mexico,Losses,---,---,---,---,---,---,---,-158580,---,-158580,---
+Mexico,Final consumption,93417,37968,---,3107447,599579,*297736,---,891756,6427,5034330,*304163
+Mexico,Final Energy Consumption,93417,33964,---,2919619,571689,*297736,---,891756,6427,4814608,*304163
+Mexico,Manufacturing  const. and mining,93417,33964,---,250185,530765,*40993,---,528286,333,1477943,*41326
+Mexico,Iron and steel,---,33882,---,8681,110237,---,---,23350,---,176149,---
+Mexico,Chemical and petrochemical,---,---,---,12904,155493,---,---,21794,---,190191,---
+Mexico,Non-ferrous metals,---,---,---,0,---,---,---,3139,---,3139,---
+Mexico,Non-metallic minerals,5556,---,---,104055,55263,---,---,37948,---,202821,---
+Mexico,Transport equipment,---,---,---,688,4107,---,---,7654,---,12448,---
+Mexico,Machinery,---,---,---,2246,---,---,---,---,---,2246,---
+Mexico,Mining and quarrying,---,---,---,14125,9330,---,---,30884,---,54340,---
+Mexico,Food and tobacco,---,---,---,13131,9690,*37076,---,6919,---,*66816,*37076
+Mexico,Paper  pulp and printing,---,---,---,7540,28388,---,---,10033,---,45961,---
+Mexico,Wood and wood products,---,---,---,---,---,---,---,230,---,230,---
+Mexico,Textile and leather,---,---,---,---,---,---,---,230,---,230,---
+Mexico,Construction,---,---,---,10664,---,---,---,1786,---,12450,---
+Mexico,Industry n.e.s,87861,83,---,76152,158258,*3917,---,384318,333,710921,*4250
+Mexico,Transport,---,---,---,2201357,752,---,---,4068,---,2206176,---
+Mexico,Road,---,---,---,2090107,752,---,---,---,---,2090859,---
+Mexico,Rail,---,---,---,24510,---,---,---,4068,---,28578,---
+Mexico,Domestic aviation,---,---,---,53186,---,---,---,---,---,53186,---
+Mexico,Domestic navigation,---,---,---,33553,---,---,---,---,---,33553,---
+Mexico,Pipeline transport,---,---,---,---,---,---,---,---,---,---,---
+Mexico,Transport n.e.s,---,---,---,---,---,---,---,---,---,---,---
+Mexico,Other Consumption,---,---,---,468077,40172,*256743,---,359402,6094,1130489,*262837
+Mexico,Agriculture  forestry and fishing,---,---,---,128991,---,---,---,38938,---,167929,---
+Mexico,Commerce and public services,---,---,---,63189,9014,---,---,80251,2563,155017,2563
+Mexico,Households,---,---,---,275898,31158,*256743,---,187308,3531,754637,*260274
+Mexico,Other consumption n.e.s,---,---,---,---,---,---,---,52906,---,52906,---
+Mexico,Non-energy use,---,4004,---,187828,27890,---,---,---,---,219722,---
