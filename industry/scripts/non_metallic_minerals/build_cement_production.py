@@ -9,6 +9,7 @@ import re
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 from build_CAGR import interpolate_or_extrapolate
+from config import SCENARIOS
 
 
 def find_input_folder():
@@ -213,7 +214,7 @@ def get_cement_and_clinker(
     if target_years is None:
         target_years = [2030, 2050]
     if scenarios is None:
-        scenarios = ["Baseline", "Ambitious Policies", "Net Zero"]
+        scenarios = SCENARIOS
 
     # --- Locate & load the country file the same way you already do ---
     input_folder = find_input_folder()

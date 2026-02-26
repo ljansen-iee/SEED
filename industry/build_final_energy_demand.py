@@ -4,16 +4,16 @@ from typing import List, Optional
 from functools import reduce
 import pycountry
 import pandas as pd
+from config import SCENARIOS
 
-# -------------------------------------------------------------------
-# CONFIG
-# -------------------------------------------------------------------
+# Path to industry config file for CAGR values
+INDUSTRY_CONFIG_PATH = Path(__file__).resolve().parent / "industry_config.csv"
 
 # Set to None to auto-find the latest, or set to a specific name like "industry_config"
 CHOOSE_FOLDER = "industry_config"
 
 # Countries to run – you just edit this list
-AVAILABLE_COUNTRIES = ["Chile", "Morocco", "Egypt","South Africa"]
+AVAILABLE_COUNTRIES = ["Morocco"]
                         #"Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
                         # "Algeria","Argentina","Brazil","Chile","Colombia","Mexico","Peru","Venezuela",
                         #"Morocco","Tunisia","Tanzania", "South Africa","Libya",
@@ -30,11 +30,12 @@ CARRIER_ORDER = [
     "gas",
     "electricity",
     "coal",
+    "heat",
     "biomass",
     "hydrogen",
     "ammonia",
-    "steel",
     "methanol",
+    "steel",
     "process emissions",
     "low-temperature heat",
 ]
@@ -52,7 +53,7 @@ COL_ORDER = [
 ]
 
 # Row order for SEC sheet
-ROW_ORDER = ["Total", "Oil", "Gas", "Electricity", "Coal", "Heat", "Biomass", "Hydrogen", "Ammonia", "Methanol"]
+ROW_ORDER = ["Total", "Oil", "Gas", "Electricity", "Coal", "Heat", "Biomass", "Hydrogen", "Ammonia", "Methanol", "Steel", "Process Emissions", "Low-Temperature Heat"]
 
 FUEL_TO_SEC = {
     "Diesel": "Oil", "oil": "Oil",
@@ -64,7 +65,9 @@ FUEL_TO_SEC = {
     "Hydrogen": "Hydrogen",  "hydrogen": "Hydrogen",
     "Ammonia": "Ammonia", "ammonia": "Ammonia",
     "Methanol": "Methanol", "methanol": "Methanol",
-    "Steel": "Steel", "steel": "Steel"
+    "Steel": "Steel", "steel": "Steel",
+    "Process Emissions": "Process Emissions", "process emissions": "Process Emissions",
+    "Low-Temperature Heat": "Low-Temperature Heat", "low-temperature heat": "Low-Temperature Heat"
 }
 
 # Sector-specific SEC columns
@@ -100,6 +103,123 @@ OTHER_SEC_COLS = [
     "Industry Textile and Leather",
     "Industry Wood and Wood Products",
 ]
+# -------------------------------------------------------------------
+# CAGR PROJECTION FUNCTIONS (aligned with transport)
+# -------------------------------------------------------------------
+
+def get_config_scenario_name(scenario_from_column: str) -> str:
+    """
+    Map scenario name from column (e.g., 'BAU') to config scenario (e.g., 'sc_a').
+    Uses SCENARIOS list position to determine mapping.
+    """
+    try:
+        idx = SCENARIOS.index(scenario_from_column)
+        config_scenario = f"sc_{chr(ord('a') + idx)}"
+        return config_scenario
+    except (ValueError, IndexError):
+        return "all"
+
+
+def apply_cagr_projections(df: pd.DataFrame, config_path: Path, country: str, base_year: str = "2020") -> pd.DataFrame:
+    """
+    Chain-linked CAGR calculation (aligned with transport):
+    - 2030 is projected from 2020
+    - 2035 is projected from 2030
+    - 2040 is projected from 2035, and so on.
+    
+    Reads CAGR values from industry_config.csv and applies them to recalculate
+    metric values based on updated 2020 base values.
+    """
+    try:
+        config_df = pd.read_csv(config_path)
+        # Filter for rows where Assumption Type is CAGR
+        cagr_config = config_df[config_df['Assumption Type'] == 'CAGR']
+    except Exception as e:
+        print(f"  Warning: Error loading CAGR config: {e}")
+        return df
+
+    # Identify and sort milestone years present in the dataframe columns
+    all_cols = [c for c in df.columns if c not in ["Metric", "Units"]]
+
+    def extract_year(column_name):
+        digits = "".join(filter(str.isdigit, str(column_name)))
+        return int(digits) if digits else None
+
+    # Get sorted list of unique numeric years: [2020, 2030, 2035, 2040, 2045, 2050]
+    unique_years = sorted(list(set(extract_year(c) for c in all_cols if extract_year(c) is not None)))
+    if len(unique_years) < 2:
+        return df
+
+    # Iterate through the intervals (e.g., 2020-2030, 2030-2035, 2035-2040)
+    for i in range(1, len(unique_years)):
+        prev_yr_num = unique_years[i - 1]
+        curr_yr_num = unique_years[i]
+        interval_length = curr_yr_num - prev_yr_num
+        
+        # Get all columns belonging to the current target year
+        curr_year_cols = [c for c in all_cols if extract_year(c) == curr_yr_num]
+
+        for index, row in df.iterrows():
+            metric = str(row['Metric']).strip()
+            
+            for col in curr_year_cols:
+                # Identify the scenario from column name (e.g., "2030_BAU" → "BAU")
+                scenario_from_col = None
+                for scn_name in SCENARIOS:
+                    if scn_name in str(col):
+                        scenario_from_col = scn_name
+                        break
+                
+                if scenario_from_col is None:
+                    scenario_for_lookup = "all"
+                else:
+                    scenario_for_lookup = get_config_scenario_name(scenario_from_col)
+
+                # Find the specific CAGR for this Metric, Year, and Scenario
+                match = cagr_config[
+                    (cagr_config['Metric Name'] == metric) &
+                    (cagr_config['Year'] == curr_yr_num) &
+                    (cagr_config['Scenario'].str.lower() == scenario_for_lookup.lower())
+                ]
+
+                if match.empty:
+                    # Fallback to any scenario for this metric/year
+                    match = cagr_config[
+                        (cagr_config['Metric Name'] == metric) &
+                        (cagr_config['Year'] == curr_yr_num)
+                    ]
+
+                if not match.empty:
+                    # Get country value or default
+                    cagr_val = match.iloc[0].get(country)
+                    if pd.isna(cagr_val) or cagr_val == "":
+                        cagr_val = match.iloc[0].get('default')
+
+                    if not pd.isna(cagr_val) and cagr_val != "":
+                        cagr = float(cagr_val)
+
+                        # Find the corresponding base value from the PREVIOUS milestone
+                        suffix = str(col).split("_", 1)[1] if "_" in str(col) else ""
+                        prev_col_name = f"{prev_yr_num}_{suffix}" if suffix else str(prev_yr_num)
+
+                        # Fallback if specific scenario didn't exist in prev year
+                        if prev_col_name not in df.columns:
+                            prev_col_name = str(prev_yr_num)
+
+                        if prev_col_name in df.columns:
+                            base_val = float(df.at[index, prev_col_name])
+                            # CHAINED CALCULATION: New Value = Prev_Value * (1 + CAGR)^interval
+                            new_val = base_val * ((1 + cagr) ** interval_length)
+                            
+                            # Safety cap for share metrics
+                            if "Share" in metric:
+                                new_val = min(100.0, max(0.0, new_val))
+
+                            df.at[index, col] = new_val
+
+    return df
+
+
 # -------------------------------------------------------------------
 # PATH HELPERS
 # -------------------------------------------------------------------
@@ -212,7 +332,7 @@ def build_sec_other_from_output(df_output: pd.DataFrame) -> pd.DataFrame:
         "wood and wood products": "Industry Wood and Wood Products"
     }
 
-    TARGET_FUELS = ["Diesel", "Natural Gas", "Electricity", "Coal", "Heat", "Biomass", "Hydrogen", "Ammonia", "Methanol", "Steel"]
+    TARGET_FUELS = ["Diesel", "Natural Gas", "Electricity", "Coal", "Heat", "Biomass", "Hydrogen", "Ammonia", "Methanol"]
     scenario_cols = [c for c in df_output.columns if c not in ["Metric", "Units"]]
 
     for col in scenario_cols:
@@ -1361,6 +1481,7 @@ def build_paper_pulp_for_col(df: pd.DataFrame, col: str) -> pd.DataFrame:
 
     # ===== PRODUCT: Unspecified paper and pulp
     unspecified_activity = _get_val(df, "Activity factor of unspecified paper and pulp", col, 0.0)
+    unspecified_base_energy = _get_val(df, "Energy of unspecified paper and pulp", col, 0.0)
     _pp_header_product(
         rows, year, scenario_col, product="Unspecified paper and pulp",
         total_prod=unspecified_activity, sector=sector, subsector=subsector,
@@ -1388,9 +1509,10 @@ def build_paper_pulp_for_col(df: pd.DataFrame, col: str) -> pd.DataFrame:
         "Hydrogen":    _get_val(df, "Share of hydrogen for unspecified paper and pulp", col, 0.0) / 100.0,
     }
     for f in FUELS_ORDER:
-        prod_fuel = unspecified_activity * unsp_share[f]
-        inten = 0.0
-        demand = prod_fuel * inten
+        # Unspecified energy = base_energy × activity_factor × fuel_share
+        demand = unspecified_base_energy * unspecified_activity * unsp_share[f]
+        prod_fuel = demand  # For display purposes
+        inten = 1.0 if unsp_share[f] > 0 else 0.0  # Effective intensity
         _pp_fuel_row(
             rows, year, scenario_col, "Unspecified paper and pulp",
             "Unspecified paper and pulp", "Unspecified paper and pulp", f,
@@ -2108,8 +2230,10 @@ def build_carrier_table_from_sec(sec_all: pd.DataFrame, country_name: str) -> pd
     combos = sec_all[["Year", "Scenario"]].drop_duplicates().sort_values(["Year", "Scenario"]).itertuples(index=False)
 
     for year, scenario in combos:
-        # Loop through ALL carriers (including Ammonia, Methanol, and Heat)
-        for fuel_row in ROW_ORDER: 
+        # Loop through ALL carriers (skip "Total" - it's a summary, not a carrier)
+        for fuel_row in ROW_ORDER:
+            if fuel_row == "Total":
+                continue
             sub = sec_all[
                 (sec_all["Year"] == year) & 
                 (sec_all["Scenario"] == scenario) & 
@@ -2147,6 +2271,8 @@ def build_carrier_table_from_sec(sec_all: pd.DataFrame, country_name: str) -> pd
 
     df_car = pd.DataFrame(rows)
     df_car["carrier"] = pd.Categorical(df_car["carrier"], categories=CARRIER_ORDER, ordered=True)
+    # Remove rows where carrier became NaN (not in CARRIER_ORDER)
+    df_car = df_car[df_car["carrier"].notna()].copy()
     
     # Order columns as requested
     final_cols = [
@@ -2161,7 +2287,7 @@ def build_carrier_table_from_sec(sec_all: pd.DataFrame, country_name: str) -> pd
 # FEEDSTOCK & SEC PIPELINE
 # -------------------------------------------------------------------
 
-def build_all_feedstock_from_metrics(input_path: Path, output_path: Path):
+def build_all_feedstock_from_metrics(input_path: Path, output_path: Path, df_override: pd.DataFrame = None):
     """
     Read metrics workbook and build feedstock tables for:
       - Steel
@@ -2173,8 +2299,14 @@ def build_all_feedstock_from_metrics(input_path: Path, output_path: Path):
       - "Non metallic minerals"
       - "Paper and pulp"
       - "Ammonia"
+      
+    If df_override is provided, use it instead of reading from input_path.
+    This allows using CAGR-updated metrics.
     """
-    df_metrics = pd.read_csv(input_path)
+    if df_override is not None:
+        df_metrics = df_override
+    else:
+        df_metrics = pd.read_csv(input_path)
 
     steel_full = build_steel_full_table_from_metrics(df_metrics)
     steel_tidy = build_steel_tidy_feedstock(steel_full)
@@ -2232,6 +2364,8 @@ def build_sec_table_from_feedstock(
     sec_all[num_cols] = sec_all[num_cols].fillna(0.0)
 
     sec_all["SEC_Fuel"] = pd.Categorical(sec_all["SEC_Fuel"], categories=ROW_ORDER, ordered=True)
+    # Remove rows where SEC_Fuel became NaN (not in ROW_ORDER)
+    sec_all = sec_all[sec_all["SEC_Fuel"].notna()].copy()
     sec_all = sec_all.sort_values(["Year", "Scenario", "SEC_Fuel"]).reset_index(drop=True)
 
     desired_cols = ["Year", "Scenario", "SEC_Fuel"] + STEEL_SEC_COLS + NMM_SEC_COLS + PP_SEC_COLS + AMMONIA_SEC_COLS  + OTHER_SEC_COLS
@@ -2341,7 +2475,19 @@ def run_industry_pipeline_for_country(country: str):
 
     df_metrics = pd.read_csv(country_file)
 
-    build_all_feedstock_from_metrics(country_file, feedstock_out)
+    # === APPLY CAGR PROJECTIONS (aligned with transport workflow) ===
+    if INDUSTRY_CONFIG_PATH.exists():
+        print(f"  >>> Found config! Refreshing projections for {country}...")
+        df_metrics = apply_cagr_projections(df_metrics, INDUSTRY_CONFIG_PATH, country, base_year="2020")
+        
+        # Save the refreshed data for verification (aligned with transport naming)
+        updated_path = results_dir / f"output_{country}_updated.csv"
+        df_metrics.to_csv(updated_path, index=False)
+        print(f"  Saved updated metrics → {updated_path}")
+    else:
+        print(f"  Warning: industry_config.csv NOT found at {INDUSTRY_CONFIG_PATH}")
+
+    build_all_feedstock_from_metrics(country_file, feedstock_out, df_override=df_metrics)
 
     carriers_df = build_sec_table_from_feedstock(
         feedstock_out,

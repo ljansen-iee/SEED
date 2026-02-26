@@ -1,8 +1,14 @@
 # scripts/iron_and_steel/steelproduction.py
 
 import os  # Import OS module for file and directory operations
+import sys
 import pandas as pd  # Import pandas for data manipulation
 from pathlib import Path
+from typing import List, Optional
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
+from build_CAGR import interpolate_or_extrapolate
+from config import SCENARIOS
 
 BASE_DIR = Path(__file__).parents[2]   # → industry/
 INPUT_DIR = BASE_DIR / "input_data"
@@ -88,15 +94,6 @@ def load_and_process_both():
 
 
 
-from typing import List, Optional
-import os
-import sys
-
-# Add parent directories to Python path to import cagr_helper
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
-
-from build_CAGR import interpolate_or_extrapolate
-
 def share_steel(target_years: List[int], scenarios: Optional[List[str]] = None):
     """
     Returns interpolated/extrapolated shares for primary and secondary steel.
@@ -105,7 +102,7 @@ def share_steel(target_years: List[int], scenarios: Optional[List[str]] = None):
     """
 
     if scenarios is None:
-        scenarios = ["Baseline", "Ambitious Policies", "Net Zero"]
+        scenarios = SCENARIOS
 
     # --- Base shares for Primary Steel ---
     base_primary = {

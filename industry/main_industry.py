@@ -5,22 +5,11 @@ from datetime import datetime
 from typing import Dict, Any, List
 from pathlib import Path 
 
-# === Project imports ===
-BASE_DIR = Path(__file__).resolve().parent
-UNSD_PATH = BASE_DIR / "input_data" / "country_specific"
-
-# === Module-level constants (defaults) ===
-BASE_YEAR = 2020
-TARGET_YEARS = [2030, 2035, 2040, 2045, 2050]
-SCENARIOS = ["BAU", "Progressive", "Optimistic"]
-INDUSTRY_CONFIG_FILE = "industry_config.csv"
-INDUSTRY_CONFIG_PATH = BASE_DIR / INDUSTRY_CONFIG_FILE
-
 # iron and steel
 from scripts.iron_and_steel.build_steel_production import load_and_process_both, share_steel
 from scripts.iron_and_steel.build_shares_steel import share_fuel_bf_ohf, share_fuel_bf_bof, share_fuel_dr_eaf, share_fuel_scrap_eaf,share_fuel_casting_rolling, share_fuel_unspecified_steel, override_steel_routes_positional
 from scripts.iron_and_steel.build_energy_intensities_steel import intensity_bf_ohf, intensity_bf_bof, intensity_dr_eaf, intensity_scrap_eaf, intensity_casting_rolling
-from helpers import extract_capacity_shares, extract_all_fuels, _build_rate_anchors_indexed,  _forecast_from_history_and_sparse_cagr, _get_value_by_index,  _interp_at, get_mapped_config_name, poly_project, get_historical_sector_data, validate_fuel_shares, country_to_iso2
+from helpers import extract_capacity_shares, extract_all_fuels, _build_rate_anchors_indexed,  _forecast_from_history_and_sparse_cagr, _get_value_by_index,  _interp_at, get_mapped_config_name, poly_project, get_historical_sector_data, validate_fuel_shares, country_to_iso2, METRIC_ORDER
 # PAPER & PULP
 from scripts.paper_and_pulp.build_paper_and_pulp_production import process_paper_pulp_data
 from scripts.paper_and_pulp.build_share_primary_pulp import share_fuel_primary_pulp, share_fuel_secondary_pulp, share_fuel_paper, share_primary_secondary_pulp, share_fuel_unspecified_paper_pulp, activity_factor_unspecified_paper_pulp
@@ -39,6 +28,20 @@ from scripts.chemical_and_petrochemical.HVC.build_hvc_production import get_hvc_
 from scripts.food_and_tobacco.build_shares_food_and_tobacco import get_unsd_fuel_shares
 # CAGR CONFIG
 from build_CAGR import load_industry_config, interpolate_or_extrapolate, get_metric_cagr_cfg_from_excel, expand_with_cagr_smooth
+
+BASE_YEAR = 2020
+TARGET_YEARS = [2030, 2050]
+# Scenario names - Edit this list to change scenario names across all scripts
+SCENARIOS = ["BAU", "Progressive", "Optimistic"]
+INDUSTRY_CONFIG_FILE = "industry_config.csv"
+
+# === Project imports ===
+BASE_DIR = Path(__file__).resolve().parent
+UNSD_PATH = BASE_DIR / "input_data" / "country_specific"
+
+# === Module-level constants (from config.py) ===
+INDUSTRY_CONFIG_PATH = BASE_DIR / INDUSTRY_CONFIG_FILE
+
 
 def main():
     # ---- USER SETTINGS (defaults from module constants) ----
@@ -2281,8 +2284,14 @@ def main():
                 if name == "Steel production per year":
                     last_obs_year = base_year
                     last_obs_val  = base_val
+                elif name == "Activity factor of unspecified iron and steel":
+                    last_obs_year = base_year
+                    last_obs_val  = base_val
                 elif name == "Paper production per year":
-                    last_obs_year = 2021 
+                    last_obs_year = base_year 
+                    last_obs_val  = base_val
+                elif name == "Pulp production per year":
+                    last_obs_year = base_year 
                     last_obs_val  = base_val
                 elif hist_series:
                     last_obs_year = max(hist_series.keys())
@@ -2326,6 +2335,12 @@ def main():
         # after metrics loop
         df_out = pd.DataFrame(rows)
         df_out = df_out.reindex(columns=columns)
+        
+        # Sort rows by METRIC_ORDER
+        metric_order_map = {name: i for i, name in enumerate(METRIC_ORDER)}
+        df_out["__sort_key__"] = df_out["Metric"].map(lambda x: metric_order_map.get(x, 9999))
+        df_out = df_out.sort_values("__sort_key__").drop(columns=["__sort_key__"])
+        
         out_path = output_root / f"{country}_Output.csv"
         #print("DEBUG output_root:", output_root)
         #print("DEBUG type(output_root):", type(output_root))

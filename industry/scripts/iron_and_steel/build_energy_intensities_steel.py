@@ -8,6 +8,7 @@ import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
 from build_CAGR import interpolate_or_extrapolate
+from config import SCENARIOS
 
 
 def _interpolate_intensities(
@@ -56,7 +57,7 @@ def _interpolate_intensities(
 def intensity_bf_ohf(target_years: List[int], scenarios: Optional[List[str]] = None):
 
     if scenarios is None:
-        scenarios = ["Baseline", "Ambitious Policies", "Net Zero"]
+        scenarios = SCENARIOS
 
     # Identical for all scenarios but kept flexible
     base_data = {
@@ -96,7 +97,7 @@ def intensity_bf_ohf(target_years: List[int], scenarios: Optional[List[str]] = N
 def intensity_bf_bof(target_years: List[int], scenarios: Optional[List[str]] = None):
     """Energy intensities (MWh/t) for Blast Furnace + Basic Oxygen Furnace (BF + BOF)."""
     if scenarios is None:
-        scenarios = ["Baseline", "Ambitious Policies", "Net Zero"]
+        scenarios = SCENARIOS
 
     base_data = {
         "diesel":      {
@@ -134,7 +135,7 @@ def intensity_bf_bof(target_years: List[int], scenarios: Optional[List[str]] = N
 def intensity_dr_eaf(target_years: List[int], scenarios: Optional[List[str]] = None):
     """Energy intensities (MWh/t) for Direct Reduction + Electric Arc Furnace (DR + EAF)."""
     if scenarios is None:
-        scenarios = ["Baseline", "Ambitious Policies", "Net Zero"]
+        scenarios = SCENARIOS
 
     base_data = {
         "diesel":      {
@@ -179,7 +180,7 @@ def intensity_dr_eaf(target_years: List[int], scenarios: Optional[List[str]] = N
 def intensity_scrap_eaf(target_years: List[int], scenarios: Optional[List[str]] = None):
     """Energy intensities (MWh/t) for Scrap-based Electric Arc Furnaces (EAF)."""
     if scenarios is None:
-        scenarios = ["Baseline", "Ambitious Policies", "Net Zero"]
+        scenarios = SCENARIOS
 
     base_data = {
         "diesel":      {
@@ -218,7 +219,7 @@ def intensity_scrap_eaf(target_years: List[int], scenarios: Optional[List[str]] 
 def intensity_casting_rolling(target_years: List[int], scenarios: Optional[List[str]] = None):
     """Total energy intensity (MWh/t) for Casting, Rolling & Finishing (not fuel-specific)."""
     if scenarios is None:
-        scenarios = ["Baseline", "Ambitious Policies", "Net Zero"]
+        scenarios = SCENARIOS
 
     # Values differ slightly across scenarios
     base_data = {

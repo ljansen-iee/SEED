@@ -68,6 +68,7 @@ import sys
 # Allow importing helper functions from parent directories
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 from build_CAGR import interpolate_or_extrapolate
+from config import SCENARIOS
 
 def share_fuel_primary_pulp(
     target_years: List[int],
@@ -75,7 +76,7 @@ def share_fuel_primary_pulp(
 ) -> Dict[str, Dict[int, Dict[str, float]]]:
     
     if scenarios is None:
-        scenarios = ["Baseline", "Ambitious Policies", "Net Zero"]
+        scenarios = SCENARIOS
 
     base_data = {
         "diesel": {
@@ -146,7 +147,7 @@ def share_fuel_secondary_pulp(
 ) -> Dict[str, Dict[int, Dict[str, float]]]:
     
     if scenarios is None:
-        scenarios = ["Baseline", "Ambitious Policies", "Net Zero"]
+        scenarios = SCENARIOS
 
     base_data = {
         "diesel": {
@@ -214,7 +215,7 @@ def share_primary_secondary_pulp(
     scenarios: Optional[List[str]] = None,
 ) -> Dict[str, Dict[int, Dict[str, float]]]:
     if scenarios is None:
-        scenarios = ["Baseline", "Ambitious Policies", "Net Zero"]
+        scenarios = SCENARIOS
 
     base_data = {
         "primary": {
@@ -251,7 +252,7 @@ def share_fuel_paper(
 ) -> Dict[str, Dict[int, Dict[str, float]]]:
     
     if scenarios is None:
-        scenarios = ["Baseline", "Ambitious Policies", "Net Zero"]
+        scenarios = SCENARIOS
 
     base_data = {
         "diesel": {
@@ -318,7 +319,7 @@ def activity_unspecified_paper_pulp(
     scenarios: Optional[List[str]] = None,
 ) -> Dict[int, Dict[str, float]]:
     if scenarios is None:
-        scenarios = ["Baseline", "Ambitious Policies", "Net Zero"]
+        scenarios = SCENARIOS
 
     base_dict = {
         2020: [1.0, 1.0, 1.0],
@@ -343,7 +344,7 @@ def share_fuel_unspecified_paper_pulp(
 ) -> Dict[str, Dict[int, Dict[str, float]]]:
    
     if scenarios is None:
-        scenarios = ["Baseline", "Ambitious Policies", "Net Zero"]
+        scenarios = SCENARIOS
 
     base_data = {
         "diesel": {

@@ -8,6 +8,7 @@ import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
 from build_CAGR import interpolate_or_extrapolate
+from config import SCENARIOS
 
 
 
@@ -17,7 +18,7 @@ from build_CAGR import interpolate_or_extrapolate
 
 def share_fuel_ammonia_smr_hb(target_years: List[int], scenarios: Optional[List[str]] = None):
     if scenarios is None:
-        scenarios = ["Baseline", "Ambitious Policies", "Net Zero"]
+        scenarios = SCENARIOS
 
     base_data = {
         "diesel": {
@@ -55,7 +56,7 @@ def share_fuel_ammonia_smr_hb(target_years: List[int], scenarios: Optional[List[
 
 def share_fuel_ammonia_renewable(target_years: List[int], scenarios: Optional[List[str]] = None):
     if scenarios is None:
-        scenarios = ["Baseline", "Ambitious Policies", "Net Zero"]
+        scenarios = SCENARIOS
 
     base_data = {
         "diesel": {
@@ -97,7 +98,7 @@ def share_fuel_ammonia_renewable(target_years: List[int], scenarios: Optional[Li
 
 def share_fuel_hvc_naphtha_cracking(target_years: List[int], scenarios: Optional[List[str]] = None):
     if scenarios is None:
-        scenarios = ["Baseline", "Ambitious Policies", "Net Zero"]
+        scenarios = SCENARIOS
 
     base_data = {
         "diesel": {
@@ -135,7 +136,7 @@ def share_fuel_hvc_naphtha_cracking(target_years: List[int], scenarios: Optional
 
 def share_fuel_hvc_lpg_cracking(target_years: List[int], scenarios: Optional[List[str]] = None):
     if scenarios is None:
-        scenarios = ["Baseline", "Ambitious Policies", "Net Zero"]
+        scenarios = SCENARIOS
 
     base_data = {
         "diesel": {
@@ -173,7 +174,7 @@ def share_fuel_hvc_lpg_cracking(target_years: List[int], scenarios: Optional[Lis
 
 def share_fuel_hvc_methanol_route(target_years: List[int], scenarios: Optional[List[str]] = None):
     if scenarios is None:
-        scenarios = ["Baseline", "Ambitious Policies", "Net Zero"]
+        scenarios = SCENARIOS
 
     base_data = {
         "diesel": {
@@ -211,7 +212,7 @@ def share_fuel_hvc_methanol_route(target_years: List[int], scenarios: Optional[L
 
 def share_fuel_unspecified_chemicals(target_years: List[int], scenarios: Optional[List[str]] = None):
     if scenarios is None:
-        scenarios = ["Baseline", "Ambitious Policies", "Net Zero"]
+        scenarios = SCENARIOS
 
     base_data = {
         "diesel": {
@@ -254,7 +255,7 @@ def share_HVC_production(
     scenarios: Optional[List[str]] = None
 ) -> Dict[str, Dict[int, Dict[str, float]]]:
     if scenarios is None:
-        scenarios = ["Baseline", "Ambitious Policies", "Net Zero"]
+        scenarios = SCENARIOS
 
     base_data = {
         "Naphtha": {

@@ -8,6 +8,7 @@ import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
 from build_CAGR import interpolate_or_extrapolate
+from config import SCENARIOS
 
 
 # ---------------------------------------------------------------------
@@ -52,7 +53,7 @@ def share_fuel_cement_production(
     scenarios: Optional[List[str]] = None,
 ) -> Dict[str, Dict[int, Dict[str, float]]]:
     if scenarios is None:
-        scenarios = ["Baseline", "Ambitious Policies", "Net Zero"]
+        scenarios = SCENARIOS
 
     # exactly your Excel numbers
     base_data = {
@@ -104,7 +105,7 @@ def share_fuel_unspecified_nmm(
     scenarios: Optional[List[str]] = None,
 ) -> Dict[str, Dict[int, Dict[str, float]]]:
     if scenarios is None:
-        scenarios = ["Baseline", "Ambitious Policies", "Net Zero"]
+        scenarios = SCENARIOS
 
     base_data = {
         "diesel": {

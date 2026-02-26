@@ -7,6 +7,7 @@ from typing import Dict, List, Optional
 # Go up two levels to import helpers
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 from build_CAGR import interpolate_or_extrapolate
+from config import SCENARIOS
 
 
 # =====================================================================
@@ -19,7 +20,7 @@ def intensity_primary_pulp(
 ) -> Dict[str, Dict[int, Dict[str, float]]]:
 
     if scenarios is None:
-        scenarios = ["Baseline", "Ambitious Policies", "Net Zero"]
+        scenarios = SCENARIOS
 
     # --- Base anchor data for each fuel (2020, 2030, 2050)
     base_data = {
@@ -77,7 +78,7 @@ def intensity_secondary_pulp(
 ) -> Dict[str, Dict[int, Dict[str, float]]]:
     
     if scenarios is None:
-        scenarios = ["Baseline", "Ambitious Policies", "Net Zero"]
+        scenarios = SCENARIOS
 
     # --- Base anchor data (2020, 2030, 2050)
     base_data = {
@@ -133,7 +134,7 @@ def intensity_paper_production(
 ) -> Dict[str, Dict[int, Dict[str, float]]]:
     
     if scenarios is None:
-        scenarios = ["Baseline", "Ambitious Policies", "Net Zero"]
+        scenarios = SCENARIOS
 
     base_data = {
         "diesel": {

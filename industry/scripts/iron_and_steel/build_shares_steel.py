@@ -8,6 +8,7 @@ import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
 from build_CAGR import interpolate_or_extrapolate
+from config import SCENARIOS
 
 
 # =====================================================================
@@ -54,9 +55,6 @@ def _interpolate_shares(
     return result
 
 
-from build_CAGR import interpolate_or_extrapolate
-
-
 # =====================================================================
 # === BLAST FURNACE + OPEN HEARTH FURNACE (BF + OHF)
 # =====================================================================
@@ -64,7 +62,7 @@ from build_CAGR import interpolate_or_extrapolate
 def share_fuel_bf_ohf(target_years: List[int], scenarios: Optional[List[str]] = None):
     """Fuel shares (% of BF + OHF production)."""
     if scenarios is None:
-        scenarios = ["Baseline", "Ambitious Policies", "Net Zero"]
+        scenarios = SCENARIOS
 
     base_data = {
         "diesel":      {
@@ -107,7 +105,7 @@ def share_fuel_bf_ohf(target_years: List[int], scenarios: Optional[List[str]] = 
 def share_fuel_bf_bof(target_years: List[int], scenarios: Optional[List[str]] = None):
     """Fuel shares (% of BF + BOF)."""
     if scenarios is None:
-        scenarios = ["Baseline", "Ambitious Policies", "Net Zero"]
+        scenarios = SCENARIOS
 
     base_data = {
         "diesel":      {
@@ -152,7 +150,7 @@ def share_fuel_bf_bof(target_years: List[int], scenarios: Optional[List[str]] = 
 def share_fuel_dr_eaf(target_years: List[int], scenarios: Optional[List[str]] = None):
     """Fuel shares (% of DR + EAF)."""
     if scenarios is None:
-        scenarios = ["Baseline", "Ambitious Policies", "Net Zero"]
+        scenarios = SCENARIOS
 
     base_data = {
         "diesel":      {
@@ -196,7 +194,7 @@ def share_fuel_dr_eaf(target_years: List[int], scenarios: Optional[List[str]] = 
 def share_fuel_scrap_eaf(target_years: List[int], scenarios: Optional[List[str]] = None):
     """Fuel shares (% of Scrap EAF)."""
     if scenarios is None:
-        scenarios = ["Baseline", "Ambitious Policies", "Net Zero"]
+        scenarios = SCENARIOS
 
     base_data = {
         "diesel":      {
@@ -239,7 +237,7 @@ def share_fuel_scrap_eaf(target_years: List[int], scenarios: Optional[List[str]]
 def share_fuel_casting_rolling(target_years: List[int], scenarios: Optional[List[str]] = None):
     """Fuel shares (% of casting, rolling, and finishing)."""
     if scenarios is None:
-        scenarios = ["Baseline", "Ambitious Policies", "Net Zero"]
+        scenarios = SCENARIOS
 
     base_data = {
         "diesel":      {
@@ -282,7 +280,7 @@ def share_fuel_casting_rolling(target_years: List[int], scenarios: Optional[List
 def share_fuel_unspecified_steel(target_years: List[int], scenarios: Optional[List[str]] = None):
     """Fuel shares (% of unspecified steel category)."""
     if scenarios is None:
-        scenarios = ["Baseline", "Ambitious Policies", "Net Zero"]
+        scenarios = SCENARIOS
 
     base_data = {
         "diesel": {
@@ -325,9 +323,6 @@ def share_fuel_unspecified_steel(target_years: List[int], scenarios: Optional[Li
 
 
 # helpers_routes_overrides.py
-from typing import Dict, List, Optional
-from build_CAGR import interpolate_or_extrapolate
-
 COUNTRY_ROUTE_OVERRIDES_POS: Dict[str, Dict[int, Dict[str, List[float]]]] = {
     "Morocco": {
         2030: {

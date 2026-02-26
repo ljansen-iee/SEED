@@ -7,6 +7,7 @@ import numpy as np
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 from typing import List, Optional
 from build_CAGR import interpolate_or_extrapolate
+from config import SCENARIOS
 
 
 from typing import List, Dict, Optional
@@ -42,7 +43,7 @@ def intensity_ammonia_smr_hb(
 ) -> Dict[str, Dict[int, Dict[str, float]]]:
     
     if scenarios is None:
-        scenarios = ["Baseline", "Ambitious Policies", "Net Zero"]
+        scenarios = SCENARIOS
 
     base_data = {
         "diesel": {
@@ -111,7 +112,7 @@ def intensity_ammonia_otherconv_hb(
 ) -> Dict[str, Dict[int, Dict[str, float]]]:
 
     if scenarios is None:
-        scenarios = ["Baseline", "Ambitious Policies", "Net Zero"]
+        scenarios = SCENARIOS
 
     base_data = {
         "diesel": {
@@ -179,7 +180,7 @@ def intensity_ammonia_renewable(
 ) -> Dict[str, Dict[int, Dict[str, float]]]:
 
     if scenarios is None:
-        scenarios = ["Baseline", "Ambitious Policies", "Net Zero"]
+        scenarios = SCENARIOS
 
     base_data = {
         "diesel": {
@@ -251,7 +252,7 @@ def intensity_hvc_naphtha_cracking(
     """
 
     if scenarios is None:
-        scenarios = ["Baseline", "Ambitious Policies", "Net Zero"]
+        scenarios = SCENARIOS
 
     base_data = {
         "diesel": {
@@ -323,7 +324,7 @@ def intensity_hvc_lpg_cracking(
     """
 
     if scenarios is None:
-        scenarios = ["Baseline", "Ambitious Policies", "Net Zero"]
+        scenarios = SCENARIOS
 
     base_data = {
         "diesel": {
@@ -395,7 +396,7 @@ def intensity_hvc_methanol_route(
     """
 
     if scenarios is None:
-        scenarios = ["Baseline", "Ambitious Policies", "Net Zero"]
+        scenarios = SCENARIOS
 
     base_data = {
         "diesel": {
