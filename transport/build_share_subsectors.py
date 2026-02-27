@@ -1,8 +1,8 @@
 # build_share_subsectors.py
 
-from helpers import clean_column_headers, clean_missing_countries
+from transport.helpers import clean_column_headers, clean_missing_countries
 import pandas as pd
-import build_macro_indicators as build_mac
+import transport.build_macro_indicators as build_mac
 import os
 import warnings # Remove unnecessary warnings
 warnings.filterwarnings("ignore")

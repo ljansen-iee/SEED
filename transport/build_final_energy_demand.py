@@ -6,10 +6,10 @@ import pycountry
 from pathlib import Path
 
 # Import transport-specific functions
-from build_CAGR import expand_with_cagr, get_cagr
-from build_technology_share import get_unsd_bunker_fuel_shares
-from helpers import unsd_global_output, unsd_input_folder, load_transport_config, extract_config_data
-from main_transport import SCENARIOS
+from transport.build_CAGR import expand_with_cagr, get_cagr
+from transport.build_technology_share import get_unsd_bunker_fuel_shares
+from transport.helpers import unsd_global_output, unsd_input_folder, load_transport_config, extract_config_data
+from transport.build_config_transport import SCENARIOS
 
 # =============================================================================
 # 1. SETUP & CONFIGURATION
@@ -19,7 +19,7 @@ from main_transport import SCENARIOS
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 transport_output_dir = os.path.join(script_dir, "output_data")
-results_dir = os.path.join(script_dir, "results")
+results_dir = os.path.join(script_dir, "output_data")
 os.makedirs(results_dir, exist_ok=True)
 
 choose_folder = "country_parameters"
@@ -121,13 +121,6 @@ def generate_transport_indicators(final_df: pd.DataFrame, country: str) -> pd.Da
 # =============================================================================
 # 3. HELPER FUNCTIONS
 # =============================================================================
-
-try:
-    from main_transport import SCENARIOS
-except ImportError:
-    # Fallback: use default scenarios when running standalone
-    SCENARIOS = ["BAU", "Progressive", "Optimistic"]
-
 
 # === Dynamic Scenario Mapping Function ===
 def get_config_scenario_name(scenario_from_column):
@@ -768,29 +761,31 @@ def run(country: str, base_dir: str = "output_data") -> None:
     final_df = pd.concat(all_results, ignore_index=True)
     fuel_summary, mode_summary, subsector_summary, enduse_summary = build_summary(final_df, metrics_raw)
 
+    # Save results in output_data/country_specific
     country_results_dir = os.path.join(results_dir, "country_specific", country)
     os.makedirs(country_results_dir, exist_ok=True)
 
-    # Save detailed Energy Demand (GWh)
-    final_df.to_csv(os.path.join(country_results_dir, f"{country_code}_energy_demand.csv"), index=False)
+    # Save detailed Energy Demand (GWh) as parameters_{country}.csv
+    final_df.to_csv(os.path.join(country_results_dir, f"parameters_{country}.csv"), index=False)
+
+    # ...existing code...
+
     # Generate Indicators and save
     indicators_df = pd.DataFrame()
     try:
-
         indicators_df = generate_transport_indicators(final_df, country)
         indicators_df.to_csv(os.path.join(country_results_dir, f"{country_code}_final_energy_demand.csv"), index=False)
     except Exception as e:
         print(f"  Warning: Could not generate indicators: {e}")
 
     # Save Summaries (Excel)
-
     with pd.ExcelWriter(os.path.join(country_results_dir, f"{country_code}_summary.xlsx")) as writer:
         fuel_summary.to_excel(writer, sheet_name="Fuel")
         mode_summary.to_excel(writer, sheet_name="Mode")
         subsector_summary.to_excel(writer, sheet_name="Subsector")
         enduse_summary.to_excel(writer, sheet_name="EndUse")
 
-    print(f" Saved results for {country} ({country_code})")
+    print(f" Saved results for {country} ({country_code}) in {country_results_dir}")
     return indicators_df
 
 def export_global_energy_totals(all_country_indicators: list, bunker_data_by_country: dict = None):
