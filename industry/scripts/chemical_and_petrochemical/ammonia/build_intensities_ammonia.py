@@ -1,19 +1,39 @@
 # scripts/ammonia/build_intensities_ammonia.py
 
+import ast
 import os
 import sys
 import numpy as np  
+from typing import Dict, List, Optional
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
-from typing import List, Optional
-from build_CAGR import interpolate_or_extrapolate
-try:
-    from config import SCENARIOS
-except ModuleNotFoundError:
-    SCENARIOS = ["BAU", "Progressive", "Optimistic"]
 
 
-from typing import List, Dict, Optional
+def _load_scenarios_from_main_industry() -> List[str]:
+    main_industry_path = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "..", "..", "main_industry.py")
+    )
+
+    with open(main_industry_path, "r", encoding="utf-8") as handle:
+        tree = ast.parse(handle.read(), filename=main_industry_path)
+
+    for node in tree.body:
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Name) and target.id == "SCENARIOS":
+                    value = node.value
+                    if isinstance(value, (ast.List, ast.Tuple)):
+                        scenarios = []
+                        for element in value.elts:
+                            if isinstance(element, ast.Constant) and isinstance(element.value, str):
+                                scenarios.append(element.value)
+                        if scenarios:
+                            return scenarios
+
+    raise ValueError("SCENARIOS not found or invalid in main_industry.py")
+
+
+SCENARIOS = _load_scenarios_from_main_industry()
 
 def interpolate_or_extrapolate(data: Dict[int, float], target_years: List[int]) -> Dict[int, float]:
     """
