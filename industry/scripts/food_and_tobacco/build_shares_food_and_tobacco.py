@@ -5,21 +5,46 @@ from scripts.food_and_tobacco.build_food_and_tobacco_energy import _clean_val
 
 
 def get_unsd_fuel_shares(base_path: Path, country: str, year: int, sector_name: str = "Food and tobacco"):
-    file_path = base_path / f"{country}-{year}.csv"
     target_categories = ['oil', 'gas', 'electricity', 'coal', 'biomass', 'hydrogen', 'ammonia', 'steel', 'methanol']
-    
-    if not file_path.exists(): 
+
+    file_candidates = []
+    for fp in base_path.glob(f"{country}-*.csv"):
+        try:
+            y = int(fp.stem.split("-")[-1])
+            file_candidates.append((y, fp))
+        except Exception:
+            continue
+
+    if not file_candidates:
         return {f: 0.0 for f in target_categories}
-        
-    df = pd.read_csv(file_path)
-    sector_col = "Transactions(down)/Commodity(right)"
-    row = df[df[sector_col].str.strip().str.lower() == sector_name.lower()]
-    
-    if row.empty: 
-        return {f: 0.0 for f in target_categories}
-        
-    total_tj = _clean_val(row["Total Energy"].iloc[0])
-    if total_tj == 0: 
+
+    # Prefer closest year to requested one; if tie, prefer earlier year
+    file_candidates.sort(key=lambda t: (abs(t[0] - int(year)), 0 if t[0] <= int(year) else 1, t[0]))
+
+    row = None
+    total_tj = 0.0
+    for _, file_path in file_candidates:
+        try:
+            df = pd.read_csv(file_path)
+            sector_col = "Transactions(down)/Commodity(right)"
+            if sector_col not in df.columns or "Total Energy" not in df.columns:
+                continue
+
+            row_try = df[df[sector_col].astype(str).str.strip().str.lower() == sector_name.lower()]
+            if row_try.empty:
+                continue
+
+            total_try = _clean_val(row_try["Total Energy"].iloc[0])
+            if total_try == 0:
+                continue
+
+            row = row_try
+            total_tj = total_try
+            break
+        except Exception:
+            continue
+
+    if row is None or total_tj == 0:
         return {f: 0.0 for f in target_categories}
 
     fuel_mapping = {

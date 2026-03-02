@@ -291,30 +291,23 @@ def _build_scenario_frames_tons_first(
     """
     Build dict: scenario_label (from main.py) -> DataFrame for that scenario.
 
-    Priority:
-      - Use sheets whose names contain 'tons', ordered as:
-          baseline_tons, ambitious*_tons, net zero*_tons
-        and map by index:
-          scenarios[0] -> first tons sheet
-          scenarios[1] -> second tons sheet
-          scenarios[2] -> third tons sheet
-      - If no tons sheets exist, fall back to the first sheet and share it
-        across all scenarios.
+    Maps scenarios by POSITION (no hardcoded keywords):
+      - scenarios[0] -> first tons sheet
+      - scenarios[1] -> second tons sheet
+      - scenarios[2] -> third tons sheet
+      
+    If no tons sheets exist, falls back to the first sheet.
     """
     sheet_names = xls.sheet_names
     tons_sheets = [s for s in sheet_names if "tons" in s.lower()]
 
-    order_keywords = ["baseline", "ambitious", "net zero"]
     scenario_frames: Dict[str, pd.DataFrame] = {}
 
     if tons_sheets:
-        tons_sheets_sorted = sorted(
-            tons_sheets,
-            key=lambda s: next((i for i, k in enumerate(order_keywords) if k in s.lower()), 99),
-        )
+        # Use sheets IN THEIR ACTUAL ORDER (no sorting by keywords)
         for idx, sc_label in enumerate(scenarios):
-            sheet_idx = min(idx, len(tons_sheets_sorted) - 1)
-            sheet_name = tons_sheets_sorted[sheet_idx]
+            sheet_idx = min(idx, len(tons_sheets) - 1)
+            sheet_name = tons_sheets[sheet_idx]
             df_sc = pd.read_excel(xls, sheet_name=sheet_name)
 
             country_col = _find_col(df_sc, "country")

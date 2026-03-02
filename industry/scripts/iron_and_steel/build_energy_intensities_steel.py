@@ -8,7 +8,6 @@ import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
 from build_CAGR import interpolate_or_extrapolate
-from config import SCENARIOS
 
 
 def _interpolate_intensities(
@@ -54,11 +53,30 @@ def _interpolate_intensities(
     return out
 
 
+def _resolve_scenarios(
+    scenarios: Optional[List[str]],
+    base_data: Dict[str, Dict[int, List[float]]],
+) -> List[str]:
+    if scenarios:
+        return scenarios
+
+    max_len = 0
+    for yearly in base_data.values():
+        for vals in yearly.values():
+            if vals is None:
+                continue
+            if isinstance(vals, (list, tuple)):
+                max_len = max(max_len, len(vals))
+            elif isinstance(vals, dict):
+                max_len = max(max_len, len(vals))
+            else:
+                max_len = max(max_len, 1)
+
+    n = max_len if max_len > 0 else 1
+    return [f"Scenario_{i + 1}" for i in range(n)]
+
+
 def intensity_bf_ohf(target_years: List[int], scenarios: Optional[List[str]] = None):
-
-    if scenarios is None:
-        scenarios = SCENARIOS
-
     # Identical for all scenarios but kept flexible
     base_data = {
         "diesel":      {
@@ -91,14 +109,13 @@ def intensity_bf_ohf(target_years: List[int], scenarios: Optional[List[str]] = N
             2050: [5.20, 5.20, 5.20]},
     }
 
+    scenarios = _resolve_scenarios(scenarios, base_data)
+
     return _interpolate_intensities(base_data, target_years, scenarios)
 
 
 def intensity_bf_bof(target_years: List[int], scenarios: Optional[List[str]] = None):
     """Energy intensities (MWh/t) for Blast Furnace + Basic Oxygen Furnace (BF + BOF)."""
-    if scenarios is None:
-        scenarios = SCENARIOS
-
     base_data = {
         "diesel":      {
             2020: [6.72, 6.72, 6.72], 
@@ -130,13 +147,12 @@ def intensity_bf_bof(target_years: List[int], scenarios: Optional[List[str]] = N
             2050: [6.72, 6.72, 6.72]},
     }
 
+    scenarios = _resolve_scenarios(scenarios, base_data)
+
     return _interpolate_intensities(base_data, target_years, scenarios)
 
 def intensity_dr_eaf(target_years: List[int], scenarios: Optional[List[str]] = None):
     """Energy intensities (MWh/t) for Direct Reduction + Electric Arc Furnace (DR + EAF)."""
-    if scenarios is None:
-        scenarios = SCENARIOS
-
     base_data = {
         "diesel":      {
             2020: [2.87, 2.87, 2.87],
@@ -174,14 +190,13 @@ def intensity_dr_eaf(target_years: List[int], scenarios: Optional[List[str]] = N
             2050: [2.87, 2.87, 2.87]},
     }
 
+    scenarios = _resolve_scenarios(scenarios, base_data)
+
     return _interpolate_intensities(base_data, target_years, scenarios)
 
 
 def intensity_scrap_eaf(target_years: List[int], scenarios: Optional[List[str]] = None):
     """Energy intensities (MWh/t) for Scrap-based Electric Arc Furnaces (EAF)."""
-    if scenarios is None:
-        scenarios = SCENARIOS
-
     base_data = {
         "diesel":      {
             2020: [0.58, 0.58, 0.58], 
@@ -213,14 +228,13 @@ def intensity_scrap_eaf(target_years: List[int], scenarios: Optional[List[str]] 
             2050: [0.58, 0.58, 0.56]},
     }
 
+    scenarios = _resolve_scenarios(scenarios, base_data)
+
     return _interpolate_intensities(base_data, target_years, scenarios)
 
 
 def intensity_casting_rolling(target_years: List[int], scenarios: Optional[List[str]] = None):
     """Total energy intensity (MWh/t) for Casting, Rolling & Finishing (not fuel-specific)."""
-    if scenarios is None:
-        scenarios = SCENARIOS
-
     # Values differ slightly across scenarios
     base_data = {
         "total": {
@@ -229,5 +243,7 @@ def intensity_casting_rolling(target_years: List[int], scenarios: Optional[List[
             2050: [0.94, 0.94, 0.91],
         }
     }
+
+    scenarios = _resolve_scenarios(scenarios, base_data)
 
     return _interpolate_intensities(base_data, target_years, scenarios)

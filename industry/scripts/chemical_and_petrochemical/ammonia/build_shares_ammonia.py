@@ -8,7 +8,10 @@ import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
 from build_CAGR import interpolate_or_extrapolate
-from config import SCENARIOS
+try:
+    from config import SCENARIOS
+except ModuleNotFoundError:
+    SCENARIOS = ["BAU", "Progressive", "Optimistic"]
 
 
 

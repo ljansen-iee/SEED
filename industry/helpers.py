@@ -471,9 +471,11 @@ def get_historical_sector_data(folder_path: Path, country: str, sector_keyword: 
             
             if not sector_row.empty:
                 raw_val = str(sector_row[val_col].iloc[0])
-                
-                # 5. Data Cleaning: remove '---', '*', and spaces
-                clean_val = raw_val.replace("---", "0").replace("*", "").strip()
+
+                clean_val = raw_val.replace("*", "").replace(",", "").strip()
+                if clean_val in {"---", "", "nan", "NaN"}:
+                    continue
+
                 history[year] = float(clean_val)
                 
         except Exception as e:
@@ -1032,4 +1034,53 @@ METRIC_ORDER = [
     "Share of heat for unspecified wood",
     "Share of biomass for unspecified wood",
     "Share of hydrogen for unspecified wood",
-]
+        # --- MISSING METRICS FROM main_industry.py ---
+        "Final energy of food and tobacco",
+        "Share of oil for unspecified food and tobacco",
+        "Share of gas for unspecified food and tobacco",
+        "Share of ammonia for unspecified food and tobacco",
+        "Share of methanol for unspecified food and tobacco",
+        "Share of steel for unspecified food and tobacco",
+        "Final energy of construction",
+        "Share of oil for unspecified construction",
+        "Share of gas for unspecified construction",
+        "Share of ammonia for unspecified construction",
+        "Share of methanol for unspecified construction",
+        "Share of steel for unspecified construction",
+        "Final energy of machinery",
+        "Share of oil for unspecified machinery",
+        "Share of gas for unspecified machinery",
+        "Share of ammonia for unspecified machinery",
+        "Share of methanol for unspecified machinery",
+        "Share of steel for unspecified machinery",
+        "Final energy of mining and quarrying",
+        "Share of oil for unspecified mining and quarrying",
+        "Share of gas for unspecified mining and quarrying",
+        "Share of ammonia for unspecified mining and quarrying",
+        "Share of methanol for unspecified mining and quarrying",
+        "Share of steel for unspecified mining and quarrying",
+        "Final energy of non-ferrous metals",
+        "Share of oil for unspecified non-ferrous metals",
+        "Share of gas for unspecified non-ferrous metals",
+        "Share of ammonia for unspecified non-ferrous metals",
+        "Share of methanol for unspecified non-ferrous metals",
+        "Share of steel for unspecified non-ferrous metals",
+        "Final energy of textile and leather",
+        "Share of oil for unspecified textile and leather",
+        "Share of gas for unspecified textile and leather",
+        "Share of ammonia for unspecified textile and leather",
+        "Share of methanol for unspecified textile and leather",
+        "Share of steel for unspecified textile and leather",
+        "Final energy of transport equipment",
+        "Share of oil for unspecified transport equipment",
+        "Share of gas for unspecified transport equipment",
+        "Share of ammonia for unspecified transport equipment",
+        "Share of methanol for unspecified transport equipment",
+        "Share of steel for unspecified transport equipment",
+        "Final energy of wood and wood products",
+        "Share of oil for unspecified wood and wood products",
+        "Share of gas for unspecified wood and wood products",
+        "Share of ammonia for unspecified wood and wood products",
+        "Share of methanol for unspecified wood and wood products",
+        "Share of steel for unspecified wood and wood products",
+    ]

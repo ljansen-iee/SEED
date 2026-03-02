@@ -8,7 +8,6 @@ from typing import List, Optional
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 from build_CAGR import interpolate_or_extrapolate
-from config import SCENARIOS
 
 BASE_DIR = Path(__file__).parents[2]   # → industry/
 INPUT_DIR = BASE_DIR / "input_data"

@@ -58,7 +58,7 @@ def main():
     print("===============================\n")
 
     # ---- Countries ----
-    countries_to_process = ["Morocco"]
+    countries_to_process = ["Morocco", "Egypt", "South Africa"]
                           #"Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Nigeria",
                           #"Algeria","Argentina","Brazil","Chile","Colombia","Peru","Venezuela",
                           #"Morocco","Tunisia","Tanzania", "South Africa","Libya",
@@ -273,6 +273,17 @@ def main():
             ("non-ferrous metals", "Non-ferrous metals", "final energy of non-ferrous metals")
         ]
 
+        sector_lookup_aliases = {
+            "wood and wood products": ["wood and wood products", "wood"],
+            "transport equipment": ["transport equipment"],
+            "textile and leather": ["textile and leather", "textiles and leather"],
+            "mining and quarrying": ["mining and quarrying", "mining"],
+            "machinery": ["machinery"],
+            "construction": ["construction"],
+            "food and tobacco": ["food and tobacco"],
+            "non-ferrous metals": ["non-ferrous metals", "non ferrous metals"],
+        }
+
         results = {}
         all_fuels = ['electricity', 'oil', 'gas', 'coal', 'biomass', 'hydrogen', 'ammonia', 'steel','methanol', 'heat', 'low-temperature heat', "process emissions"]
 
@@ -280,7 +291,11 @@ def main():
             # A. Get Total Energy (GWh) from CSV
             hist_total = get_historical_sector_data(UNSD_PATH, country, csv_name)
             if isinstance(hist_total, dict):
-                base_total_val = float(hist_total.get(base_year, 0.0))
+                base_total_val = _interp_at(hist_total, base_year)
+                if base_total_val is None:
+                    base_total_val = 0.0
+                else:
+                    base_total_val = float(base_total_val)
             else:
                 base_total_val = float(hist_total if hist_total else 0.0)
 
@@ -317,11 +332,17 @@ def main():
             fuel_shares_proj = {}
             
             for fuel in all_fuels:
-                lookup_name = f"share of {fuel} for unspecified {s_id}".lower()
-                
-                # We need to see if the specific COUNTRY has a value
-                # Check your build_CAGR.py to ensure this returns a dict of years/scenarios
-                excel_share_values = get_metric_cagr_cfg_from_excel(industry_cagr_excel, country, lookup_name)
+                lookup_candidates = [
+                    f"share of {fuel} for unspecified {alias}".lower()
+                    for alias in sector_lookup_aliases.get(s_id, [s_id])
+                ]
+
+                excel_share_values = {}
+                for lookup_name in lookup_candidates:
+                    cfg_vals = get_metric_cagr_cfg_from_excel(industry_cagr_excel, country, lookup_name)
+                    if cfg_vals:
+                        excel_share_values = cfg_vals
+                        break
                 
                 fuel_series = {}
                 for y in [base_year] + target_years:
@@ -329,10 +350,14 @@ def main():
                     for idx, sc in enumerate(scenarios):
                         sc_name = scenarios[idx]
                         excel_val = excel_share_values.get(y, {}).get(sc_name)
-                        
-                        if excel_val is not None and not pd.isna(excel_val) and excel_val != 0.0:
-                            # Use the specific instruction from Excel
-                            vals.append(float(excel_val))
+
+                        if excel_val is not None and not pd.isna(excel_val):
+                            # TECH_SHARE may be provided either as fraction (0-1) or percent (0-100).
+                            # Output rows use Units="%", so store percentage points.
+                            share_val = float(excel_val)
+                            if 0.0 <= share_val <= 1.0:
+                                share_val *= 100.0
+                            vals.append(share_val)
                         elif y == base_year:
                             # Always use history for the base year column
                             vals.append(float(base_shares.get(fuel, 0.0)))
@@ -2255,11 +2280,13 @@ def main():
             result_expanded = {base_year: base_val}
             
             if meta.get("forecast", True) and base_val is not None:
-                # 1. Map the specific metric name to the category name in your Excel
-                search_name = get_mapped_config_name(name)
+                # 1) First try exact metric name (allows fuel-specific overrides)
+                metric_cfg = get_metric_cagr_cfg_from_excel(industry_cagr_excel, country, name)
 
-                # 2. Use that search_name to get the CAGR configuration
-                metric_cfg = get_metric_cagr_cfg_from_excel(industry_cagr_excel, country, search_name)
+                # 2) Fallback to mapped category (backward-compatible with existing generic config rows)
+                if not metric_cfg:
+                    search_name = get_mapped_config_name(name)
+                    metric_cfg = get_metric_cagr_cfg_from_excel(industry_cagr_excel, country, search_name)
 
                 # pull a simple history if DataFrame-based
                 hist_series = None
@@ -2335,6 +2362,12 @@ def main():
         # after metrics loop
         df_out = pd.DataFrame(rows)
         df_out = df_out.reindex(columns=columns)
+
+        # Clean floating-point artifacts (e.g., -2.22E-16) by snapping near-zero values to 0
+        numeric_cols = [c for c in df_out.columns if c not in ["Metric", "Units"]]
+        for col in numeric_cols:
+            df_out[col] = pd.to_numeric(df_out[col], errors="coerce")
+            df_out[col] = df_out[col].where(df_out[col].isna() | (df_out[col].abs() >= 1e-9), 0.0)
         
         # Sort rows by METRIC_ORDER
         metric_order_map = {name: i for i, name in enumerate(METRIC_ORDER)}

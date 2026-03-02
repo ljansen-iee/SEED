@@ -20,7 +20,7 @@ unsd_global_output = unsd_global_dir / "international_marine_and_aviation_data.x
 os.makedirs(unsd_global_dir, exist_ok=True)
 
 # Default target years used across transport scripts when not overridden
-DEFAULT_TARGET_YEARS = [2030, 2050]
+DEFAULT_TARGET_YEARS = [2030, 2035, 2040, 2045, 2050]
 
 def find_input_folder():
     start_dir = os.path.dirname(os.path.abspath(__file__))

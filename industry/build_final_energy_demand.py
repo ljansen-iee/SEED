@@ -4,7 +4,9 @@ from typing import List, Optional
 from functools import reduce
 import pycountry
 import pandas as pd
-from config import SCENARIOS
+
+# Single source of truth for scenario names
+from main_industry import SCENARIOS
 
 # Path to industry config file for CAGR values
 INDUSTRY_CONFIG_PATH = Path(__file__).resolve().parent / "industry_config.csv"
@@ -13,7 +15,7 @@ INDUSTRY_CONFIG_PATH = Path(__file__).resolve().parent / "industry_config.csv"
 CHOOSE_FOLDER = "industry_config"
 
 # Countries to run – you just edit this list
-AVAILABLE_COUNTRIES = ["Morocco"]
+AVAILABLE_COUNTRIES = ["Morocco", "Egypt","South Africa"]
                         #"Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
                         # "Algeria","Argentina","Brazil","Chile","Colombia","Mexico","Peru","Venezuela",
                         #"Morocco","Tunisia","Tanzania", "South Africa","Libya",
@@ -94,9 +96,25 @@ AMMONIA_SEC_COLS = [
     "Industry Chemical HVC Methanol",
 ]
 
+AMMONIA_SCENARIO_XLSX = Path(__file__).resolve().parent / "input_data" / "petrochemicals" / "ammonia_all_countries_scenarios.xlsx"
+AMMONIA_SCENARIO_SHEET = "combined_wide"
+AMMONIA_MWH_PER_TON = 5.166
+
+METHANOL_EXTERNAL_MWH = {
+    "morocco": {
+        (2030, "BAU"): 100228.0,
+        (2030, "Progressive"): 300685.0,
+        (2030, "Optimistic"): 300685.0,
+        (2050, "BAU"): 632969.0,
+        (2050, "Progressive"): 1675507.0,
+        (2050, "Optimistic"): 1675507.0,
+    }
+}
+
 OTHER_SEC_COLS = [
     "Industry Machinery",
     "Industry Construction",
+    "Industry Non-ferrous Metals",
     "Industry Transport Equipment",
     "Industry Food and Tobacco",
     "Industry Mining and Quarrying",
@@ -325,6 +343,7 @@ def build_sec_other_from_output(df_output: pd.DataFrame) -> pd.DataFrame:
     sector_map = {
         "machinery": "Industry Machinery",
         "construction": "Industry Construction",
+        "non-ferrous metals": "Industry Non-ferrous Metals",
         "transport equipment": "Industry Transport Equipment",
         "food and tobacco": "Industry Food and Tobacco",
         "mining and quarrying": "Industry Mining and Quarrying",
@@ -332,8 +351,25 @@ def build_sec_other_from_output(df_output: pd.DataFrame) -> pd.DataFrame:
         "wood and wood products": "Industry Wood and Wood Products"
     }
 
-    TARGET_FUELS = ["Diesel", "Natural Gas", "Electricity", "Coal", "Heat", "Biomass", "Hydrogen", "Ammonia", "Methanol"]
+    TARGET_FUELS = ["Diesel", "Natural Gas", "Electricity", "Coal", "Heat", "Biomass", "Hydrogen", "Ammonia", "Methanol", "Steel"]
     scenario_cols = [c for c in df_output.columns if c not in ["Metric", "Units"]]
+
+    def _normalize_share(raw_val: float) -> float:
+        """
+        Normalize shares provided as either fractions (0-1) or percent points (0-100)
+        into fractions (0-1).
+        """
+        try:
+            v = float(raw_val)
+        except Exception:
+            return 0.0
+        if pd.isna(v):
+            return 0.0
+        if v < 0:
+            return 0.0
+        if v > 1:
+            return v / 100.0
+        return v
 
     for col in scenario_cols:
         year = _first_year_in_string(col)
@@ -351,19 +387,23 @@ def build_sec_other_from_output(df_output: pd.DataFrame) -> pd.DataFrame:
                 total_demand = _get_val(df_output, f"Final energy {metric_key}", col, 0.0)
 
             shares = {
-                "Diesel": _get_val(df_output, f"Share of oil for unspecified {metric_key}", col, 0.0) / 100,
-                "Natural Gas": _get_val(df_output, f"Share of gas for unspecified {metric_key}", col, 0.0) / 100,
-                "Electricity": _get_val(df_output, f"Share of electricity for unspecified {metric_key}", col, 0.0) / 100,
-                "Coal": _get_val(df_output, f"Share of coal for unspecified {metric_key}", col, 0.0) / 100,
-                "Heat": _get_val(df_output, f"Share of heat for unspecified {metric_key}", col, 0.0) / 100,
-                "Biomass": _get_val(df_output, f"Share of biomass for unspecified {metric_key}", col, 0.0) / 100,
-                "Hydrogen": _get_val(df_output, f"Share of hydrogen for unspecified {metric_key}", col, 0.0) / 100,
+                "Diesel": _normalize_share(_get_val(df_output, f"Share of oil for unspecified {metric_key}", col, 0.0)),
+                "Natural Gas": _normalize_share(_get_val(df_output, f"Share of gas for unspecified {metric_key}", col, 0.0)),
+                "Electricity": _normalize_share(_get_val(df_output, f"Share of electricity for unspecified {metric_key}", col, 0.0)),
+                "Coal": _normalize_share(_get_val(df_output, f"Share of coal for unspecified {metric_key}", col, 0.0)),
+                "Heat": _normalize_share(_get_val(df_output, f"Share of heat for unspecified {metric_key}", col, 0.0)),
+                "Biomass": _normalize_share(_get_val(df_output, f"Share of biomass for unspecified {metric_key}", col, 0.0)),
+                "Hydrogen": _normalize_share(_get_val(df_output, f"Share of hydrogen for unspecified {metric_key}", col, 0.0)),
+                "Ammonia": _normalize_share(_get_val(df_output, f"Share of ammonia for unspecified {metric_key}", col, 0.0)),
+                "Methanol": _normalize_share(_get_val(df_output, f"Share of methanol for unspecified {metric_key}", col, 0.0)),
+                "Steel": _normalize_share(_get_val(df_output, f"Share of steel for unspecified {metric_key}", col, 0.0)),
             }
 
+            allocated_total = 0.0
             for fuel_key in TARGET_FUELS:
                 share_val = shares.get(fuel_key, 0.0)
-                # If your numbers are too big, divide by a factor (e.g., 1e6) here if the source is in Joules
                 fuel_demand = (total_demand * 1000) * share_val
+                allocated_total += fuel_demand
                 
                 rows.append({
                     "Year": year,
@@ -371,6 +411,14 @@ def build_sec_other_from_output(df_output: pd.DataFrame) -> pd.DataFrame:
                     "SEC_Fuel": FUEL_TO_SEC.get(fuel_key, fuel_key),
                     sec_label: fuel_demand
                 })
+
+            # Explicit total row: force consistency with carrier rows
+            rows.append({
+                "Year": year,
+                "Scenario": scenario,
+                "SEC_Fuel": "Total",
+                sec_label: allocated_total,
+            })
 
         if rows:
             df_tmp = pd.DataFrame(rows)
@@ -475,6 +523,58 @@ def parse_year_and_scenario(scol: str):
     else:
         scen = "Historic"
     return y, scen
+
+
+def _scenario_to_ammonia_column(scenario_label: str) -> Optional[str]:
+    mapping = {
+        "Historic": "Baseline - total_production_t",
+        "BAU": "Baseline - total_production_t",
+        "Progressive": "Ambitious Policies - total_production_t",
+        "Optimistic": "Net Zero - total_production_t",
+        "Baseline": "Baseline - total_production_t",
+        "Ambitious Policies": "Ambitious Policies - total_production_t",
+        "Net Zero": "Net Zero - total_production_t",
+    }
+    return mapping.get(str(scenario_label).strip())
+
+
+def _load_external_ammonia_mwh(country_name: str, year: int, scenario_label: str) -> float:
+    scenario_col = _scenario_to_ammonia_column(scenario_label)
+    if scenario_col is None or not AMMONIA_SCENARIO_XLSX.exists():
+        return 0.0
+
+    try:
+        df = pd.read_excel(AMMONIA_SCENARIO_XLSX, sheet_name=AMMONIA_SCENARIO_SHEET)
+    except Exception:
+        return 0.0
+
+    if "country" not in df.columns or "year" not in df.columns or scenario_col not in df.columns:
+        return 0.0
+
+    sub = df[df["country"].astype(str).str.strip().str.lower() == str(country_name).strip().lower()].copy()
+    if sub.empty:
+        return 0.0
+
+    sub["year"] = pd.to_numeric(sub["year"], errors="coerce")
+    sub[scenario_col] = pd.to_numeric(sub[scenario_col], errors="coerce")
+    sub = sub.dropna(subset=["year", scenario_col])
+    if sub.empty:
+        return 0.0
+
+    years = sub["year"].astype(int).to_numpy()
+    vals_tons = sub[scenario_col].astype(float).to_numpy()
+    try:
+        import numpy as np
+        tons_val = float(np.interp(int(year), years, vals_tons))
+    except Exception:
+        return 0.0
+
+    return tons_val * AMMONIA_MWH_PER_TON
+
+
+def _load_external_methanol_mwh(country_name: str, year: int, scenario_label: str) -> float:
+    table = METHANOL_EXTERNAL_MWH.get(str(country_name).strip().lower(), {})
+    return float(table.get((int(year), str(scenario_label).strip()), 0.0))
 
 
 # -------------------------------------------------------------------
@@ -2132,7 +2232,7 @@ def _chemicals_bucket(product: str, process: str, tech: str) -> Optional[str]:
     return None
 
 
-def build_sec_ammonia_from_tidy(df: pd.DataFrame) -> pd.DataFrame:
+def build_sec_ammonia_from_tidy(df: pd.DataFrame, country_name: Optional[str] = None) -> pd.DataFrame:
     """
     Build Chemicals SEC table from tidy feedstock (ammonia + HVC).
     Returns columns: Year, Scenario, SEC_Fuel, <AMMONIA_SEC_COLS>
@@ -2199,7 +2299,47 @@ def build_sec_ammonia_from_tidy(df: pd.DataFrame) -> pd.DataFrame:
         "Scenario_label": "Scenario",
     })
 
-    return piv[["Year", "Scenario", "SEC_Fuel"] + AMMONIA_SEC_COLS]
+    out = piv[["Year", "Scenario", "SEC_Fuel"] + AMMONIA_SEC_COLS].copy()
+
+    if country_name:
+        ammonia_target_col = "Industry Chemical Ammonia Other conventional"
+        methanol_target_col = "Industry Chemical HVC Methanol"
+        combos = out[["Year", "Scenario"]].drop_duplicates()
+
+        def _add_fuel_to_bucket(y, sc, sec_fuel: str, bucket_col: str, value_mwh: float):
+            if value_mwh == 0.0:
+                return
+            mask_fuel = (
+                (out["Year"] == y) &
+                (out["Scenario"] == sc) &
+                (out["SEC_Fuel"] == sec_fuel)
+            )
+            if mask_fuel.any():
+                out.loc[mask_fuel, bucket_col] = out.loc[mask_fuel, bucket_col] + value_mwh
+            else:
+                new_row = {"Year": y, "Scenario": sc, "SEC_Fuel": sec_fuel}
+                for c in AMMONIA_SEC_COLS:
+                    new_row[c] = 0.0
+                new_row[bucket_col] = value_mwh
+                out.loc[len(out)] = new_row
+
+            mask_total = (
+                (out["Year"] == y) &
+                (out["Scenario"] == sc) &
+                (out["SEC_Fuel"] == "Total")
+            )
+            if mask_total.any():
+                out.loc[mask_total, bucket_col] = out.loc[mask_total, bucket_col] + value_mwh
+
+        for _, row in combos.iterrows():
+            y = int(row["Year"])
+            sc = row["Scenario"]
+            _add_fuel_to_bucket(y, sc, "Ammonia", ammonia_target_col, _load_external_ammonia_mwh(country_name, y, sc))
+            _add_fuel_to_bucket(y, sc, "Methanol", methanol_target_col, _load_external_methanol_mwh(country_name, y, sc))
+
+    out["__order__"] = out["SEC_Fuel"].map({name: i for i, name in enumerate(ROW_ORDER)})
+    out = out[out["__order__"].notna()].sort_values(["Year", "Scenario", "__order__"]).drop(columns="__order__")
+    return out
 
 
 def build_carrier_table_from_sec(sec_all: pd.DataFrame, country_name: str) -> pd.DataFrame:
@@ -2218,6 +2358,7 @@ def build_carrier_table_from_sec(sec_all: pd.DataFrame, country_name: str) -> pd
     other_mapping = {
         "Industry Machinery": "machinery",
         "Industry Construction": "construction",
+        "Industry Non-ferrous Metals": "non-ferrous metals",
         "Industry Transport Equipment": "transport equipment",
         "Industry Food and Tobacco": "food and tobacco",
         "Industry Mining and Quarrying": "mining and quarrying",
@@ -2350,7 +2491,7 @@ def build_sec_table_from_feedstock(
     sec_steel = build_sec_steel_from_tidy(steel_df)
     sec_nmm = build_sec_nmm_from_tidy(nmm_df)
     sec_pp = build_sec_paper_pulp_from_tidy(pp_df)
-    sec_ammo = build_sec_ammonia_from_tidy(ammo_df)
+    sec_ammo = build_sec_ammonia_from_tidy(ammo_df, country_name=country_name)
     
     sec_other = build_sec_other_from_output(df_metrics)
 

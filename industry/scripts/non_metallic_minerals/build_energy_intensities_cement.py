@@ -5,7 +5,6 @@ import os
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 from build_CAGR import interpolate_or_extrapolate, expand_with_cagr_smooth
-from config import SCENARIOS
 from helpers import _build_rate_anchors_indexed, _get_value_by_index
 
 def _interpolate_intensities(
