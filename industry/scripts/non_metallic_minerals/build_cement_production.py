@@ -202,9 +202,9 @@ def load_cement_value(file_path, year: int) -> float:
 # cement_production.py (or wherever your original lived)
 from typing import Dict, List, Optional
 from build_CAGR import interpolate_or_extrapolate, load_yaml_config
-from helpers import get_scenarios_from_main_industry
+from helpers import get_scenarios_from_build_industry_config
 
-SCENARIOS = get_scenarios_from_main_industry()
+SCENARIOS = get_scenarios_from_build_industry_config()
 
 def get_cement_and_clinker(
     country_name: str,

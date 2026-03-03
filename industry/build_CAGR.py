@@ -102,7 +102,7 @@ def load_industry_config(excel_path: Path, countries: list, scenarios: list):
     return config
 
 def get_metric_cagr_cfg_from_excel(industry_config, country, metric_name):
-    """Bridge for main_industry.py loop"""
+    """Bridge for build_industry_config.py loop"""
     metric_name = _normalize_metric_name(metric_name)
     return industry_config.get(country, {}).get(metric_name, {}).get("values", {})
 

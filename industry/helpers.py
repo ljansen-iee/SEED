@@ -4,10 +4,12 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+DEFAULT_TARGET_YEARS = [2030, 2035, 2040, 2045, 2050]
 
-def get_scenarios_from_main_industry() -> list[str]:
-    """Read SCENARIOS directly from main_industry.py so all scripts follow that single source."""
-    main_industry_path = Path(__file__).resolve().parent / "main_industry.py"
+
+def get_scenarios_from_build_industry_config() -> list[str]:
+    """Read SCENARIOS directly from build_industry_config.py so all scripts follow that single source."""
+    main_industry_path = Path(__file__).resolve().parent / "build_industry_config.py"
 
     with main_industry_path.open("r", encoding="utf-8") as handle:
         tree = ast.parse(handle.read(), filename=str(main_industry_path))
@@ -25,7 +27,7 @@ def get_scenarios_from_main_industry() -> list[str]:
                         if scenarios:
                             return scenarios
 
-    raise ValueError("SCENARIOS not found or invalid in main_industry.py")
+    raise ValueError("SCENARIOS not found or invalid in build_industry_config.py")
 
 def convert_wide_to_long(df_wide, country):
     """
@@ -1061,7 +1063,7 @@ METRIC_ORDER = [
     "Share of heat for unspecified wood",
     "Share of biomass for unspecified wood",
     "Share of hydrogen for unspecified wood",
-        # --- MISSING METRICS FROM main_industry.py ---
+        # --- MISSING METRICS FROM build_industry_config.py ---
         "Final energy of food and tobacco",
         "Share of oil for unspecified food and tobacco",
         "Share of gas for unspecified food and tobacco",
@@ -1110,7 +1112,7 @@ METRIC_ORDER = [
         "Share of ammonia for unspecified wood and wood products",
         "Share of methanol for unspecified wood and wood products",
         "Share of steel for unspecified wood and wood products",
-        # --- NAME VARIANTS USED IN main_industry.py ---
+        # --- NAME VARIANTS USED IN build_industry_config.py ---
         "Share of diesel for blast furnaces",
         "Share of natural gas for blast furnaces",
         "Clinker-to-cement ratio",
@@ -1152,7 +1154,7 @@ def _load_metric_order_from_main_industry(default_order):
     from pathlib import Path
 
     try:
-        main_path = Path(__file__).resolve().parent / "main_industry.py"
+        main_path = Path(__file__).resolve().parent / "build_industry_config.py"
         source = main_path.read_text(encoding="utf-8")
         tree = ast.parse(source)
 
@@ -1182,6 +1184,10 @@ def _load_metric_order_from_main_industry(default_order):
         pass
 
     return default_order
+
+
+def get_scenarios_from_main_industry() -> list[str]:
+    return get_scenarios_from_build_industry_config()
 
 
 METRIC_ORDER = _load_metric_order_from_main_industry(METRIC_ORDER)

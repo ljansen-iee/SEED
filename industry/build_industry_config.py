@@ -1,5 +1,6 @@
 import os
 import sys
+import helpers
 import pandas as pd
 from datetime import datetime
 from typing import Dict, Any, List
@@ -30,8 +31,8 @@ from scripts.food_and_tobacco.build_shares_food_and_tobacco import get_unsd_fuel
 from build_CAGR import load_industry_config, interpolate_or_extrapolate, get_metric_cagr_cfg_from_excel, get_metric_config_entry_from_excel, expand_with_cagr_smooth
 
 BASE_YEAR = 2020
-TARGET_YEARS = [2030, 2050]
-# Scenario names - Edit this list to change scenario names across all scripts
+TARGET_YEARS = helpers.DEFAULT_TARGET_YEARS
+
 SCENARIOS = ["BAU", "Progressive", "Optimistic"]
 INDUSTRY_CONFIG_FILE = "industry_config.csv"
 
@@ -449,29 +450,10 @@ def main():
                         vals.append(None)
                 return vals
 
-            # New rule: if the country has ANY non-zero local_production anywhere in extracted DF,
-            # then for the base year prefer total_production (nearest available); otherwise use local_production.
-            has_local_nonzero = False
-            try:
-                lp_rows = df_ammonia_extracted[df_ammonia_extracted["value_type"] == "local_production"]
-                if not lp_rows.empty:
-                    # if any non-zero numeric value present
-                    has_local_nonzero = lp_rows["value"].apply(lambda x: pd.notna(x) and float(x) != 0.0).any()
-            except Exception:
-                has_local_nonzero = False
-
-            # build base-year list according to rule
-            base_vals = None
-            if has_local_nonzero:
-                # prefer total_production for base year
-                base_vals = _values_for_year_and_type(base_year, "total_production")
-                if all(v is None for v in base_vals):
-                    base_vals = _values_for_year_and_type(base_year - 1, "total_production")
-            else:
-                # prefer local_production (nearest previous year)
-                base_vals = _values_for_year_and_type(base_year, "local_production")
-                if all(v is None for v in base_vals):
-                    base_vals = _values_for_year_and_type(base_year - 1, "local_production")
+            # Base-year rule: use local_production only.
+            base_vals = _values_for_year_and_type(base_year, "local_production")
+            if all(v is None for v in base_vals):
+                base_vals = _values_for_year_and_type(base_year - 1, "local_production")
 
             # fallback: if still all None, try aggregated df_ammonia (same value for all scenarios)
             if all(v is None for v in base_vals):
@@ -479,20 +461,11 @@ def main():
                     ag = df_ammonia.copy()
                     sub = ag[ag["country"].astype(str).str.strip() == str(country).strip()]
                     if not sub.empty:
-                        # if we preferred total_production, look there, else look at local_production
-                        if has_local_nonzero:
-                            # pick nearest year <= base_year for total_production
-                            le = sub[sub["year"] <= base_year]
-                            if not le.empty:
-                                v = float(le.sort_values("year").iloc[-1]["total_production"])
-                            else:
-                                v = float(sub.sort_values("year").iloc[0]["total_production"])
+                        le = sub[sub["year"] <= base_year]
+                        if not le.empty:
+                            v = float(le.sort_values("year").iloc[-1]["local_production"])
                         else:
-                            le = sub[sub["year"] <= base_year]
-                            if not le.empty:
-                                v = float(le.sort_values("year").iloc[-1]["local_production"])
-                            else:
-                                v = float(sub.sort_values("year").iloc[0]["local_production"])
+                            v = float(sub.sort_values("year").iloc[0]["local_production"])
                         base_vals = [v] * len(scenarios)
                 except Exception:
                     pass
@@ -2472,4 +2445,3 @@ def main():
 
 if __name__ == "__main__": 
     main()
-

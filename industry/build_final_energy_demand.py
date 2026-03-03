@@ -15,7 +15,7 @@ from scripts.chemical_and_petrochemical.ammonia.build_ammonia import (
 )
 
 # Single source of truth for scenario names
-from main_industry import SCENARIOS
+from build_industry_config import SCENARIOS
 
 # Path to industry config file for CAGR values
 industry_config_path = Path(__file__).resolve().parent / "industry_config.csv"

@@ -6,9 +6,9 @@ import numpy as np
 from typing import Dict, List, Optional
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
-from helpers import get_scenarios_from_main_industry
+from helpers import get_scenarios_from_build_industry_config
 
-SCENARIOS = get_scenarios_from_main_industry()
+SCENARIOS = get_scenarios_from_build_industry_config()
 
 def interpolate_or_extrapolate(data: Dict[int, float], target_years: List[int]) -> Dict[int, float]:
     """

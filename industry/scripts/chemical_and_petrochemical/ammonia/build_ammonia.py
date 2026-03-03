@@ -79,7 +79,7 @@ def _find_col(df: pd.DataFrame, *candidates: str) -> Optional[str]:
 
 def ammonia_production(path: Optional[Union[str, Path]] = None) -> pd.DataFrame:
     """
-    Main loader used by main_industry.py.
+    Main loader used by build_industry_config.py.
 
     IMPORTANT:
     - Explicitly prefers *tons* sheets (e.g. Baseline_tons, All_scenarios_tons).
@@ -399,9 +399,6 @@ def extract_ammonia_values_for_country(
             sub["year"] = pd.to_numeric(sub["year"], errors="coerce")
 
         base_val = _nearest_prev_value(sub, base_year, "local_production") if "local_production" in sub.columns else None
-        if base_val is None or abs(float(base_val)) < 1e-12:
-            if "total_production" in sub.columns:
-                base_val = _nearest_prev_value(sub, base_year, "total_production")
         rows.append(
             {
                 "country": country,

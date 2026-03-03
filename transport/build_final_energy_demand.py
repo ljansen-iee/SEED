@@ -9,7 +9,7 @@ from pathlib import Path
 from build_CAGR import expand_with_cagr, get_cagr
 from build_technology_share import get_unsd_bunker_fuel_shares
 from helpers import unsd_global_output, unsd_input_folder, load_transport_config, extract_config_data
-from main_transport import SCENARIOS
+from build_transport_config import SCENARIOS
 
 # =============================================================================
 # 1. SETUP & CONFIGURATION
@@ -123,7 +123,7 @@ def generate_transport_indicators(final_df: pd.DataFrame, country: str) -> pd.Da
 # =============================================================================
 
 try:
-    from main_transport import SCENARIOS
+    from build_transport_config import SCENARIOS
 except ImportError:
     # Fallback: use default scenarios when running standalone
     SCENARIOS = ["BAU", "Progressive", "Optimistic"]
