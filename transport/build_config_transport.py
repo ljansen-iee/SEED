@@ -47,7 +47,22 @@ print("Running transport sector pipeline")
 print(f"Transport assumptions file: {transport_config_file}")
 print("===============================\n")
 
-countries_to_process = ["Morocco","Egypt","South Africa"]
+countries_to_process = [
+    "Algeria",
+    "Egypt",
+    "Ethiopia",
+    "Ghana",
+    "Kenya",
+    "Namibia",
+    "Nigeria",
+    "Mauritania",
+    "Morocco",
+    "Tunisia",
+    "Tanzania",
+    "Libya",
+    "Republic of Congo",
+    "South Africa",
+    ]
                        #"Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Nigeria"]
                        #"Algeria","Argentina","Brazil","Chile","Colombia","Mexico","Peru","Venezuela",
                        #"Morocco","Tunisia","Tanzania","Libya",
@@ -62,6 +77,17 @@ transport_config = load_transport_config(
     countries=countries_to_load,
     scenarios=SCENARIOS
 )
+
+
+def warn_missing_countries(df_cleaned, country_list):
+    """Log any countries requested but not present in the cleaned transport inputs."""
+    available = set()
+    for col in ["Countries List", "Countries"]:
+        if col in df_cleaned.columns:
+            available.update(df_cleaned[col].dropna().astype(str).str.strip())
+    missing = [c for c in country_list if c not in available]
+    if missing:
+        print(f"WARNING: Countries not found in transport input data: {sorted(missing)}")
 
 # Extract the Default values once
 DEFAULT_VALUES, DEFAULT_ASSUMPTION_TYPES = extract_config_data(transport_config, "default")
@@ -88,6 +114,7 @@ def main(base_year=None, target_years=None, scenarios=None):
     try:
         df_cleaned = clean_missing_countries(df_raw)
         df_cleaned = clean_column_headers(df_cleaned)
+        warn_missing_countries(df_cleaned, countries_to_process)
         df_process_bus_share_data = process_bus_share_data(df_raw)
         df_share_two_three = share_of_two_Three(df_raw)
         df_load_factor_car = get_Load_factor_Car(df_raw)

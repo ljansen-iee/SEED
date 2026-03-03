@@ -15,10 +15,11 @@ from transport.build_config_transport import SCENARIOS
 # 1. SETUP & CONFIGURATION
 # =============================================================================
 
-# Get the absolute path of this script
+# Get the absolute path of this script and project root
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
-transport_output_dir = os.path.join(script_dir, "output_data")
+
+# All transport outputs stay within transport/output_data
 results_dir = os.path.join(script_dir, "output_data")
 os.makedirs(results_dir, exist_ok=True)
 
@@ -32,7 +33,21 @@ transport_config = {}
 
 # List of countries to process
 
-countries = ["Egypt", "Morocco","South Africa"]
+countries = [
+    "Algeria",
+    "Egypt",
+    "Ethiopia",
+    "Ghana",
+    "Kenya",
+    "Namibia",
+    "Nigeria",
+    "Mauritania",
+    "Morocco",
+    "Tunisia",
+    "Tanzania",
+    "Libya",
+    "Republic of Congo",
+    "South Africa",]
     #"Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
     #"Algeria","Argentina","Brazil","Chile","Colombia","Mexico","Peru","Venezuela",
     #"Morocco","Tunisia","Tanzania", "South Africa","Libya",
@@ -812,9 +827,12 @@ def export_global_energy_totals(all_country_indicators: list, bunker_data_by_cou
     groups = master_df.groupby("scenario")
 
     for scenario_name, group_df in groups:
-        # Clean the name for filename (e.g., "2030_Baseline" -> "2030_Baseline.csv")
-        clean_name = str(scenario_name).replace(" ", "_")
-        file_path = os.path.join(total_dir, f"{clean_name}.csv")
+        # Build filename as transport_{scenario}_{year}.csv
+        scenario_str = str(scenario_name).replace(" ", "_")
+        parts = scenario_str.split("_", 1)
+        year_part = parts[0] if parts and parts[0].isdigit() else "unknown"
+        scenario_part = parts[1] if len(parts) > 1 and parts[1] else "all"
+        file_path = os.path.join(total_dir, f"transport_{scenario_part}_{year_part}.csv")
         
         # Add international bunker values to each country row
         group_df_copy = group_df.copy()
@@ -867,7 +885,7 @@ if __name__ == "__main__":
         try:
             print(f"\n{'='*50}\n Processing country: {country}\n{'='*50}")
             # Capture the returned dataframe
-            country_indicators = run(country=country, base_dir=transport_output_dir)
+            country_indicators = run(country=country, base_dir=results_dir)
             if not country_indicators.empty:
                 all_indicators_list.append(country_indicators)
         except Exception as e:
