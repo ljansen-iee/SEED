@@ -183,12 +183,28 @@ def build_saturation_appliances(df):
     return df
     
 def project_saturation_appliances(df):
-    # TODO: For DKS countries this is enough. For African countries, it might be necessary to have another method like, liner regression or bins and labels
-    df[[2030,2040]] = np.nan
-    df[2050] = 100 # Assumption
-    df = df.interpolate(method='linear', axis=1) # per default with linear interpolation
-    df = round(df/100,2)
-    return df
+    df_work = df.copy()
+
+    # Normalize column labels to numeric years and ensure target years exist
+    df_work.columns = pd.to_numeric(df_work.columns, errors="coerce")
+    target_cols = [2021, 2030,2035, 2040, 2045, 2050]
+    for col in target_cols:
+        if col not in df_work.columns:
+            df_work[col] = np.nan
+
+    # Set 2050 assumption before scaling
+    df_work[2050] = 100.0
+
+    # Sort by year to make linear interpolation well-defined
+    df_work = df_work.reindex(columns=sorted(target_cols))
+
+    # Convert from percent if values look like percentages
+    if df_work.max().max() > 1.5:
+        df_work = df_work / 100.0
+
+    df_work = df_work.interpolate(axis=1).ffill(axis=1).bfill(axis=1)
+    df_work = df_work.round(2)
+    return df_work
 
 def build_saturation_cooking(df):
     columns = df.iloc[3]

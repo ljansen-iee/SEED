@@ -25,25 +25,31 @@ target_years = helpers.DEFAULT_TARGET_YEARS  # select projected years
 
 # Country options
 selected_countries = [
-    # "Algeria",
+    "Algeria",
+    "Egypt",
+    "Ethiopia",
+    "Ghana",
+    "Kenya",
+    "Namibia",
+    "Nigeria",
+    "Mauritania",
+    "Morocco",
+    "Tunisia",
+    "Tanzania",
+    "Libya",
+    "Republic of Congo",
+    "South Africa",
+    # Non-African (kept commented for reference):
     # "Argentina",
     # "Brazil",
     # "Chile",
     # "Colombia",
-    "Egypt",
-    # "Libya",
     # "Mexico",
-    "Namibia",
     # "Peru",
-    # "Tunisia",
     # "Uruguay",
-    "Morocco",
-    "South Africa" 
+    # "Venezuela",
 ]
 
-# "Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
-# "Algeria","Argentina","Brazil","Chile","Colombia","Mexico","Peru","Venezuela",
-# "Morocco","Tunisia","Tanzania","Libya",
 
 countries_to_load = selected_countries + ["default"] 
 
@@ -70,11 +76,32 @@ def build_metric_df(metric_name, unit_key, data_df, target_years, scenario_name,
             )
 
     df_macro = pd.DataFrame(macro_rows)
+    available_countries = set(data_df.index.get_level_values(0)) if isinstance(data_df.index, pd.MultiIndex) else set(data_df.index)
+    missing_countries = [c for c in selected_countries if c not in available_countries]
+    if missing_countries:
+        print(f"WARNING: Missing countries in source data for {metric_name}: {missing_countries}")
+
     for country in selected_countries:
         values = []
+        missing_pairs = []
         for year in target_years:
             for scenario, ssp in zip(scenario_name, growth_pathway):
-                values.append(data_df.loc[(country, ssp), year])
+                if isinstance(data_df.index, pd.MultiIndex):
+                    key = (country, ssp)
+                    if key not in data_df.index:
+                        missing_pairs.append(key)
+                        values.append(np.nan)
+                        continue
+                    values.append(data_df.loc[key, year])
+                else:
+                    if country not in data_df.index:
+                        missing_pairs.append((country, ssp))
+                        values.append(np.nan)
+                        continue
+                    values.append(data_df.loc[country, year])
+        if missing_pairs:
+            unique_missing = sorted(set(missing_pairs))
+            print(f"WARNING: Missing (country, scenario) pairs for {metric_name}: {unique_missing}")
         df_macro[country] = values
     return df_macro
 
