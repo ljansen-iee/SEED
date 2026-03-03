@@ -5,6 +5,13 @@ from typing import Optional, Union, Sequence, Dict, Any
 import pandas as pd
 import numpy as np
 
+_industry_root = Path(__file__).resolve().parents[3]
+AMMONIA_SCENARIO_XLSX = _industry_root / "input_data" / "petrochemicals" / "ammonia_all_countries_scenarios.xlsx"
+AMMONIA_SCENARIO_SHEET = "combined_wide"
+AMMONIA_MWH_PER_TON = 5.166
+BASE_YEAR = 2020
+unsd_path = _industry_root / "input_data" / "country_specific"
+
 _AMMONIA_FILENAME_STEM = "ammonia_all_countries_scenarios"
 
 # ---------------------------------------------------------------------------
@@ -392,6 +399,9 @@ def extract_ammonia_values_for_country(
             sub["year"] = pd.to_numeric(sub["year"], errors="coerce")
 
         base_val = _nearest_prev_value(sub, base_year, "local_production") if "local_production" in sub.columns else None
+        if base_val is None or abs(float(base_val)) < 1e-12:
+            if "total_production" in sub.columns:
+                base_val = _nearest_prev_value(sub, base_year, "total_production")
         rows.append(
             {
                 "country": country,

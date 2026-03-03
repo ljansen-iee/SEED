@@ -14,6 +14,26 @@ SCENARIO_INDEX_MAP = {
     "sc_c": 2   # Net Zero
 }
 
+
+def _normalize_metric_name(metric_name: str) -> str:
+    name = str(metric_name).strip().lower()
+    return (
+        name
+        .replace("furncace", "furnace")
+        .replace("furnaces + basic oxygen furnace", "furnace + basic oxygen furnace")
+    )
+
+
+def _parse_numeric_cell(value):
+    if pd.isna(value):
+        return None
+    if isinstance(value, str) and value.strip() == "":
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
 def load_industry_config(excel_path: Path, countries: list, scenarios: list):
     if not excel_path.exists():
         raise FileNotFoundError(f"Could not find config at {excel_path}")
@@ -43,7 +63,7 @@ def load_industry_config(excel_path: Path, countries: list, scenarios: list):
 
     # === PROCESSING LOOP ===
     for _, row in df.iterrows():
-        metric = str(row["Metric Name"]).strip().lower() 
+        metric = _normalize_metric_name(row["Metric Name"])
         a_type = str(row["Assumption Type"]).strip().upper()
         
         try:
@@ -52,16 +72,15 @@ def load_industry_config(excel_path: Path, countries: list, scenarios: list):
             continue
             
         for country in countries:
-            # Look for country-specific value, fallback to 'default' column
-            if country in df.columns and pd.notna(row[country]) and str(row[country]).strip() != "":
-                val = row[country]
-                if pd.isna(val) or str(val).strip() == "":
-                    val = row.get("default", 0.0) # <--- THIS IS THE KEY FALLBAC
+            country_val = _parse_numeric_cell(row[country]) if country in df.columns else None
+            default_val = _parse_numeric_cell(row.get("default", None))
+
+            if country_val is not None:
+                val = country_val
+            elif default_val is not None:
+                val = default_val
             else:
-                val = row.get("default", 0.0)
-                
-            if pd.isna(val):
-                val = 0.0
+                continue
 
             scenario_key = str(row["Scenario"]).strip().lower()
             target_indices = []
@@ -78,14 +97,20 @@ def load_industry_config(excel_path: Path, countries: list, scenarios: list):
             metric_entry = config[country].setdefault(metric, {"assumption_type": a_type, "values": {}})
             for idx in target_indices:
                 scenario_name = scenarios[idx]
-                metric_entry["values"].setdefault(year, {})[scenario_name] = float(val)
+                metric_entry["values"].setdefault(year, {})[scenario_name] = val
                 
     return config
 
 def get_metric_cagr_cfg_from_excel(industry_config, country, metric_name):
     """Bridge for main_industry.py loop"""
-    metric_name = str(metric_name).strip().lower()
+    metric_name = _normalize_metric_name(metric_name)
     return industry_config.get(country, {}).get(metric_name, {}).get("values", {})
+
+
+def get_metric_config_entry_from_excel(industry_config, country, metric_name):
+    """Return full metric config entry (assumption_type + values)."""
+    metric_name = _normalize_metric_name(metric_name)
+    return industry_config.get(country, {}).get(metric_name, {})
 
 def expand_with_cagr_smooth(base_value, cagr_table, base_year, target_years, scenarios):
     result = {}

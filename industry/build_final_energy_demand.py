@@ -4,18 +4,27 @@ from typing import List, Optional
 from functools import reduce
 import pycountry
 import pandas as pd
+from helpers import get_historical_sector_data
+from scripts.chemical_and_petrochemical.methanol import METHANOL_EXTERNAL_MWH
+from scripts.chemical_and_petrochemical.ammonia.build_ammonia import (
+    AMMONIA_SCENARIO_XLSX,
+    AMMONIA_SCENARIO_SHEET,
+    AMMONIA_MWH_PER_TON,
+    BASE_YEAR,
+    unsd_path,
+)
 
 # Single source of truth for scenario names
 from main_industry import SCENARIOS
 
 # Path to industry config file for CAGR values
-INDUSTRY_CONFIG_PATH = Path(__file__).resolve().parent / "industry_config.csv"
+industry_config_path = Path(__file__).resolve().parent / "industry_config.csv"
 
 # Set to None to auto-find the latest, or set to a specific name like "industry_config"
-CHOOSE_FOLDER = "industry_config"
+choose_folder = "industry_config"
 
 # Countries to run – you just edit this list
-AVAILABLE_COUNTRIES = ["Morocco", "Egypt","South Africa"]
+available_countries = ["Morocco", "Egypt","South Africa"]
                         #"Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
                         # "Algeria","Argentina","Brazil","Chile","Colombia","Mexico","Peru","Venezuela",
                         #"Morocco","Tunisia","Tanzania", "South Africa","Libya",
@@ -95,21 +104,6 @@ AMMONIA_SEC_COLS = [
     "Industry Chemical HVC LPG",
     "Industry Chemical HVC Methanol",
 ]
-
-AMMONIA_SCENARIO_XLSX = Path(__file__).resolve().parent / "input_data" / "petrochemicals" / "ammonia_all_countries_scenarios.xlsx"
-AMMONIA_SCENARIO_SHEET = "combined_wide"
-AMMONIA_MWH_PER_TON = 5.166
-
-METHANOL_EXTERNAL_MWH = {
-    "morocco": {
-        (2030, "BAU"): 100228.0,
-        (2030, "Progressive"): 300685.0,
-        (2030, "Optimistic"): 300685.0,
-        (2050, "BAU"): 632969.0,
-        (2050, "Progressive"): 1675507.0,
-        (2050, "Optimistic"): 1675507.0,
-    }
-}
 
 OTHER_SEC_COLS = [
     "Industry Machinery",
@@ -285,13 +279,13 @@ def find_latest_run_folder() -> Path:
     output_data = get_output_data_folder()
     
     # 1. Check for manual selection first
-    if CHOOSE_FOLDER:
-        target = output_data / CHOOSE_FOLDER
+    if choose_folder:
+        target = output_data / choose_folder
         if target.exists() and target.is_dir():
-            print(f"--- Using selected folder: {CHOOSE_FOLDER} ---")
+            print(f"--- Using selected folder: {choose_folder} ---")
             return target
         else:
-            print(f"Warning: Selected folder '{CHOOSE_FOLDER}' not found. Searching for latest...")
+            print(f"Warning: Selected folder '{choose_folder}' not found. Searching for latest...")
 
     # 2. Fallback: Find the most recent folder
     subdirs = [p for p in output_data.iterdir() if p.is_dir()]
@@ -319,8 +313,15 @@ def find_country_file(run_folder: Path, country: str) -> Path:
             f"No Excel file found for country '{country}' in {run_folder}"
         )
 
+    public_candidates = [
+        p for p in candidates
+        if p.stem.lower().endswith("_output")
+    ]
+    if public_candidates:
+        return sorted(public_candidates)[0]
+
     # If multiple, just take the first one (you can refine later)
-    return candidates[0]
+    return sorted(candidates)[0]
 
 
 def get_results_folder(country: str) -> Path:
@@ -337,7 +338,7 @@ def get_results_folder(country: str) -> Path:
     return country_folder
 
 
-def build_sec_other_from_output(df_output: pd.DataFrame) -> pd.DataFrame:
+def build_sec_other_from_output(df_output: pd.DataFrame, country_name: str) -> pd.DataFrame:
     frames = []
     # Ensure these match the EXACT string in your "Metric" column in Morocco_Output
     sector_map = {
@@ -353,6 +354,97 @@ def build_sec_other_from_output(df_output: pd.DataFrame) -> pd.DataFrame:
 
     TARGET_FUELS = ["Diesel", "Natural Gas", "Electricity", "Coal", "Heat", "Biomass", "Hydrogen", "Ammonia", "Methanol", "Steel"]
     scenario_cols = [c for c in df_output.columns if c not in ["Metric", "Units"]]
+
+    sector_meta = {
+        "machinery": {"csv_name": "Machinery", "metric_name": "final energy of machinery"},
+        "construction": {"csv_name": "Construction", "metric_name": "final energy of construction"},
+        "non-ferrous metals": {"csv_name": "Non-ferrous metals", "metric_name": "final energy of non-ferrous metals"},
+        "transport equipment": {"csv_name": "Transport equipment", "metric_name": "final energy of transport equipment"},
+        "food and tobacco": {"csv_name": "Food and tobacco", "metric_name": "final energy of food and tobacco"},
+        "mining and quarrying": {"csv_name": "Mining and quarrying", "metric_name": "final energy of mining and quarrying"},
+        "textile and leather": {"csv_name": "Textile and leather", "metric_name": "final energy of textile and leather"},
+        "wood and wood products": {"csv_name": "Wood and wood products", "metric_name": "final energy of wood and wood products"},
+    }
+
+    def _metric_exists(metric_name: str) -> bool:
+        return (df_output["Metric"].astype(str).str.strip() == metric_name).any()
+
+    def _interp_history_at(history: dict, year: int) -> float:
+        if not history:
+            return 0.0
+        pts = []
+        for y, v in history.items():
+            try:
+                pts.append((int(y), float(v)))
+            except Exception:
+                continue
+        if not pts:
+            return 0.0
+        pts = sorted(pts, key=lambda x: x[0])
+        years = [p[0] for p in pts]
+        vals = [p[1] for p in pts]
+        if year <= years[0]:
+            return float(vals[0])
+        if year >= years[-1]:
+            return float(vals[-1])
+        for i in range(1, len(years)):
+            if years[i - 1] <= year <= years[i]:
+                y0, y1 = years[i - 1], years[i]
+                v0, v1 = vals[i - 1], vals[i]
+                if y1 == y0:
+                    return float(v0)
+                return float(v0 + (year - y0) * (v1 - v0) / (y1 - y0))
+        return float(vals[-1])
+
+    cagr_config = pd.read_csv(industry_config_path) if industry_config_path.exists() else pd.DataFrame()
+    if not cagr_config.empty and "Assumption Type" in cagr_config.columns:
+        cagr_config = cagr_config[cagr_config["Assumption Type"].astype(str).str.upper() == "CAGR"]
+    else:
+        cagr_config = pd.DataFrame()
+
+    def _project_other_total_gwh(metric_name: str, base_gwh: float, target_year: int, scenario_name: str, country_name: str) -> float:
+        if target_year <= BASE_YEAR:
+            return float(base_gwh)
+        if cagr_config.empty:
+            return float(base_gwh)
+
+        scenario_key = get_config_scenario_name(scenario_name)
+        metric_rows = cagr_config[cagr_config["Metric Name"].astype(str).str.strip().str.lower() == str(metric_name).strip().lower()]
+        if metric_rows.empty:
+            return float(base_gwh)
+
+        milestones = sorted({int(y) for y in metric_rows["Year"].dropna().tolist() if int(y) > BASE_YEAR and int(y) <= target_year})
+        if not milestones:
+            return float(base_gwh)
+
+        value = float(base_gwh)
+        prev = BASE_YEAR
+
+        for milestone in milestones:
+            match = metric_rows[
+                (metric_rows["Year"] == milestone) &
+                (metric_rows["Scenario"].astype(str).str.lower() == scenario_key.lower())
+            ]
+            if match.empty:
+                match = metric_rows[metric_rows["Year"] == milestone]
+            if match.empty:
+                continue
+
+            row = match.iloc[0]
+            cagr_val = row.get(country_name)
+            if pd.isna(cagr_val) or str(cagr_val).strip() == "":
+                cagr_val = row.get("default")
+            if pd.isna(cagr_val) or str(cagr_val).strip() == "":
+                cagr = 0.0
+            else:
+                cagr = float(cagr_val)
+
+            interval = int(milestone) - int(prev)
+            if interval > 0:
+                value = value * ((1 + cagr) ** interval)
+            prev = milestone
+
+        return float(value)
 
     def _normalize_share(raw_val: float) -> float:
         """
@@ -380,11 +472,27 @@ def build_sec_other_from_output(df_output: pd.DataFrame) -> pd.DataFrame:
         for metric_key, sec_label in sector_map.items():
             # IMPORTANT: Check if metric name is 'Final energy of food and tobacco' 
             # or 'Final energy demand of food and tobacco'
-            total_demand = _get_val(df_output, f"Final energy of {metric_key}", col, 0.0)
-            
-            # If total_demand is 0, try searching for the metric without "of"
+            metric_with_of = f"Final energy of {metric_key}"
+            metric_without_of = f"Final energy {metric_key}"
+
+            has_total_metric = _metric_exists(metric_with_of) or _metric_exists(metric_without_of)
+            total_demand = _get_val(df_output, metric_with_of, col, 0.0)
             if total_demand == 0:
-                total_demand = _get_val(df_output, f"Final energy {metric_key}", col, 0.0)
+                total_demand = _get_val(df_output, metric_without_of, col, 0.0)
+
+            # Transport-style behavior: if totals are not present in the output file,
+            # derive them here directly from UNSD history + CAGR assumptions.
+            if not has_total_metric:
+                meta = sector_meta.get(metric_key, {})
+                csv_name = meta.get("csv_name")
+                cagr_metric_name = meta.get("metric_name")
+                if csv_name and cagr_metric_name and year is not None:
+                    history = get_historical_sector_data(unsd_path, country_name, csv_name)
+                    base_gwh = _interp_history_at(history, BASE_YEAR)
+                    if "_" in str(col):
+                        total_demand = _project_other_total_gwh(cagr_metric_name, base_gwh, int(year), scenario, country_name)
+                    else:
+                        total_demand = base_gwh
 
             shares = {
                 "Diesel": _normalize_share(_get_val(df_output, f"Share of oil for unspecified {metric_key}", col, 0.0)),
@@ -2493,7 +2601,7 @@ def build_sec_table_from_feedstock(
     sec_pp = build_sec_paper_pulp_from_tidy(pp_df)
     sec_ammo = build_sec_ammonia_from_tidy(ammo_df, country_name=country_name)
     
-    sec_other = build_sec_other_from_output(df_metrics)
+    sec_other = build_sec_other_from_output(df_metrics, country_name)
 
     sec_all = reduce(
         lambda left, right: pd.merge(left, right, on=["Year", "Scenario", "SEC_Fuel"], how="outer"),
@@ -2617,16 +2725,16 @@ def run_industry_pipeline_for_country(country: str):
     df_metrics = pd.read_csv(country_file)
 
     # === APPLY CAGR PROJECTIONS (aligned with transport workflow) ===
-    if INDUSTRY_CONFIG_PATH.exists():
+    if industry_config_path.exists():
         print(f"  >>> Found config! Refreshing projections for {country}...")
-        df_metrics = apply_cagr_projections(df_metrics, INDUSTRY_CONFIG_PATH, country, base_year="2020")
+        df_metrics = apply_cagr_projections(df_metrics, industry_config_path, country, base_year="2020")
         
         # Save the refreshed data for verification (aligned with transport naming)
         updated_path = results_dir / f"output_{country}_updated.csv"
         df_metrics.to_csv(updated_path, index=False)
         print(f"  Saved updated metrics → {updated_path}")
     else:
-        print(f"  Warning: industry_config.csv NOT found at {INDUSTRY_CONFIG_PATH}")
+        print(f"  Warning: industry_config.csv NOT found at {industry_config_path}")
 
     build_all_feedstock_from_metrics(country_file, feedstock_out, df_override=df_metrics)
 
@@ -2647,7 +2755,7 @@ if __name__ == "__main__":
     # List to store dataframes from all countries
     all_carrier_data = []
 
-    for country in AVAILABLE_COUNTRIES:
+    for country in available_countries:
         print(f"  - Processing: {country}")
         try:
             # Run the pipeline and capture the carrier dataframe

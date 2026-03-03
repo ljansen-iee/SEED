@@ -68,6 +68,9 @@ import sys
 # Allow importing helper functions from parent directories
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 from build_CAGR import interpolate_or_extrapolate
+from helpers import get_scenarios_from_main_industry
+
+SCENARIOS = get_scenarios_from_main_industry()
 
 def share_fuel_primary_pulp(
     target_years: List[int],
@@ -151,12 +154,12 @@ def share_fuel_secondary_pulp(
     base_data = {
         "diesel": {
             2020: [55, 55, 55],
-            2030: [55, 1, 0],
+            2030: [55, 0.5, 0],
             2050: [55, 0, 0],
         },
         "natural_gas": {
             2020: [45, 45, 45],
-            2030: [45, 1, 0],
+            2030: [45, 0.5, 0],
             2050: [45, 0, 0],
         },
         "electricity": {

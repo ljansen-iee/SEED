@@ -27,7 +27,7 @@ from scripts.chemical_and_petrochemical.HVC.build_hvc_production import get_hvc_
 # === Food & Tobacco ===
 from scripts.food_and_tobacco.build_shares_food_and_tobacco import get_unsd_fuel_shares
 # CAGR CONFIG
-from build_CAGR import load_industry_config, interpolate_or_extrapolate, get_metric_cagr_cfg_from_excel, expand_with_cagr_smooth
+from build_CAGR import load_industry_config, interpolate_or_extrapolate, get_metric_cagr_cfg_from_excel, get_metric_config_entry_from_excel, expand_with_cagr_smooth
 
 BASE_YEAR = 2020
 TARGET_YEARS = [2030, 2050]
@@ -251,15 +251,31 @@ def main():
             target_years=target_years,
             all_types=all_steel_types
         )
-        share_bf_ohf, share_bf_bof, share_dr_eaf, has_override = override_steel_routes_positional(
-            country=country,
-            target_years=target_years,
-            scenarios=scenarios,
-            share_bf_ohf=share_bf_ohf,
-            share_bf_bof=share_bf_bof,
-            share_dr_eaf=share_dr_eaf,
-            base_year=base_year,
-        )
+
+        steel_route_metric_names = [
+            "Share of blast furnace + open hearth furnace for steel making",
+            "Share of blast furnace + basic oxygen furnace for steel making",
+            "Share of direct reduction + electric arc furnace for steel making",
+        ]
+        has_route_config_override = False
+        for metric_name in steel_route_metric_names:
+            metric_cfg_entry = get_metric_config_entry_from_excel(industry_cagr_excel, country, metric_name)
+            if isinstance(metric_cfg_entry, dict) and metric_cfg_entry.get("values"):
+                has_route_config_override = True
+                break
+
+        if has_route_config_override:
+            has_override = False
+        else:
+            share_bf_ohf, share_bf_bof, share_dr_eaf, has_override = override_steel_routes_positional(
+                country=country,
+                target_years=target_years,
+                scenarios=scenarios,
+                share_bf_ohf=share_bf_ohf,
+                share_bf_bof=share_bf_bof,
+                share_dr_eaf=share_dr_eaf,
+                base_year=base_year,
+            )
       
         # --- SECTOR DATA & GROWTH LOGIC ---
         unsd_sectors = [
@@ -351,19 +367,22 @@ def main():
                         sc_name = scenarios[idx]
                         excel_val = excel_share_values.get(y, {}).get(sc_name)
 
-                        if excel_val is not None and not pd.isna(excel_val):
+                        if y == base_year:
+                            # Always use history for the base year column
+                            vals.append(float(base_shares.get(fuel, 0.0)))
+                            continue
+
+                        # For future years: if Excel value is blank/NaN, replicate 2020 history
+                        # Explicit zeros in config are valid overrides and must be kept as 0.
+                        if excel_val is None or pd.isna(excel_val):
+                            vals.append(float(base_shares.get(fuel, 0.0)))
+                        else:
                             # TECH_SHARE may be provided either as fraction (0-1) or percent (0-100).
                             # Output rows use Units="%", so store percentage points.
                             share_val = float(excel_val)
                             if 0.0 <= share_val <= 1.0:
                                 share_val *= 100.0
                             vals.append(share_val)
-                        elif y == base_year:
-                            # Always use history for the base year column
-                            vals.append(float(base_shares.get(fuel, 0.0)))
-                        else:
-                            # For 2030/2050, if Excel is 0 or Blank, REPLICATE 2020
-                            vals.append(float(base_shares.get(fuel, 0.0)))
 
                     fuel_series[y] = vals
                 fuel_shares_proj[fuel] = fuel_series
@@ -1193,7 +1212,7 @@ def main():
                 "unit": "tons/y",
                 "forecast": True,                
             },
-            "Clinker-to-cement ratio": {
+            "Average Clinker Factor": {
                 "source": clinker_ratio,        
                 "unit": "t clinker / t cement",
                 "forecast": False,
@@ -2102,6 +2121,7 @@ def main():
         columns += ["Units"]
 
         rows = []
+        computed_metric_values: Dict[str, Dict[Any, Any]] = {}
 
 
         for name, meta in metrics.items():
@@ -2278,15 +2298,30 @@ def main():
             # --- GENERIC FORECAST / OUTPUT for all other metrics ---
 
             result_expanded = {base_year: base_val}
-            
-            if meta.get("forecast", True) and base_val is not None:
-                # 1) First try exact metric name (allows fuel-specific overrides)
-                metric_cfg = get_metric_cagr_cfg_from_excel(industry_cagr_excel, country, name)
+            metric_cfg_entry_exact = get_metric_config_entry_from_excel(industry_cagr_excel, country, name)
+            metric_cfg_exact = metric_cfg_entry_exact.get("values", {}) if isinstance(metric_cfg_entry_exact, dict) else {}
+            assumption_type_exact = str(metric_cfg_entry_exact.get("assumption_type", "")).strip().upper() if isinstance(metric_cfg_entry_exact, dict) else ""
 
-                # 2) Fallback to mapped category (backward-compatible with existing generic config rows)
-                if not metric_cfg:
-                    search_name = get_mapped_config_name(name)
-                    metric_cfg = get_metric_cagr_cfg_from_excel(industry_cagr_excel, country, search_name)
+            metric_cfg = metric_cfg_exact
+            assumption_type_effective = assumption_type_exact
+            if not metric_cfg:
+                search_name = get_mapped_config_name(name)
+                metric_cfg_entry_mapped = get_metric_config_entry_from_excel(industry_cagr_excel, country, search_name)
+                if isinstance(metric_cfg_entry_mapped, dict):
+                    metric_cfg = metric_cfg_entry_mapped.get("values", {})
+                    assumption_type_effective = str(metric_cfg_entry_mapped.get("assumption_type", "")).strip().upper()
+
+            if assumption_type_effective == "CAGR":
+                use_forecast = True
+            elif assumption_type_effective:
+                use_forecast = False
+            else:
+                use_forecast = meta.get("forecast", True)
+
+            if name == "Ammonia production per year":
+                use_forecast = False
+
+            if use_forecast and base_val is not None:
 
                 # pull a simple history if DataFrame-based
                 hist_series = None
@@ -2351,10 +2386,58 @@ def main():
                 for k, v in scenario_vals.items():
                     result_expanded[k] = v
 
+                # Apply exact metric overrides from config for non-forecast metrics
+                # (e.g., TECH_SHARE rows). Explicit zeros are valid and must override.
+                if assumption_type_effective != "CAGR" and isinstance(metric_cfg_exact, dict) and metric_cfg_exact:
+                    for y in target_years:
+                        per_sc = metric_cfg_exact.get(y, {})
+                        if not isinstance(per_sc, dict):
+                            continue
+
+                        for sc in scenarios:
+                            if sc not in per_sc or pd.isna(per_sc[sc]):
+                                continue
+
+                            override_val = float(per_sc[sc])
+
+                            # Config may provide shares as fractions (0-1) or percent points (0-100)
+                            if "share of" in name.lower() and 0.0 <= override_val <= 1.0:
+                                override_val *= 100.0
+
+                            result_expanded[f"{y}_{sc}"] = override_val
+
+            if name == "Clinker production per year":
+                cement_vals = computed_metric_values.get("Cement production per year")
+                ratio_vals = computed_metric_values.get("Average Clinker Factor")
+
+                if cement_vals and ratio_vals:
+                    clinker_recomputed: Dict[Any, Any] = {}
+                    cement_base = cement_vals.get(base_year)
+                    ratio_base = ratio_vals.get(base_year)
+
+                    if cement_base is not None and ratio_base is not None:
+                        clinker_recomputed[base_year] = float(cement_base) * float(ratio_base)
+                    else:
+                        clinker_recomputed[base_year] = None
+
+                    for y in target_years:
+                        for sc in scenarios:
+                            key = f"{y}_{sc}"
+                            cement_v = cement_vals.get(key)
+                            ratio_v = ratio_vals.get(key)
+                            if cement_v is None or ratio_v is None:
+                                clinker_recomputed[key] = None
+                            else:
+                                clinker_recomputed[key] = float(cement_v) * float(ratio_v)
+
+                    result_expanded = clinker_recomputed
+                    base_val = clinker_recomputed.get(base_year)
+
 
             row = {"Metric": name, str(base_year): base_val, "Units": unit}
             row.update({k: v for k, v in result_expanded.items() if k != base_year})
             rows.append(row)
+            computed_metric_values[name] = result_expanded.copy()
 
             continue
 
@@ -2374,11 +2457,19 @@ def main():
         df_out["__sort_key__"] = df_out["Metric"].map(lambda x: metric_order_map.get(x, 9999))
         df_out = df_out.sort_values("__sort_key__").drop(columns=["__sort_key__"])
         
+        hidden_final_energy_metrics = {
+            f"Final energy of {sector_id}"
+            for sector_id, _, _ in unsd_sectors
+        }
+
         out_path = output_root / f"{country}_Output.csv"
-        #print("DEBUG output_root:", output_root)
-        #print("DEBUG type(output_root):", type(output_root))
-        df_out.to_csv(out_path, index=False, encoding='utf-8')
+
+        # Single output file: hide selected rows from direct country output view.
+        df_public = df_out[~df_out["Metric"].isin(hidden_final_energy_metrics)].copy()
+        df_public.to_csv(out_path, index=False, encoding='utf-8')
+
         print(f" Saved: {out_path}")
 
 if __name__ == "__main__": 
     main()
+

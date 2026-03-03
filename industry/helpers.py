@@ -1,6 +1,31 @@
 # helpers.py
+import ast
+from pathlib import Path
 import numpy as np
 import pandas as pd
+
+
+def get_scenarios_from_main_industry() -> list[str]:
+    """Read SCENARIOS directly from main_industry.py so all scripts follow that single source."""
+    main_industry_path = Path(__file__).resolve().parent / "main_industry.py"
+
+    with main_industry_path.open("r", encoding="utf-8") as handle:
+        tree = ast.parse(handle.read(), filename=str(main_industry_path))
+
+    for node in tree.body:
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Name) and target.id == "SCENARIOS":
+                    value = node.value
+                    if isinstance(value, (ast.List, ast.Tuple)):
+                        scenarios: list[str] = []
+                        for element in value.elts:
+                            if isinstance(element, ast.Constant) and isinstance(element.value, str):
+                                scenarios.append(element.value)
+                        if scenarios:
+                            return scenarios
+
+    raise ValueError("SCENARIOS not found or invalid in main_industry.py")
 
 def convert_wide_to_long(df_wide, country):
     """
@@ -438,6 +463,8 @@ def get_mapped_config_name(metric_name: str) -> str:
 import pandas as pd
 from pathlib import Path
 
+TJ_TO_GWH = 0.2777777778
+
 def get_historical_sector_data(folder_path: Path, country: str, sector_keyword: str):
     """
     Scans folder for 'Country-Year.csv', finds sector in the 2nd column, 
@@ -476,7 +503,7 @@ def get_historical_sector_data(folder_path: Path, country: str, sector_keyword: 
                 if clean_val in {"---", "", "nan", "NaN"}:
                     continue
 
-                history[year] = float(clean_val)
+                history[year] = float(clean_val) * TJ_TO_GWH
                 
         except Exception as e:
             print(f" Error processing {file_path.name} for {sector_keyword}: {e}")
@@ -1083,4 +1110,78 @@ METRIC_ORDER = [
         "Share of ammonia for unspecified wood and wood products",
         "Share of methanol for unspecified wood and wood products",
         "Share of steel for unspecified wood and wood products",
+        # --- NAME VARIANTS USED IN main_industry.py ---
+        "Share of diesel for blast furnaces",
+        "Share of natural gas for blast furnaces",
+        "Clinker-to-cement ratio",
+        "Share of diesel for cement production",
+        "Share of natural gas for cement production",
+        "Share of electricity for cement production",
+        "Share of coal for cement production",
+        "Share of heat for cement production",
+        "Share of biomass for cement production",
+        "Share of hydrogen for cement production",
+        "Energy intensity of diesel in cement production",
+        "Energy intensity of natural gas in cement production",
+        "Energy intensity of electricity in cement production",
+        "Energy intensity of coal in cement production",
+        "Energy intensity of heat in cement production",
+        "Energy intensity of biomass in cement production",
+        "Energy intensity of hydrogen in cement production",
+        "Share of electricity for unspecified mining and quarrying",
+        "Share of coal for unspecified mining and quarrying",
+        "Share of biomass for unspecified mining and quarrying",
+        "Share of hydrogen for unspecified mining and quarrying",
+        "Share of electricity for unspecified non-ferrous metals",
+        "Share of coal for unspecified non-ferrous metals",
+        "Share of biomass for unspecified non-ferrous metals",
+        "Share of hydrogen for unspecified non-ferrous metals",
+        "Share of electricity for unspecified textile and leather",
+        "Share of coal for unspecified textile and leather",
+        "Share of biomass for unspecified textile and leather",
+        "Share of hydrogen for unspecified textile and leather",
+        "Share of electricity for unspecified wood and wood products",
+        "Share of coal for unspecified wood and wood products",
+        "Share of biomass for unspecified wood and wood products",
+        "Share of hydrogen for unspecified wood and wood products",
     ]
+
+
+def _load_metric_order_from_main_industry(default_order):
+    import ast
+    from pathlib import Path
+
+    try:
+        main_path = Path(__file__).resolve().parent / "main_industry.py"
+        source = main_path.read_text(encoding="utf-8")
+        tree = ast.parse(source)
+
+        metric_names = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.AnnAssign):
+                if isinstance(node.target, ast.Name) and node.target.id == "metrics" and isinstance(node.value, ast.Dict):
+                    for key in node.value.keys:
+                        if isinstance(key, ast.Constant) and isinstance(key.value, str):
+                            metric_names.append(key.value)
+            elif isinstance(node, ast.Assign):
+                targets = [t.id for t in node.targets if isinstance(t, ast.Name)]
+                if "metrics" in targets and isinstance(node.value, ast.Dict):
+                    for key in node.value.keys:
+                        if isinstance(key, ast.Constant) and isinstance(key.value, str):
+                            metric_names.append(key.value)
+
+        if metric_names:
+            unique_order = []
+            seen = set()
+            for name in metric_names:
+                if name not in seen:
+                    seen.add(name)
+                    unique_order.append(name)
+            return unique_order
+    except Exception:
+        pass
+
+    return default_order
+
+
+METRIC_ORDER = _load_metric_order_from_main_industry(METRIC_ORDER)
