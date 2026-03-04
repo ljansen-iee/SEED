@@ -20,16 +20,26 @@ unsd_global_output = unsd_global_dir / "international_marine_and_aviation_data.x
 os.makedirs(unsd_global_dir, exist_ok=True)
 
 # Default target years used across transport scripts when not overridden
-DEFAULT_TARGET_YEARS = [2030, 2050]
+DEFAULT_TARGET_YEARS = [2030, 2035, 2040, 2045, 2050]
 
 def find_input_folder():
-    start_dir = os.path.dirname(os.path.abspath(__file__))
-    for _ in range(2):  # current dir and one level up
-        input_folder = os.path.join(start_dir, "input_data")
-        if os.path.isdir(input_folder):
-            return input_folder
-        start_dir = os.path.dirname(start_dir)
-    raise FileNotFoundError("Could not find 'input_data' folder")
+    script_dir = Path(__file__).resolve().parent
+    project_root = script_dir.parent
+
+    candidates = [
+        script_dir / "input_data",
+        project_root / "transport" / "input_data",
+        project_root / "input_data",
+    ]
+
+    for candidate in candidates:
+        if candidate.is_dir():
+            return str(candidate)
+
+    raise FileNotFoundError(
+        "Could not find 'input_data' folder. Checked:\n"
+        + "\n".join(str(path) for path in candidates)
+    )
 
 def read_excel_file(file_path, sheet_name):
     try:
