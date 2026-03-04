@@ -4,29 +4,42 @@ import pandas as pd
 import numpy as np
 import os
 import glob
+import csv
 
-# === Step 0: Helper to find Excel ===
-def find_excel_file(base_dir=None, file_pattern="CAGR_compilation_*.xlsx"):
+# === Step 0: Helper to find source file (Excel or CSV) ===
+def find_cagr_file(base_dir=None, file_patterns=("CAGR_compilation_*.xlsx", "CAGR.csv")):
     if base_dir is None:
         base_dir = os.getcwd()
-    search_pattern = os.path.join(base_dir, "**", file_pattern)
-    matching_files = glob.glob(search_pattern, recursive=True)
+
+    matching_files = []
+    for file_pattern in file_patterns:
+        search_pattern = os.path.join(base_dir, "**", file_pattern)
+        matching_files.extend(glob.glob(search_pattern, recursive=True))
+
+    # keep deterministic order and remove duplicates
+    matching_files = sorted(set(matching_files))
 
     if not matching_files:
-        raise FileNotFoundError(f"No file found matching {file_pattern} in {base_dir}")
+        raise FileNotFoundError(
+            f"No CAGR source file found in {base_dir}. Expected one of: {list(file_patterns)}"
+        )
     if len(matching_files) > 1:
         raise ValueError(f"Multiple files found: {matching_files}")
 
     return matching_files[0]
 
 
-# === Step 1: Load Excel ===
+# === Step 1: Load source file ===
 try:
-    file_path = find_excel_file(file_pattern="CAGR_compilation_*.xlsx")
-    #print(f"Found Excel file: {file_path}")
-    df = pd.read_excel(file_path, header=0)
+    file_path = find_cagr_file()
+    if file_path.lower().endswith(".csv"):
+        # CSV export has a meta header row above real column names
+        df = pd.read_csv(file_path, header=1)
+    else:
+        df = pd.read_excel(file_path, header=0)
+    print(f"Loaded CAGR source: {file_path}")
 except Exception as e:
-    #print(f" Could not read Excel: {e}")
+    print(f" Could not read CAGR source: {e}")
     df = pd.DataFrame()
 
 # === Step 2: Clean columns ===
@@ -46,6 +59,22 @@ column_mapping = {
     'Unnamed: 12': 'CAGR_2050_IEE',
 }
 df = df.rename(columns=column_mapping)
+
+# CSV has duplicated columns (CAGR_2030, CAGR_2030.1, CAGR_2030.2)
+# in ISI/Khalili/IEE order; normalize to the same names expected by the logic.
+csv_cagr_mapping = {
+    "CAGR_2030": "CAGR_2030_ISI",
+    "CAGR_2040": "CAGR_2040_ISI",
+    "CAGR_2050": "CAGR_2050_ISI",
+    "CAGR_2030.1": "CAGR_2030_Khalili",
+    "CAGR_2040.1": "CAGR_2040_Khalili",
+    "CAGR_2050.1": "CAGR_2050_Khalili",
+    "CAGR_2030.2": "CAGR_2030_IEE",
+    "CAGR_2040.2": "CAGR_2040_IEE",
+    "CAGR_2050.2": "CAGR_2050_IEE",
+}
+if any(col in df.columns for col in csv_cagr_mapping):
+    df = df.rename(columns={k: v for k, v in csv_cagr_mapping.items() if k in df.columns})
 
 # Convert percentage strings → numeric
 for col in df.columns:
@@ -208,18 +237,32 @@ def normalize_tuple(subsector, submode, drive):
     else:
         submode = "-"
 
-    # --- Normalize drive types ---
-    d = d.replace("efficiency", "").strip()
-    d = d.replace("(bev)", "bev").replace("(ice)", "ice")
-    d = d.replace("phevbev", "Efficiency PHEV (BEV)")
-    d = d.replace("phevice", "Efficiency PHEV (ICE)")
+    # Source CSV uses "-" for aviation rows and explicit Passenger for inland shipping
+    if "aviation" in subsector.lower():
+        submode = "Passenger"
+    if "shipping" in subsector.lower() or "ship" in subsector.lower():
+        submode = "-"
 
-    if "phev" in d and "bev" not in d and "ice" not in d:
+    # --- Normalize drive types ---
+    raw_d = d
+    d = d.replace("(bev)", "bev").replace("(ice)", "ice")
+    d = d.replace("phevbev", "efficiency phev bev")
+    d = d.replace("phevice", "efficiency phev ice")
+
+    if "efficiency ice" in raw_d:
+        drive = "Diesel"
+    elif "efficiency bev" in raw_d:
+        drive = "BEV"
+    elif "efficiency fcev" in raw_d:
+        drive = "FCEV"
+    elif "phev" in d and "bev" not in d and "ice" not in d:
         drive = "Efficiency PHEV (BEV)"
     elif "phev" in d and "ice" in d:
         drive = "Efficiency PHEV (ICE)"
     elif "phev" in d:
         drive = "Efficiency PHEV (BEV)"
+    elif "electric" in d:
+        drive = "Electric (incl. BEV)"
     elif "bev" in d:
         drive = "BEV"
     elif "fcev" in d or "h2" in d or "fuel" in d:
@@ -273,7 +316,10 @@ def build_cagr_values(result_df, base_values, base_year=2020):
 
         def safe_float(x):
             try:
-                return float(str(x).replace("%", "")) / 100.0
+                val = float(str(x).replace("%", ""))
+                if abs(val) > 1.0:
+                    return val / 100.0
+                return val
             except Exception:
                 return 0.0
 
@@ -316,143 +362,8 @@ except Exception:
 
 
 
-# === Step 7: Export functions for loader ===
-def expand_with_cagr_from_base(base_value, cagr_dict):
-    out = {"2020": base_value}
-    out["2030_Baseline"] = base_value * (1 + cagr_dict["2030_Baseline"]) ** 10
-    out["2030_RF"]       = base_value * (1 + cagr_dict["2030_RF"]) ** 10
-    out["2030_EL"]       = base_value * (1 + cagr_dict["2030_EL"]) ** 10
-    out["2050_Baseline"] = out["2030_Baseline"] * (1 + cagr_dict["2050_Baseline"]) ** 20
-    out["2050_RF"]       = out["2030_RF"]       * (1 + cagr_dict["2050_RF"]) ** 20
-    out["2050_EL"]       = out["2030_EL"]       * (1 + cagr_dict["2050_EL"]) ** 20
-    return out
-
-
-def expand_intensity_with_cagr(base_value, cagr_dict):
-    return expand_with_cagr_from_base(base_value, cagr_dict)
-
-
-def expand_constant(value):
-    return {
-        "2020": value,
-        "2030_Baseline": value,
-        "2030_RF": value,
-        "2030_EL": value,
-        "2050_Baseline": value,
-        "2050_RF": value,
-        "2050_EL": value,
-    }
-
-
-# --- Polynomial regression for projections ---
-def poly_project(years, values, target_years, degree=2):
-    """
-    years: list of years (should be numeric like 2005, 2010...)
-    values: list of values
-    target_years: list of years we want to predict
-    """
-    try:
-        # Filter out non-numeric year labels
-        clean = [(float(y), v) for y, v in zip(years, values)
-                 if str(y).replace(".", "").isdigit() and pd.notna(v)]
-        if not clean:
-            return {int(t): np.nan for t in target_years}
-
-        years, values = zip(*clean)
-        years = np.array(years, dtype=float)
-        values = np.array(values, dtype=float)
-
-        # Fit polynomial
-        deg = min(int(degree), max(0, len(years) - 1))
-        if deg == 0:
-            const = float(np.nanmedian(values))
-            return {int(t): const for t in target_years}
-
-        coeffs = np.polyfit(years, values, deg)
-        poly = np.poly1d(coeffs)
-
-        return {int(t): max(0.0, float(poly(t))) for t in target_years}
-
-    except Exception as e:
-        print(f"Polynomial projection error: {e}")
-        return {t: np.nan for t in target_years}
-# --- Expansion functions ---
-def expand_with_cagr(base_value, cagr_table, base_year, target_years, scenarios):
-    """
-    Expand base_value across target_years using piecewise CAGRs.
-    Scenario names come directly from SCENARIOS.
-    """
-    out = {str(base_year): base_value}
-    milestones = sorted(int(k) for k in cagr_table.keys())
-
-    def rate_for(scenario, milestone):
-        # try exact scenario name first
-        if scenario in cagr_table[milestone]:
-            return cagr_table[milestone][scenario]
-        # else fall back to Baseline/default
-        return (
-            cagr_table[milestone].get("Baseline")
-            or cagr_table[milestone].get("default", 0.0)
-        )
-
-    def value_at(year, scenario):
-        v = base_value
-        last = base_year
-        for m in milestones:
-            r = float(rate_for(scenario, m))
-            if year <= m:
-                return v * (1 + r) ** (year - last)
-            v = v * (1 + r) ** (m - last)
-            last = m
-        # beyond last milestone → continue with last rate
-        r_last = float(rate_for(scenario, milestones[-1]))
-        return v * (1 + r_last) ** (year - last)
-
-    for y in target_years:
-        for s in scenarios:
-            out[f"{y}_{s}"] = value_at(int(y), s)
-
-    return out
-
-
-def expand_constant(value, base_year=2020, target_years=(2030,2050), scenarios=("Baseline","RF","EL")):
-    return {
-        str(base_year): value,
-        **{f"{year}_{scenario}": value for year in target_years for scenario in scenarios}
-    }
-
-def expand_intensity_with_cagr_excel(base_value, cagr_dict, base_year, target_years, scenarios):
-    """Excel-style CAGR expansion"""
-    results = {str(base_year): base_value}
-    prev_year = base_year
-    prev_values = {s: base_value for s in scenarios}
-
-    for year in sorted(target_years):
-        for scenario in scenarios:
-            cagr = cagr_dict.get(f"{year}_{scenario}", cagr_dict.get(scenario, 0.0))
-            if cagr is None:
-                cagr = 0.0
-            fv = prev_values[scenario] * (1 + cagr) ** (year - prev_year)
-            results[f"{year}_{scenario}"] = fv
-        prev_year = year
-        prev_values = {s: results[f"{year}_{s}"] for s in scenarios}
-    return results
-
-
-def tuple_to_cagr_dict(tup):
-    return {
-        2030: {"Baseline": tup[0], "RF": tup[1], "EL": tup[2]},
-        2050: {"Baseline": tup[3], "RF": tup[4], "EL": tup[5]},
-    }
-
-import pandas as pd
-
 def expand_with_piecewise_cagr(base_value, cagr_dict, base_year=2020, target_years=[2030, 2050, 2055]):
-    """
-    Expands base_value using CAGR rates from a YAML dictionary.
-    - Interpolates between known years (e.g., 2030–2050 → 2035, 2045)
-    - Extrapolates beyond last known year (e.g., 2055 uses 2050 CAGR)
-    """
+    
     import pandas as pd
 
     if base_value in [None] or pd.isna(base_value):
@@ -507,11 +418,7 @@ def expand_with_piecewise_cagr(base_value, cagr_dict, base_year=2020, target_yea
 
 
 def as_fraction(val):
-    """
-    Converts percentage to fraction safely.
-    Example: 2.5 -> 0.025, 0.05 -> 0.05
-    Returns 0.0 if empty (safest for CAGR math).
-    """
+    
     if pd.isnull(val):
         return 0.0
     try:
@@ -525,20 +432,7 @@ def as_fraction(val):
         return 0.0
 
 def get_cagr(cagr_values, metric):
-    entry = cagr_values.get(metric)
-    if entry is None:
-        raise KeyError(f"CAGR not found for metric: {metric}")
-    if entry.get("assumption_type") != "CAGR":
-        raise ValueError(f"{metric} is not CAGR-based")
-    return entry["values"]
-
-
-
-def get_cagr(cagr_values, metric):
-    """
-    Retrieves the CAGR value dictionary for a specific metric.
-    Expects cagr_values to be a dictionary where keys are metric names.
-    """
+    
     if not isinstance(cagr_values, dict):
         raise ValueError("cagr_values must be a dictionary.")
         
@@ -557,16 +451,7 @@ def get_cagr(cagr_values, metric):
     return entry
 
 def expand_with_cagr(base_value, cagr_table, base_year, target_years, scenarios):
-    """
-    Expands a base value into future years using piecewise CAGRs.
-    
-    CRITICAL LOGIC:
-    1. If the config has a rate for Year X, that rate applies to the period 
-       ending at Year X (from the previous milestone).
-    2. If a target year (e.g. 2035) exists in the config, we use that specific rate.
-    3. If a target year is MISSING from config, we find the NEXT available milestone 
-       and use its rate (effectively interpolating the growth trend).
-    """
+   
     if base_value is None:
         base_value = 0.0
         
@@ -720,3 +605,740 @@ def apply_load_factor(metric, base_value, cagr_values, assumption_types, base_ye
 
     else:
         return expand_constant(base_value, base_year, target_years, scenarios)
+
+
+MA_METRIC_MAP = {
+    "Final Energy Intensity -  ICE LDV": "Final Energy Intensity - Diesel ICE LDV",
+    "Final Energy Intensity -  ICE Bus": "Final Energy Intensity - Diesel ICE Bus",
+    "Final Energy Intensity - ICE 2&3W": "Final Energy Intensity - Gasoline ICE 2&3W",
+    "Final Energy Intensity - ICE LDT": "Final Energy Intensity - Diesel ICE LDT",
+    "Final Energy Intensity - ICE HDT": "Final Energy Intensity - Diesel ICE HDT",
+    "Final Energy Intensity - Plugin Hybrid LDV": "Final Energy Intensity - Diesel Plugin Hybrid LDV",
+    "Final Energy Intensity - Plugin Hybrid Bus": "Final Energy Intensity - Diesel Plugin Hybrid Bus",
+    "Final Energy Intensity - Plugin Hybrid LDT": "Final Energy Intensity - Diesel Plugin Hybrid LDT",
+    "Final Energy Intensity - Plugin Hybrid HDT": "Final Energy Intensity - Diesel Plugin Hybrid HDT",
+    "Final Energy Intensity - BEV LDV": "Final Energy Intensity - BEV LDV",
+    "Final Energy Intensity - BEV Bus": "Final Energy Intensity - BEV Bus",
+    "Final Energy Intensity - BEV 2&3W": "Final Energy Intensity - BEV 2&3W",
+    "Final Energy Intensity - BEV LDT": "Final Energy Intensity - BEV LDT",
+    "Final Energy Intensity - BEV HDT": "Final Energy Intensity - BEV HDT",
+    "Final Energy Intensity - FCEV LDV": "Final Energy Intensity - FCEV LDV",
+    "Final Energy Intensity - FCEV Bus": "Final Energy Intensity - FCEV Bus",
+    "Final Energy Intensity - FCEV LDT": "Final Energy Intensity - FCEV LDT",
+    "Final Energy Intensity - FCEV HDT": "Final Energy Intensity - FCEV HDT",
+    "Final Energy Intensity - ICE Train": "Final Energy Intensity - Diesel ICE Passenger Train",
+    "Final Energy Intensity - Direct Electric Train": "Final Energy Intensity - Direct Electric Passenger Train",
+    "Final Energy Intensity - FCEV Train": "Final Energy Intensity - FCEV Passenger Train",
+    "Final Energy Intensity - ICE Ship": "Final Energy Intensity - Diesel Freight Ship",
+    "Final Energy Intensity - BEV Ship": "Final Energy Intensity - BEV Freight Ship",
+    "Final Energy Intensity - FCEV Ship": "Final Energy Intensity - FCEV Freight Ship",
+    "Final Energy Intensity - ICE Plane": "Final Energy Intensity - Kerosene Passenger Plane",
+    "Final Energy Intensity - BEV Plane": "Final Energy Intensity - BEV Passenger Plane",
+    "Final Energy Intensity - FCEV Plane": "Final Energy Intensity - FCEV Passenger Plane",
+}
+
+
+# Manual percentage CAGRs for selected metrics (values as fractions, e.g. -0.0075 = -0.75%)
+MANUAL_FINAL_ENERGY_CAGR = {
+    "Final Energy Intensity - ICE 2&3W": (
+        -0.0075, -0.0150, -0.0200,  # 2030: EL, Baseline, RF
+        -0.0025, -0.0050, -0.0100,  # 2050: EL, Baseline, RF
+    ),
+    "Final Energy Intensity - BEV 2&3W": (
+        -0.0025, -0.0050, -0.0100,
+        -0.0025, -0.0050, -0.0100,
+    ),
+    "Final Energy Intensity - BEV Ship": (
+        -0.0040, -0.0080, -0.0100,
+        -0.0040, -0.0080, -0.0100,
+    ),
+    "Final Energy Intensity - FCEV Ship": (
+        -0.0105, -0.0105, -0.0105,
+        -0.0102, -0.0113, -0.0125,
+    ),
+}
+
+
+def export_final_energy_intensity_ma_format(
+    cagr_values=None,
+    output_csv_path="transport/output_data/country_parameters/final_energy_intensity_MA_format.csv",
+    output_xlsx_path="transport/output_data/country_parameters/final_energy_intensity_MA_format.xlsx",
+):
+    """
+    Export MA-format final energy intensity table from CAGR_VALUES (data-driven, no hardcoded percentages).
+    """
+    if cagr_values is None:
+        cagr_values = CAGR_VALUES
+
+    def pct(val):
+        if val is None or pd.isna(val):
+            return ""
+        return f"{float(val) * 100:.2f}%"
+
+    rows = [
+        ["Input Data", "2030", "2030", "2030", "2050", "2050", "2050"],
+        ["MA", "Baseline", "RF", "EL", "Baseline", "RF", "EL"],
+        ["", "SSP2", "SSP2", "SSP1", "SSP2", "SSP2", "SSP1"],
+        ["", "", "", "", "", "", ""],
+        ["CAGR", "", "", "", "", "", ""],
+        ["", "", "", "", "", "", ""],
+    ]
+
+    for display_metric, source_metric in MA_METRIC_MAP.items():
+        values = cagr_values.get(source_metric, {})
+        y2030 = values.get(2030, {}) if isinstance(values, dict) else {}
+        y2050 = values.get(2050, {}) if isinstance(values, dict) else {}
+
+        rows.append([
+            display_metric,
+            pct(y2030.get("EL")),
+            pct(y2030.get("Baseline")),
+            pct(y2030.get("RF")),
+            pct(y2050.get("EL")),
+            pct(y2050.get("Baseline")),
+            pct(y2050.get("RF")),
+        ])
+
+    os.makedirs(os.path.dirname(output_csv_path), exist_ok=True)
+    with open(output_csv_path, "w", newline="", encoding="utf-8") as file_handle:
+        writer = csv.writer(file_handle)
+        writer.writerows(rows)
+
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Alignment, Font
+
+        workbook = Workbook()
+        worksheet = workbook.active
+        worksheet.title = "CAGR"
+
+        for row_idx, row in enumerate(rows, start=1):
+            for col_idx, value in enumerate(row, start=1):
+                worksheet.cell(row=row_idx, column=col_idx, value=value)
+
+        worksheet.merge_cells("B1:D1")
+        worksheet.merge_cells("E1:G1")
+
+        for cell in worksheet[1]:
+            cell.font = Font(bold=True)
+            cell.alignment = Alignment(horizontal="center")
+        for cell in worksheet[2]:
+            cell.font = Font(bold=True)
+            cell.alignment = Alignment(horizontal="center")
+        for cell in worksheet[3]:
+            cell.alignment = Alignment(horizontal="center")
+
+        worksheet["A5"].font = Font(bold=True)
+        worksheet.column_dimensions["A"].width = 52
+        for column_letter in ["B", "C", "D", "E", "F", "G"]:
+            worksheet.column_dimensions[column_letter].width = 14
+
+        worksheet.freeze_panes = "A7"
+        os.makedirs(os.path.dirname(output_xlsx_path), exist_ok=True)
+        workbook.save(output_xlsx_path)
+    except Exception:
+        pass
+
+    return output_csv_path, output_xlsx_path
+
+
+def export_final_energy_intensity_cagr_with_intermediate(
+    cagr_values=None,
+    output_csv_path="transport/final_energy_intensity_all_metrics_cagr_5yr.csv",
+):
+
+    if cagr_values is None:
+        cagr_values = CAGR_VALUES
+
+    def format_fraction(val):
+        if val is None or pd.isna(val):
+            return ""
+        try:
+            return f"{float(val):.4f}"
+        except Exception:
+            return ""
+
+    # Scenario labels and country list come from transport config (no hardcoded defaults).
+    # Ensure the transport folder is on sys.path so build_transport_config
+    # can import its local helpers module correctly.
+    import sys
+    transport_dir = os.path.dirname(__file__)
+    if transport_dir not in sys.path:
+        sys.path.append(transport_dir)
+
+    from build_transport_config import SCENARIOS as TRANSPORT_SCENARIOS, countries_to_process
+    from build_share_subsectors import get_final_df_with_mobility
+    scenario_names = list(TRANSPORT_SCENARIOS)
+    country_names = list(countries_to_process)
+
+    if len(scenario_names) != 3:
+        raise ValueError("export_final_energy_intensity_cagr_with_intermediate expects exactly 3 scenarios in build_transport_config.SCENARIOS")
+    if not country_names:
+        raise ValueError("No countries found in build_transport_config.countries_to_process")
+
+    base_year = 2020
+    target_years = [2030, 2035, 2040, 2045, 2050]
+
+    header = ["Assumption Type", "Metric Name", "Year", "Scenario", *country_names]
+    rows = [header]
+
+    # === Population rows (2020 base + blank CAGR placeholders) ===
+    try:
+        from helpers import load_country_specific_data, find_input_folder, get_interpolated_value
+        from build_macro_indicators import process_population_data
+
+        dfs_country = load_country_specific_data(find_input_folder())
+        df_population = process_population_data(dfs_country)
+
+        population_base_values = []
+        for country in country_names:
+            try:
+                pop_df = df_population.loc[country]
+                if "Unit" in pop_df.columns:
+                    pop_df = pop_df.drop(columns=["Unit"])
+                # Keep one base line (single scenario) using SSP2 at base year
+                pop_val = get_interpolated_value(pop_df, "SSP2", base_year)
+                population_base_values.append(pop_val)
+            except Exception:
+                population_base_values.append(None)
+
+        rows.append([
+            "Base",
+            "Population",
+            base_year,
+            "Base",
+            *[f"{float(v):.4f}" if v is not None and not pd.isna(v) else "" for v in population_base_values],
+        ])
+
+        # As requested: keep population CAGR slots blank for all scenarios in 2030..2050
+        for year in target_years:
+            for scenario in scenario_names:
+                rows.append([
+                    "CAGR",
+                    "Population",
+                    year,
+                    scenario,
+                    *["" for _ in country_names],
+                ])
+    except Exception as exc:
+        print(f"Warning: could not add Population rows ({exc})")
+
+    # === Base year (2020) levels for final energy intensities ===
+    from build_energy_intensities import get_base_intensity_values
+
+    base_intensity_map = get_base_intensity_values()
+
+    def format_value(val):
+        if val is None or pd.isna(val):
+            return ""
+        try:
+            return f"{float(val):.4f}"
+        except Exception:
+            return ""
+
+    for display_metric, source_metric in MA_METRIC_MAP.items():
+        base_val = base_intensity_map.get(source_metric)
+        row = [
+            "Base",
+            display_metric,
+            base_year,
+            "Base",
+            *[format_value(base_val) for _ in country_names],
+        ]
+        rows.append(row)
+
+    for display_metric, source_metric in MA_METRIC_MAP.items():
+        manual = MANUAL_FINAL_ENERGY_CAGR.get(display_metric)
+
+        for year in target_years:
+            for scen_idx, scenario in enumerate(scenario_names):
+                if manual is not None:
+                    el_2030, base_2030, rf_2030, el_2050, base_2050, rf_2050 = manual
+                    values_2030 = (el_2030, base_2030, rf_2030)
+                    values_2050 = (el_2050, base_2050, rf_2050)
+                    values_for_year = values_2030 if year in (2030, 2035) else values_2050
+                    val = values_for_year[scen_idx] if scen_idx < len(values_for_year) else None
+                else:
+                    entry = cagr_values.get(source_metric, {})
+                    y2030 = entry.get(2030, {}) if isinstance(entry, dict) else {}
+                    y2050 = entry.get(2050, {}) if isinstance(entry, dict) else {}
+
+                    src = y2030 if year in (2030, 2035) else y2050
+                    src_values = list(src.values()) if isinstance(src, dict) else []
+
+                    if len(src_values) == 3:
+                        index_order = [2, 0, 1]  # preserve previous EL/Baseline/RF ordering by position
+                    else:
+                        index_order = list(range(len(src_values)))
+
+                    if scen_idx < len(index_order) and index_order[scen_idx] < len(src_values):
+                        val = src_values[index_order[scen_idx]]
+                    else:
+                        val = None
+
+                row = [
+                    "CAGR",
+                    display_metric,
+                    year,
+                    scenario,
+                    *[format_fraction(val) for _ in country_names],
+                ]
+                rows.append(row)
+
+    # === Mobility per capita (Freight/Passenger) CAGRs per country ===
+    try:
+        mobility_df = get_final_df_with_mobility()
+    except Exception as exc:
+        print(f"Warning: could not build mobility dataframe ({exc})")
+        mobility_df = None
+
+    if mobility_df is not None:
+        year_pairs = {
+            2030: (2020, 2030),
+            2035: (2030, 2035),
+            2040: (2035, 2040),
+            2045: (2040, 2045),
+            2050: (2045, 2050),
+        }
+
+        def get_val(series, year):
+            for key in (f"{float(year)}", f"{year}", float(year), year):
+                if key in series.index:
+                    try:
+                        return float(series[key])
+                    except Exception:
+                        pass
+            return None
+
+        def calc_cagr(a, b, years):
+            try:
+                if a is None or b is None or a == 0:
+                    return None
+                return (b / a) ** (1 / years) - 1
+            except Exception:
+                return None
+
+        for mobility_metric in ["Mobility per capita - Freight", "Mobility per capita - Passenger"]:
+            # Base year (2020) level rows
+            base_values = []
+            for country in country_names:
+                try:
+                    series = mobility_df.loc[(country, mobility_metric)]
+                except KeyError:
+                    base_values.append(None)
+                    continue
+                base_values.append(get_val(series, base_year))
+
+            row = [
+                "Base",
+                mobility_metric,
+                base_year,
+                "Base",
+                *[format_value(v) for v in base_values],
+            ]
+            rows.append(row)
+
+            # CAGR rows for mobility metrics
+            for target_year, (start_year, end_year) in year_pairs.items():
+                values = []
+                for country in country_names:
+                    try:
+                        series = mobility_df.loc[(country, mobility_metric)]
+                    except KeyError:
+                        values.append(None)
+                        continue
+
+                    start_val = get_val(series, start_year)
+                    end_val = get_val(series, end_year)
+                    cagr_val = calc_cagr(start_val, end_val, end_year - start_year)
+                    values.append(cagr_val)
+
+                for scenario in scenario_names:
+                    row = [
+                        "CAGR",
+                        mobility_metric,
+                        target_year,
+                        scenario,
+                        *[format_fraction(v) for v in values],
+                    ]
+                    rows.append(row)
+
+        # === Technology share levels (2020 base, flat for future years) ===
+        try:
+            from build_technology_share import share_technology, Share_of_Direct_Electric_Passenger_Train, TECHNOLOGY_OVERRIDES
+            from helpers import load_global_transport_data, clean_column_headers
+
+            df_raw_source = load_global_transport_data()
+            df_direct_elec = Share_of_Direct_Electric_Passenger_Train(df_raw_source)
+            if "Countries List" not in df_direct_elec.columns:
+                df_direct_elec = clean_column_headers(df_direct_elec)
+            df_direct_elec = df_direct_elec.set_index("Countries List")
+
+            tech_metric_order = list(TECHNOLOGY_OVERRIDES.keys())
+
+            def tech_base_for_country(country):
+                (
+                    technology_gasoline_ice_ldv, technology_diesel_ice_ldv, technology_lpg_ice_ldv,
+                    technology_bev_ldv, technology_fcev_ldv,
+                    technology_diesel_plugin_hybrid_ldv, technology_gasoline_plugin_hybrid_ldv,
+                    technology_diesel_ice_bus, technology_bev_bus, technology_fcev_bus, technology_diesel_plugin_hybrid_bus,
+                    technology_gasoline_ice_2_and_3w, technology_bev_two_three_wheeler,
+                    technology_fcev_passenger_train,
+                    technology_kerosene_passenger_plane, technology_bev_passenger_plane, technology_fcev_passenger_plane,
+                    technology_diesel_ice_ldt, technology_bev_ldt, technology_fcev_ldt, technology_diesel_plugin_hybrid_ldt,
+                    technology_diesel_ice_hdt, technology_bev_hdt, technology_fcev_hdt, technology_diesel_plugin_hybrid_hdt,
+                    technology_fcev_freight_train,
+                    technology_diesel_ice_freight_ship, technology_methanol_freight_ship, technology_ammonia_freight_ship,
+                    technology_bev_freight_ship, technology_fcev_freight_ship,
+                    bioethanol_in_road_gasoline, biodiesel_in_road_diesel, biodiesel_in_rail_diesel,
+                    biodiesel_in_internal_navigation_diesel, biokerosene_in_internal_aviation_fuel,
+                    ice_fuel_in_plugin_hybrid
+                ) = share_technology(country, year=2019)
+
+                # Direct electric train share (percent); diesel is complement
+                try:
+                    direct_train_pct = float(df_direct_elec.loc[country, "2020.0"])
+                except Exception:
+                    direct_train_pct = 0.0
+                diesel_train_pct = 100.0 - direct_train_pct
+
+                tech_base = {
+                    "Share of Technology - Gasoline ICE LDV": technology_gasoline_ice_ldv,
+                    "Share of Technology - Diesel ICE LDV": technology_diesel_ice_ldv,
+                    "Share of Technology - LPG ICE LDV": technology_lpg_ice_ldv,
+                    "Share of Technology - BEV LDV": technology_bev_ldv,
+                    "Share of Technology - FCEV LDV": technology_fcev_ldv,
+                    "Share of Technology - Diesel Plugin Hybrid LDV": technology_diesel_plugin_hybrid_ldv,
+                    "Share of Technology - Gasoline Plugin Hybrid LDV": technology_gasoline_plugin_hybrid_ldv,
+                    "Share of Technology - Diesel ICE Bus": technology_diesel_ice_bus,
+                    "Share of Technology - BEV Bus": technology_bev_bus,
+                    "Share of Technology - FCEV Bus": technology_fcev_bus,
+                    "Share of Technology - Diesel Plugin Hybrid Bus": technology_diesel_plugin_hybrid_bus,
+                    "Share of Technology - Gasoline ICE 2&3W": technology_gasoline_ice_2_and_3w,
+                    "Share of Technology - BEV 2&3W": technology_bev_two_three_wheeler,
+                    "Share of Technology - Diesel ICE Passenger Train": diesel_train_pct,
+                    "Share of Technology - Direct Electric Passenger Train": direct_train_pct,
+                    "Share of Technology - FCEV Passenger Train": technology_fcev_passenger_train,
+                    "Share of Technology - Kerosene Passenger Plane": technology_kerosene_passenger_plane,
+                    "Share of Technology - BEV Passenger Plane": technology_bev_passenger_plane,
+                    "Share of Technology - FCEV Passenger Plane": technology_fcev_passenger_plane,
+                    "Share of Technology - Diesel ICE LDT": technology_diesel_ice_ldt,
+                    "Share of Technology - BEV LDT": technology_bev_ldt,
+                    "Share of Technology - FCEV LDT": technology_fcev_ldt,
+                    "Share of Technology - Diesel Plugin Hybrid LDT": technology_diesel_plugin_hybrid_ldt,
+                    "Share of Technology - Diesel ICE HDT": technology_diesel_ice_hdt,
+                    "Share of Technology - BEV HDT": technology_bev_hdt,
+                    "Share of Technology - FCEV HDT": technology_fcev_hdt,
+                    "Share of Technology - Diesel Plugin Hybrid HDT": technology_diesel_plugin_hybrid_hdt,
+                    "Share of Technology - Diesel ICE Freight Train": diesel_train_pct,
+                    "Share of Technology - Direct Electric Freight Train": direct_train_pct,
+                    "Share of Technology - FCEV Freight Train": technology_fcev_freight_train,
+                    "Share of Technology - Diesel ICE Freight Ship": technology_diesel_ice_freight_ship,
+                    "Share of Technology - Methanol Freight Ship": technology_methanol_freight_ship,
+                    "Share of Technology - Ammonia Freight Ship": technology_ammonia_freight_ship,
+                    "Share of Technology - BEV Freight Ship": technology_bev_freight_ship,
+                    "Share of Technology - FCEV Freight Ship": technology_fcev_freight_ship,
+                    "Share of Bioethanol in Road Gasoline": bioethanol_in_road_gasoline,
+                    "Share of Biodiesel in Road Diesel": biodiesel_in_road_diesel,
+                    "Share of Biodiesel in Rail Diesel": biodiesel_in_rail_diesel,
+                    "Share of Biodiesel in Internal Navigation Diesel": biodiesel_in_internal_navigation_diesel,
+                    "Share of Biokerosene in Internal Aviation Fuel": biokerosene_in_internal_aviation_fuel,
+                    "Share of ICE Fuel in Plugin Hybrid": ice_fuel_in_plugin_hybrid,
+                }
+
+                def pct(val):
+                    if val is None or pd.isna(val):
+                        return None
+                    try:
+                        f = float(val)
+                        return f * 100.0 if abs(f) <= 1 else f
+                    except Exception:
+                        return None
+
+                return {k: pct(tech_base.get(k)) for k in tech_metric_order}
+
+            tech_base_by_country = {c: tech_base_for_country(c) for c in country_names}
+
+            # Base rows (2020) with scenario "Base"
+            for metric in tech_metric_order:
+                values = [tech_base_by_country.get(c, {}).get(metric) for c in country_names]
+                row = ["Base", metric, base_year, "Base", *[format_value(v) for v in values]]
+                rows.append(row)
+
+            # Flat projections: copy 2020 value to all target years/scenarios
+            for metric in tech_metric_order:
+                values = [tech_base_by_country.get(c, {}).get(metric) for c in country_names]
+                for year in target_years:
+                    for scenario in scenario_names:
+                        row = ["Value", metric, year, scenario, *[format_value(v) for v in values]]
+                        rows.append(row)
+
+        except Exception as exc:
+            print(f"Warning: could not compute technology share rows ({exc})")
+
+        # === Share/Mode/Subsector CAGRs (from config) replicated across countries ===
+        # === Share/Mode/Subsector CAGRs computed directly from Khalili source per country ===
+        try:
+            import pandas as _pd
+            from helpers import load_global_transport_data, clean_column_headers, clean_missing_countries
+            from build_share_subsectors import split_by_sector, HDT_SHARE_BY_COUNTRY
+            from build_share_mode import process_bus_share_data, share_of_two_Three
+
+            df_raw_source = load_global_transport_data()
+            df_clean_source = clean_column_headers(clean_missing_countries(df_raw_source))
+
+            # Helper to keep only year columns and set country as index
+            def _years_only(df_in):
+                df = df_in.copy()
+                if "Countries List" in df.columns:
+                    df = df.set_index("Countries List")
+                year_cols_local = [c for c in df.columns if str(c).replace(".", "", 1).isdigit()]
+                return df[year_cols_local].apply(_pd.to_numeric, errors="coerce")
+
+            sector_dfs = split_by_sector(df_clean_source)
+
+            # Mode shares from Khalili (already in %)
+            bus_share_df = _years_only(process_bus_share_data(df_raw_source))
+            two_three_share_df = _years_only(share_of_two_Three(df_raw_source))
+
+            # HDT share of trucks (stored as fraction); keep as-is for CAGR
+            hdt_share_df = HDT_SHARE_BY_COUNTRY.copy()
+
+            # Subsector shares computed from Khalili volumes
+            rp = _years_only(sector_dfs.get("road_passenger", _pd.DataFrame()))
+            rail_p = _years_only(sector_dfs.get("rail_passenger", _pd.DataFrame()))
+            av_p = _years_only(sector_dfs.get("aviation_passenger", _pd.DataFrame()))
+            marine_p = _years_only(sector_dfs.get("marine_passenger", _pd.DataFrame()))
+
+            road_f = _years_only(sector_dfs.get("road_freight", _pd.DataFrame()))
+            rail_f = _years_only(sector_dfs.get("rail_freight", _pd.DataFrame()))
+            av_f = _years_only(sector_dfs.get("aviation_freight", _pd.DataFrame()))
+            marine_f = _years_only(sector_dfs.get("marine_freight", _pd.DataFrame()))
+
+            total_passenger = rp.add(rail_p, fill_value=0).add(av_p, fill_value=0).add(marine_p, fill_value=0)
+            total_freight = road_f.add(rail_f, fill_value=0).add(av_f, fill_value=0).add(marine_f, fill_value=0)
+
+            def _safe_share(numer, denom):
+                share = numer.copy()
+                share.loc[:, :] = _pd.NA
+                mask = denom > 0
+                share[mask] = (numer[mask] / denom[mask]) * 100
+                return share
+
+            share_rail_passenger_df = _safe_share(rail_p, total_passenger)
+            share_av_passenger_df = _safe_share(av_p, total_passenger)
+            share_rail_freight_df = _safe_share(rail_f, total_freight)
+            share_nav_freight_df = _safe_share(marine_f, total_freight)
+
+            share_tables = {
+                "Share per Mode - Bus": bus_share_df,
+                "Share per Mode - 2&3W": two_three_share_df,
+                "Share per Mode - HDT": hdt_share_df,
+                "Share per Subsector - Rail Passenger = Train": share_rail_passenger_df,
+                "Share per Subsector - Aviation Passenger = Plane": share_av_passenger_df,
+                "Share per Subsector - Rail Freight = Train": share_rail_freight_df,
+                "Share per Subsector - Navigation Freight = Ship": share_nav_freight_df,
+            }
+
+            # Base year (2020) levels for share/mode/subsector metrics
+            for metric, table in share_tables.items():
+                base_values = []
+                for country in country_names:
+                    if table is None or table.empty or country not in table.index:
+                        base_values.append(None)
+                        continue
+
+                    def _extract(df, yr):
+                        for key in (f"{float(yr)}", f"{yr}", float(yr), yr):
+                            if key in df.columns:
+                                try:
+                                    return float(df.loc[country, key])
+                                except Exception:
+                                    pass
+                        return None
+
+                    val = _extract(table, base_year)
+                    if metric == "Share per Mode - HDT" and val is not None and abs(val) <= 1:
+                        val = val * 100.0  # express HDT share as percent for output
+                    base_values.append(val)
+
+                row = [
+                    "Base",
+                    metric,
+                    base_year,
+                    "Base",
+                    *[format_value(v) for v in base_values],
+                ]
+                rows.append(row)
+
+            # CAGR rows for share/mode/subsector metrics
+            for metric, table in share_tables.items():
+                for target_year, (start_year, end_year) in year_pairs.items():
+                    values = []
+                    for country in country_names:
+                        if table is None or table.empty or country not in table.index:
+                            values.append(None)
+                            continue
+
+                        def _extract(df, yr):
+                            for key in (f"{float(yr)}", f"{yr}", float(yr), yr):
+                                if key in df.columns:
+                                    try:
+                                        return float(df.loc[country, key])
+                                    except Exception:
+                                        pass
+                            return None
+
+                        start_val = _extract(table, start_year)
+                        end_val = _extract(table, end_year)
+                        values.append(calc_cagr(start_val, end_val, end_year - start_year))
+
+                    for scenario in scenario_names:
+                        row = [
+                            "CAGR",
+                            metric,
+                            target_year,
+                            scenario,
+                            *[format_fraction(v) for v in values],
+                        ]
+                        rows.append(row)
+
+        except Exception as exc:
+            print(f"Warning: could not compute share/mode/subsector CAGRs from Khalili ({exc})")
+
+    # === Order rows: 2020 first, then 2030→2050; metrics in requested order ===
+    desired_metric_order = [
+        "Population",
+        "Mobility per capita - Passenger",
+        "Share per Subsector - Road Passenger",
+        "Share per Subsector - Rail Passenger = Train",
+        "Share per Subsector - Aviation Passenger = Plane",
+        "Share per Mode - LDV",
+        "Share per Mode - Bus",
+        "Share per Mode - 2&3W",
+        "Load Factor - LDV",
+        "Load Factor - Bus",
+        "Load Factor - 2&3W",
+        "Load Factor - Passenger Train",
+        "Load Factor - Passenger Plane",
+        "Share of Technology - Gasoline ICE LDV",
+        "Share of Technology - Diesel ICE LDV",
+        "Share of Technology - LPG ICE LDV",
+        "Share of Technology - BEV LDV",
+        "Share of Technology - FCEV LDV",
+        "Share of Technology - Diesel Plugin Hybrid LDV",
+        "Share of Technology - Gasoline Plugin Hybrid LDV",
+        "Share of Technology - Diesel ICE Bus",
+        "Share of Technology - BEV Bus",
+        "Share of Technology - FCEV Bus",
+        "Share of Technology - Diesel Plugin Hybrid Bus",
+        "Share of Technology - Gasoline ICE 2&3W",
+        "Share of Technology - BEV 2&3W",
+        "Share of Technology - Diesel ICE Passenger Train",
+        "Share of Technology - Direct Electric Passenger Train",
+        "Share of Technology - FCEV Passenger Train",
+        "Share of Technology - Kerosene Passenger Plane",
+        "Share of Technology - BEV Passenger Plane",
+        "Share of Technology - FCEV Passenger Plane",
+        "Final Energy Intensity - Gasoline ICE LDV",
+        "Final Energy Intensity - Diesel ICE LDV",
+        "Final Energy Intensity - LPG ICE LDV",
+        "Final Energy Intensity - BEV LDV",
+        "Final Energy Intensity - FCEV LDV",
+        "Final Energy Intensity - Diesel Plugin Hybrid LDV",
+        "Final Energy Intensity - Gasoline Plugin Hybrid LDV",
+        "Final Energy Intensity - Diesel ICE Bus",
+        "Final Energy Intensity - BEV Bus",
+        "Final Energy Intensity - FCEV Bus",
+        "Final Energy Intensity - Diesel Plugin Hybrid Bus",
+        "Final Energy Intensity - Gasoline ICE 2&3W",
+        "Final Energy Intensity - BEV 2&3W",
+        "Final Energy Intensity - Diesel ICE Passenger Train",
+        "Final Energy Intensity - Direct Electric Passenger Train",
+        "Final Energy Intensity - FCEV Passenger Train",
+        "Final Energy Intensity - Kerosene Passenger Plane",
+        "Final Energy Intensity - BEV Passenger Plane",
+        "Final Energy Intensity - FCEV Passenger Plane",
+        "Mobility per capita - Freight",
+        "Share per Subsector - Road Freight",
+        "Share per Subsector - Rail Freight = Train",
+        "Share per Subsector - Navigation Freight = Ship",
+        "Share per Mode - LDT",
+        "Share per Mode - HDT",
+        "Load Factor - LDT",
+        "Load Factor - HDT",
+        "Load Factor - Freight Train",
+        "Load Factor - Freight Ship",
+        "Share of Technology - Diesel ICE LDT",
+        "Share of Technology - BEV LDT",
+        "Share of Technology - FCEV LDT",
+        "Share of Technology - Diesel Plugin Hybrid LDT",
+        "Share of Technology - Diesel ICE HDT",
+        "Share of Technology - BEV HDT",
+        "Share of Technology - FCEV HDT",
+        "Share of Technology - Diesel Plugin Hybrid HDT",
+        "Share of Technology - Diesel ICE Freight Train",
+        "Share of Technology - Direct Electric Freight Train",
+        "Share of Technology - FCEV Freight Train",
+        "Share of Technology - Diesel ICE Freight Ship",
+        "Share of Technology - Methanol Freight Ship",
+        "Share of Technology - Ammonia Freight Ship",
+        "Share of Technology - BEV Freight Ship",
+        "Share of Technology - FCEV Freight Ship",
+        "Final Energy Intensity - Diesel ICE LDT",
+        "Final Energy Intensity - BEV LDT",
+        "Final Energy Intensity - FCEV LDT",
+        "Final Energy Intensity - Diesel Plugin Hybrid LDT",
+        "Final Energy Intensity - Diesel ICE HDT",
+        "Final Energy Intensity - BEV HDT",
+        "Final Energy Intensity - FCEV HDT",
+        "Final Energy Intensity - Diesel Plugin Hybrid HDT",
+        "Final Energy Intensity - Diesel ICE Freight Train",
+        "Final Energy Intensity - Direct Electric Freight Train",
+        "Final Energy Intensity - FCEV Freight Train",
+        "Final Energy Intensity - Diesel Freight Ship",
+        "Final Energy Intensity - Methanol Freight Ship",
+        "Final Energy Intensity - Ammonia Freight Ship",
+        "Final Energy Intensity - BEV Freight Ship",
+        "Final Energy Intensity - FCEV Freight Ship",
+        "Share of Bioethanol in Road Gasoline",
+        "Share of Biodiesel in Road Diesel",
+        "Share of Biodiesel in Rail Diesel",
+        "Share of Biodiesel in Internal Navigation Diesel",
+        "Share of Biokerosene in Internal Aviation Fuel",
+        "Share of ICE Fuel in Plugin Hybrid",
+        "Share of Technology - Electricity International Aviation",
+        "Share of Technology - Hydrogen International Maritime",
+        "Share of Technology - Gas International Maritime",
+        "Share of Technology - Electricity International Maritime",
+        "Share of Technology - Oil International Aviation",
+        "Share of Technology - Gas International Aviation",
+        "Share of Technology - Biomass International Maritime",
+        "Share of Technology - Biomass International Aviation",
+        "Share of Technology - Hydrogen International Aviation",
+        "Share of Technology - Oil International Maritime",
+    ]
+
+    metric_rank = {m: i for i, m in enumerate(desired_metric_order)}
+    year_rank = {2020: 0, 2030: 1, 2035: 2, 2040: 3, 2045: 4, 2050: 5}
+    scenario_rank = {"Base": 0, "BAU": 1, "Progressive": 2, "Optimistic": 3}
+
+    df = pd.DataFrame(rows[1:], columns=header)
+    df["Year"] = pd.to_numeric(df["Year"], errors="coerce")
+
+    df["__year_rank"] = df["Year"].apply(lambda y: year_rank.get(int(y), len(year_rank)))
+    df["__metric_rank"] = df["Metric Name"].apply(lambda m: metric_rank.get(m, len(metric_rank)))
+    df["__scenario_rank"] = df["Scenario"].apply(lambda s: scenario_rank.get(s, len(scenario_rank)))
+
+    df.sort_values(by=["__year_rank", "__metric_rank", "__scenario_rank"], inplace=True)
+    df.drop(columns=["__year_rank", "__metric_rank", "__scenario_rank"], inplace=True)
+
+    os.makedirs(os.path.dirname(output_csv_path), exist_ok=True)
+    df.to_csv(output_csv_path, index=False)
+
+    return output_csv_path
+
+
+if __name__ == "__main__":
+    # Generate the long-format CAGR export when the script is run directly.
+    export_final_energy_intensity_cagr_with_intermediate()

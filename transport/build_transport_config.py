@@ -842,3 +842,9 @@ def main(base_year=None, target_years=None, scenarios=None):
 if __name__ == "__main__":
     refresh_unsd_master_data()
     main()
+    try:
+        from build_CAGR import export_final_energy_intensity_cagr_with_intermediate
+        export_final_energy_intensity_cagr_with_intermediate()
+        print("  Saved: transport/final_energy_intensity_all_metrics_cagr_5yr.csv")
+    except Exception as e:
+        print(f" WARNING: Failed to export final_energy_intensity_all_metrics_cagr_5yr.csv ({e})")
