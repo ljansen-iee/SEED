@@ -20,7 +20,7 @@ unsd_global_output = unsd_global_dir / "international_marine_and_aviation_data.x
 os.makedirs(unsd_global_dir, exist_ok=True)
 
 # Default target years used across transport scripts when not overridden
-DEFAULT_TARGET_YEARS = [2030, 2035, 2040, 2045, 2050]
+DEFAULT_TARGET_YEARS = [2030, 2050]
 
 def find_input_folder():
     script_dir = Path(__file__).resolve().parent
@@ -539,6 +539,10 @@ def generate_units_dictionary():
         "Share of Biodiesel in Internal Navigation Diesel": "% of km",
         "Share of Biokerosene in Internal Aviation Fuel": "% of km",
         "Share of ICE Fuel in Plugin Hybrid": "% of km",
+
+        # === International bunkers (totals) ===
+        "Final Energy - Int. Maritime": "TWh",
+        "Final Energy - Int. Aviation": "TWh",
         
     }
 
@@ -734,13 +738,28 @@ def load_transport_config(excel_path: Path, countries: list, scenarios: list):
     """
     # --- NEW: Robust Path Check ---
     excel_path = Path(excel_path)
+    if excel_path.suffix == "":
+        excel_path = excel_path.with_suffix(".csv")
+
+    # Auto-create a blank config if it is missing to avoid hard failures
     if not excel_path.exists():
-        # Try adding .csv if it was missing
-        if excel_path.suffix == "":
-            excel_path = excel_path.with_suffix(".csv")
-    
-    if not excel_path.exists():
-        raise FileNotFoundError(f"Could not find config file at {excel_path}")
+        excel_path.parent.mkdir(parents=True, exist_ok=True)
+        columns = [
+            "Assumption Type",
+            "Metric Name",
+            "Year",
+            "Scenario",
+            "default",
+        ]
+        for country in countries:
+            if country not in columns:
+                columns.append(country)
+
+        df_empty = pd.DataFrame(columns=columns)
+        if excel_path.suffix.lower() == ".csv":
+            df_empty.to_csv(excel_path, index=False)
+        else:
+            df_empty.to_excel(excel_path, index=False)
 
     # --- NEW: Handle both CSV and Excel ---
     if excel_path.suffix.lower() == ".csv":

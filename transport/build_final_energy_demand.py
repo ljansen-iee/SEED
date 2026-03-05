@@ -159,6 +159,7 @@ def safe_div(n, d):
 
 
 
+
 def add_row(rows, sector, subsector, mode, enduse, tech, fuel, scn, vkm, tech_share, inten, fuel_split=1.0):
     """
     Calculates Energy Demand and appends to rows.
@@ -182,26 +183,76 @@ def apply_cagr_projections(df, config_path, country, base_year="2020"):
     """
     try:
         config_df = pd.read_csv(config_path)
-        # Filter for rows where Assumption Type is CAGR
-        cagr_config = config_df[config_df['Assumption Type'] == 'CAGR']
+        config_df['Scenario'] = config_df['Scenario'].astype(str)
+
+        # Separate CAGR and Value rows
+        cagr_config = config_df[config_df['Assumption Type'].str.upper() == 'CAGR']
+        value_config = config_df[config_df['Assumption Type'].str.upper() == 'VALUE']
     except Exception as e:
         print(f"  Warning: Error loading CAGR config: {e}")
         return df
 
 
 
-    # 1. Identify and sort milestone years present in the dataframe columns
-    # We extract digits to identify years like '2020', '2030_Baseline', etc.
+    # 1. Identify and sort milestone years present in the dataeline', etc.
     all_cols = [c for c in df.columns if c not in ["Metric", "Units"]]
 
     def extract_year(column_name):
         digits = "".join(filter(str.isdigit, column_name))
         return int(digits) if digits else None
 
-    # Get a sorted list of unique numeric years: [2020, 2030, 2035, 2040, 2045, 2050]
+    # Get a sorted listframe columns
+    # We extract digits to identify years like '2020', '2030_Bas of unique numeric years: [2020, 2030, 2035, 2040, 2045, 2050]
     unique_years = sorted(list(set(extract_year(c) for c in all_cols if extract_year(c) is not None)))
     if len(unique_years) < 2:
         return df
+    # --- Apply VALUE overrides before chaining CAGRs ---
+    def resolve_target_scenarios(scen_value):
+        scen_lower = str(scen_value).lower()
+        if scen_value in SCENARIOS:
+            return [scen_value]
+        if scen_lower == 'all':
+            return list(SCENARIOS)
+        # handle aliases sc_a/sc_b/sc_c
+        if scen_lower.startswith('sc_') and len(scen_lower) == 4:
+            idx = ord(scen_lower[-1]) - ord('a')
+            if 0 <= idx < len(SCENARIOS):
+                return [SCENARIOS[idx]]
+        return []
+
+    override_cells = set()
+    for _, row in value_config.iterrows():
+        metric = str(row.get('Metric Name', '')).strip()
+        try:
+            year_val = int(row.get('Year'))
+        except Exception:
+            continue
+        target_scenarios = resolve_target_scenarios(row.get('Scenario', ''))
+        if not target_scenarios:
+            continue
+
+        # pick country value, else default
+        country_val = row.get(country, np.nan)
+        val = country_val if pd.notna(country_val) and str(country_val) != '' else row.get('default', np.nan)
+        if pd.isna(val) or str(val) == '':
+            continue
+        try:
+            val = float(val)
+        except Exception:
+            continue
+
+        for scen in target_scenarios:
+            # Base year columns in the source file are stored without scenario suffix
+            if year_val == int(base_year):
+                col_name = str(year_val)
+            else:
+                col_name = f"{year_val}_{scen}"
+
+            if col_name not in df.columns:
+                df[col_name] = np.nan
+            df.loc[df['Metric'] == metric, col_name] = val
+            override_cells.add((metric, col_name))
+
     # 2. Iterate through the intervals (e.g., 2020-2030, 2030-2035, 2035-2040)
     for i in range(1, len(unique_years)):
         prev_yr_num = unique_years[i-1]
@@ -219,25 +270,27 @@ def apply_cagr_projections(df, config_path, country, base_year="2020"):
                     if scn_name in col:
                         scenario_from_col = scn_name
                         break
-                
-                if scenario_from_col is None:
-                    # Fallback: if no scenario found, use "all" or skip
-                    scenario_for_lookup = "all"
-                else:
-                    # Dynamically map to config scenario name (sc_a, sc_b, sc_c, etc.)
-                    # based on position in SCENARIOS list - NO hardcoding
-                    scenario_for_lookup = get_config_scenario_name(scenario_from_col)
+
+                # Build a set of possible labels to match against the config (handles BAU/Progressive/Optimistic or sc_a/sc_b/sc_c/all)
+                scenario_candidates = []
+                if scenario_from_col:
+                    scenario_candidates.append(scenario_from_col)
+                    scenario_candidates.append(scenario_from_col.lower())
+                    scenario_alias = get_config_scenario_name(scenario_from_col)
+                    if scenario_alias:
+                        scenario_candidates.append(scenario_alias)
+                scenario_candidates.append("all")
+                scenario_candidates_lower = {str(s).lower() for s in scenario_candidates if s}
 
                 # Find the specific CAGR for this Metric, Year, and Scenario
-
                 match = cagr_config[
                     (cagr_config['Metric Name'] == metric) &
                     (cagr_config['Year'] == curr_yr_num) &
-                    (cagr_config['Scenario'].str.lower() == scenario_for_lookup.lower())
+                    (cagr_config['Scenario'].str.lower().isin(scenario_candidates_lower))
                 ]
-            
+
                 if match.empty:
-                    # Fallback to 'all' scenario or 'default' if specific scenario not found
+                    # Fallback to any scenario for that metric/year
                     match = cagr_config[
                         (cagr_config['Metric Name'] == metric) &
                         (cagr_config['Year'] == curr_yr_num)
@@ -250,6 +303,10 @@ def apply_cagr_projections(df, config_path, country, base_year="2020"):
 
                     if not pd.isna(cagr_val):
                         cagr = float(cagr_val)
+
+                        # Skip if this cell was explicitly overridden by a Value row
+                        if (metric, col) in override_cells:
+                            continue
 
                         # Find the corresponding base value from the PREVIOUS milestone
                         # We look for a column with the same scenario suffix in the previous year
@@ -539,8 +596,8 @@ def calc_for_scenario(metrics_raw: dict, scenario: str) -> pd.DataFrame:
     # ── 7. International bunkers (REMOVED to match Excel Summary) ──────────
     # Note: Excel excludes these from the main transport fuel summary table.
     # If you need them later for a separate report, keep the variables but don't append to 'rows'.
-    # int_maritime_twh = get_metric(metrics_raw, "Total Energy - Int. Maritime", scenario, 0.0)
-    # int_aviation_twh = get_metric(metrics_raw, "Total Energy - Int. Aviation", scenario, 0.0)
+    # int_maritime_twh = get_metric(metrics_raw, "Final Energy - Int. Maritime", scenario, 0.0)
+    # int_aviation_twh = get_metric(metrics_raw, "Final Energy - Int. Aviation", scenario, 0.0)
 
     # ── 8. Add total row ─────────────────────────────────────────────────────
     # This sum now only includes the domestic transport rows calculated in steps 1-6
@@ -736,6 +793,9 @@ def run(country: str, base_dir: str = "output_data") -> None:
         df = apply_cagr_projections(df, transport_config_path, country, base_year="2020")
         # 2. Balance the 100% shares
         df = calculate_remainders(df)
+
+        # Persist the refreshed assumptions back to the source CSV so the user can see the applied values
+        df.to_csv(file_path, index=False)
 
         # SAVE THE REFRESHED DATA FOR VERIFICATION
         debug_dir = os.path.join(results_dir, "country_specific", country)
@@ -941,8 +1001,8 @@ if __name__ == "__main__":
                         print(f"    [WARNING] UNSD file not found at {unsd_global_output}")
                     
                     # Expand bunker values using CAGR for all target years and scenarios
-                    marine_cagr = get_cagr(cagr_values, "Total Energy - Int. Maritime")
-                    aviation_cagr = get_cagr(cagr_values, "Total Energy - Int. Aviation")
+                    marine_cagr = get_cagr(cagr_values, "Final Energy - Int. Maritime")
+                    aviation_cagr = get_cagr(cagr_values, "Final Energy - Int. Aviation")
                     
                     marine_expanded = expand_with_cagr(
                         marine_base,

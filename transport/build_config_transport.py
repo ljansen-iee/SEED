@@ -27,6 +27,9 @@ validate_scenarios_and_ssp(SCENARIOS, SSP_ORDER)
 
 TARGET_YEARS = DEFAULT_TARGET_YEARS
 
+# Toggle to keep bunker totals out of the country parameter CSV while still allowing CAGRs in trans_config.
+INCLUDE_BUNKER_TOTALS_IN_OUTPUT = False
+
 def _resolve_transport_dir():
     try:
         return Path(__file__).resolve().parent
@@ -42,11 +45,6 @@ TRANSPORT_DIR = _resolve_transport_dir()
 transport_config_file = "trans_config.csv"
 transport_config_path = TRANSPORT_DIR / transport_config_file
 
-print("\n===============================")
-print("Running transport sector pipeline")
-print(f"Transport assumptions file: {transport_config_file}")
-print("===============================\n")
-
 countries_to_process = ["Morocco"]
                        #"Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Nigeria"]
                        #"Algeria","Argentina","Brazil","Chile","Colombia","Mexico","Peru","Venezuela",
@@ -57,11 +55,30 @@ countries_to_process = ["Morocco"]
 
 countries_to_load = countries_to_process + ["default"] 
 
-transport_config = load_transport_config(
-    excel_path=transport_config_path,
-    countries=countries_to_load,
-    scenarios=SCENARIOS
-)
+transport_config = None
+
+
+def ensure_transport_config():
+    """Generate trans_config.csv if it is missing or empty so CAGRs are available."""
+    cfg_path = transport_config_path
+    needs_build = False
+
+    if not cfg_path.exists():
+        needs_build = True
+    else:
+        try:
+            df_check = pd.read_csv(cfg_path)
+            needs_build = df_check.empty
+        except Exception:
+            needs_build = True
+
+    if needs_build:
+        try:
+            from transport.build_CAGR import export_final_energy_intensity_cagr_with_intermediate
+            export_final_energy_intensity_cagr_with_intermediate(output_csv_path=cfg_path)
+            print(f"Generated transport config at {cfg_path}")
+        except Exception as exc:
+            print(f" WARNING: Failed to auto-generate trans_config.csv ({exc})")
 
 
 def warn_missing_countries(df_cleaned, country_list):
@@ -74,16 +91,21 @@ def warn_missing_countries(df_cleaned, country_list):
     if missing:
         print(f"WARNING: Countries not found in transport input data: {sorted(missing)}")
 
-# Extract the Default values once
-DEFAULT_VALUES, DEFAULT_ASSUMPTION_TYPES = extract_config_data(transport_config, "default")
-if not DEFAULT_VALUES:
-    print(" WARNING: No 'default' data found in trans_config.xlsx. Fallback logic might fail.")
-
 def main(base_year=None, target_years=None, scenarios=None):
     # Use arguments if provided, else defaults
     base_year = int(base_year) if base_year is not None else BASE_YEAR
     target_years = list(map(int, target_years)) if target_years is not None else list(TARGET_YEARS)
     scenarios = list(scenarios) if scenarios is not None else list(SCENARIOS)
+
+    ensure_transport_config()
+
+    transport_config_local = load_transport_config(
+        excel_path=transport_config_path,
+        countries=countries_to_load,
+        scenarios=scenarios
+    )
+
+    DEFAULT_VALUES, DEFAULT_ASSUMPTION_TYPES = extract_config_data(transport_config_local, "default")
 
     # Load global transport data
     try:
@@ -128,7 +150,7 @@ def main(base_year=None, target_years=None, scenarios=None):
         # === Load Data & Merge with Defaults ===
         # === Load Data & Merge with Defaults ===
         try:
-            country_values, country_types = extract_config_data(transport_config, selected_country)
+            country_values, country_types = extract_config_data(transport_config_local, selected_country)
 
             # --- FIX: Clean NaN values so they don't overwrite defaults ---
             country_values = {k: ({sk: sv for sk, sv in v.items() if pd.notna(sv)} if isinstance(v, dict) else v) 
@@ -605,12 +627,21 @@ def main(base_year=None, target_years=None, scenarios=None):
             # --- 3. Add Fuel Share Rows to Output ---
             
             # Add Aviation fuel share rows
-            BUNKER_FUELS = {"oil", "gas", "electricity", "biomass", "hydrogen"}
+            BUNKER_FUEL_DISPLAY = {
+                "oil": "Oil",
+                "gas": "Gas",
+                "electricity": "Electricity",
+                "coal": "Coal",
+                "biomass": "Biomass",
+                "heat": "Heat",
+                "hydrogen": "Hydrogen",
+            }
+            BUNKER_FUELS = set(BUNKER_FUEL_DISPLAY.keys())
             for fuel, value in aviation_fuel_shares.items():
                 fuel_lower = fuel.lower()
                 if fuel_lower not in BUNKER_FUELS:
                     continue
-                metric_name = f"Share of Technology - {fuel.capitalize()} International Aviation"
+                metric_name = f"Share of Technology - {BUNKER_FUEL_DISPLAY[fuel_lower]} Int Aviation"
 
                 expanded = {}
                 # Base year
@@ -625,7 +656,7 @@ def main(base_year=None, target_years=None, scenarios=None):
                         if metric_name in cagr_values and year in cagr_values[metric_name]:
                             year_dict = cagr_values[metric_name][year]
                             if scenario in year_dict:
-                                expanded[key] = year_dict[scenario] * 100   
+                                expanded[key] = year_dict[scenario]  # already a % value in config
                             else:
                                 expanded[key] = value
                         else:
@@ -642,7 +673,7 @@ def main(base_year=None, target_years=None, scenarios=None):
                 fuel_lower = fuel.lower()
                 if fuel_lower not in BUNKER_FUELS:
                     continue
-                metric_name = f"Share of Technology - {fuel.capitalize()} International Maritime"
+                metric_name = f"Share of Technology - {BUNKER_FUEL_DISPLAY[fuel_lower]} Int Maritime"
                 expanded = {}
 
                 expanded[str(base_year)] = value
@@ -655,7 +686,7 @@ def main(base_year=None, target_years=None, scenarios=None):
                             year_dict = cagr_values[metric_name][year]
 
                             if scenario in year_dict:
-                                expanded[key] = year_dict[scenario] * 100
+                                expanded[key] = year_dict[scenario]  # already a % value in config
                             else:
                                 expanded[key] = value
                         else:
@@ -667,20 +698,30 @@ def main(base_year=None, target_years=None, scenarios=None):
                     "Units": "%"
                 })
 
-            # --- 4. Expand Total Energy with CAGR ---
-            # Expand Marine TWh
-            marine_expanded = expand_with_cagr(
-                marine_base,
-                get_cagr(cagr_values, "Total Energy - Int. Maritime"),
-                base_year, target_years, scenarios
-            )
+            # --- 4. Expand Total Energy with CAGR (kept for trans_config; optional for output) ---
+            if INCLUDE_BUNKER_TOTALS_IN_OUTPUT:
+                marine_expanded = expand_with_cagr(
+                    marine_base,
+                    get_cagr(cagr_values, "Final Energy - Int. Maritime"),
+                    base_year, target_years, scenarios
+                )
 
-            # Expand Aviation TWh
-            aviation_expanded = expand_with_cagr(
-                aviation_base,
-                get_cagr(cagr_values, "Total Energy - Int. Aviation"),
-                base_year, target_years, scenarios
-            )
+                aviation_expanded = expand_with_cagr(
+                    aviation_base,
+                    get_cagr(cagr_values, "Final Energy - Int. Aviation"),
+                    base_year, target_years, scenarios
+                )
+
+                all_rows.append({
+                    "Metric": "Final Energy - Int. Maritime",
+                    **marine_expanded,
+                    "Units": "TWh",
+                })
+                all_rows.append({
+                    "Metric": "Final Energy - Int. Aviation",
+                    **aviation_expanded,
+                    "Units": "TWh",
+                })
 
         except Exception as e:
             print(f" Error processing International Bunkers for {selected_country}: {e}")
@@ -864,3 +905,10 @@ def main(base_year=None, target_years=None, scenarios=None):
 if __name__ == "__main__":
     refresh_unsd_master_data()
     main()
+    try:
+        from transport.build_CAGR import export_final_energy_intensity_cagr_with_intermediate
+        export_final_energy_intensity_cagr_with_intermediate(output_csv_path=transport_config_path)
+        print(f"  Saved: {transport_config_path}")
+    except Exception as e:
+        print(f" WARNING: Failed to export trans_config.csv ({e})")
+
