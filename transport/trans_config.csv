@@ -387,8 +387,8 @@ Value,Share of Technology - Direct Electric Passenger Train,2045,BAU,57.7778,100
 Value,Share of Technology - Direct Electric Passenger Train,2045,Progressive,57.7778,100
 Value,Share of Technology - Direct Electric Passenger Train,2045,Optimistic,57.7778,100
 Value,Share of Technology - Direct Electric Passenger Train,2050,BAU,57.7778,100
-Value,Share of Technology - Direct Electric Passenger Train,2050,Progressive,57.7778,100
-Value,Share of Technology - Direct Electric Passenger Train,2050,Optimistic,57.7778,100
+Value,Share of Technology - Direct Electric Passenger Train,2050,Progressive,57.7778,98
+Value,Share of Technology - Direct Electric Passenger Train,2050,Optimistic,57.7778,98
 Value,Share of Technology - FCEV Passenger Train,2030,BAU,0,0
 Value,Share of Technology - FCEV Passenger Train,2030,Progressive,0,0
 Value,Share of Technology - FCEV Passenger Train,2030,Optimistic,0,0
@@ -449,6 +449,36 @@ Value,Share of Technology - FCEV Passenger Plane,2045,Optimistic,0,0
 Value,Share of Technology - FCEV Passenger Plane,2050,BAU,0,0
 Value,Share of Technology - FCEV Passenger Plane,2050,Progressive,0,0
 Value,Share of Technology - FCEV Passenger Plane,2050,Optimistic,0,0
+Value,Final Energy Intensity - Gasoline ICE LDV,2030,BAU,0,0.51
+Value,Final Energy Intensity - Gasoline ICE LDV,2030,Progressive,0,0.49
+Value,Final Energy Intensity - Gasoline ICE LDV,2030,Optimistic,0,0.47
+Value,Final Energy Intensity - Gasoline ICE LDV,2035,BAU,0,0.497
+Value,Final Energy Intensity - Gasoline ICE LDV,2035,Progressive,0,0.455
+Value,Final Energy Intensity - Gasoline ICE LDV,2035,Optimistic,0,0.388
+Value,Final Energy Intensity - Gasoline ICE LDV,2040,BAU,0,0.485
+Value,Final Energy Intensity - Gasoline ICE LDV,2040,Progressive,0,0.422
+Value,Final Energy Intensity - Gasoline ICE LDV,2040,Optimistic,0,0.32
+Value,Final Energy Intensity - Gasoline ICE LDV,2045,BAU,0,0.473
+Value,Final Energy Intensity - Gasoline ICE LDV,2045,Progressive,0,0.392
+Value,Final Energy Intensity - Gasoline ICE LDV,2045,Optimistic,0,0.265
+Value,Final Energy Intensity - Gasoline ICE LDV,2050,BAU,0,0.46
+Value,Final Energy Intensity - Gasoline ICE LDV,2050,Progressive,0,0.38
+Value,Final Energy Intensity - Gasoline ICE LDV,2050,Optimistic,0,0.28
+Value,Final Energy Intensity - LPG ICE LDV,2030,BAU,0,0.54
+Value,Final Energy Intensity - LPG ICE LDV,2030,Progressive,0,0.52
+Value,Final Energy Intensity - LPG ICE LDV,2030,Optimistic,0,0.5
+Value,Final Energy Intensity - LPG ICE LDV,2035,BAU,0,0.524
+Value,Final Energy Intensity - LPG ICE LDV,2035,Progressive,0,0.468
+Value,Final Energy Intensity - LPG ICE LDV,2035,Optimistic,0,0.413
+Value,Final Energy Intensity - LPG ICE LDV,2040,BAU,0,0.509
+Value,Final Energy Intensity - LPG ICE LDV,2040,Progressive,0,0.421
+Value,Final Energy Intensity - LPG ICE LDV,2040,Optimistic,0,0.341
+Value,Final Energy Intensity - LPG ICE LDV,2045,BAU,0,0.494
+Value,Final Energy Intensity - LPG ICE LDV,2045,Progressive,0,0.379
+Value,Final Energy Intensity - LPG ICE LDV,2045,Optimistic,0,0.281
+Value,Final Energy Intensity - LPG ICE LDV,2050,BAU,0,0.48
+Value,Final Energy Intensity - LPG ICE LDV,2050,Progressive,0,0.4
+Value,Final Energy Intensity - LPG ICE LDV,2050,Optimistic,0,0.29
 CAGR,Final Energy Intensity - Diesel ICE LDV,2030,BAU,-0.0108,-0.0108
 CAGR,Final Energy Intensity - Diesel ICE LDV,2030,Progressive,-0.0151,-0.0151
 CAGR,Final Energy Intensity - Diesel ICE LDV,2030,Optimistic,-0.019,-0.019
@@ -852,7 +882,7 @@ Value,Share of Technology - FCEV LDT,2045,BAU,0,0
 Value,Share of Technology - FCEV LDT,2045,Progressive,0,1
 Value,Share of Technology - FCEV LDT,2045,Optimistic,0,0
 Value,Share of Technology - FCEV LDT,2050,BAU,0,0
-Value,Share of Technology - FCEV LDT,2050,Progressive,0,0
+Value,Share of Technology - FCEV LDT,2050,Progressive,0,9
 Value,Share of Technology - FCEV LDT,2050,Optimistic,0,1
 Value,Share of Technology - Diesel Plugin Hybrid LDT,2030,BAU,0,0
 Value,Share of Technology - Diesel Plugin Hybrid LDT,2030,Progressive,0,0
@@ -978,16 +1008,16 @@ Value,Share of Technology - Diesel ICE Freight Ship,2030,BAU,0,100
 Value,Share of Technology - Diesel ICE Freight Ship,2030,Progressive,0,65
 Value,Share of Technology - Diesel ICE Freight Ship,2030,Optimistic,0,40
 Value,Share of Technology - Diesel ICE Freight Ship,2035,BAU,0,100
-Value,Share of Technology - Diesel ICE Freight Ship,2035,Progressive,0,65
-Value,Share of Technology - Diesel ICE Freight Ship,2035,Optimistic,0,40
-Value,Share of Technology - Diesel ICE Freight Ship,2040,BAU,0,100
+Value,Share of Technology - Diesel ICE Freight Ship,2050,Progressive,0,0
+Value,Share of Technology - Methanol Freight Ship,2050,Progressive,0,50
+Value,Share of Technology - Ammonia Freight Ship,2050,Progressive,0,20
 Value,Share of Technology - Diesel ICE Freight Ship,2040,Progressive,0,65
 Value,Share of Technology - Diesel ICE Freight Ship,2040,Optimistic,0,40
 Value,Share of Technology - Diesel ICE Freight Ship,2045,BAU,0,100
 Value,Share of Technology - Diesel ICE Freight Ship,2045,Progressive,0,65
 Value,Share of Technology - Diesel ICE Freight Ship,2045,Optimistic,0,40
 Value,Share of Technology - Diesel ICE Freight Ship,2050,BAU,0,100
-Value,Share of Technology - Diesel ICE Freight Ship,2050,Progressive,0,0
+Value,Share of Technology - Diesel ICE Freight Ship,2050,Progressive,0,50
 Value,Share of Technology - Diesel ICE Freight Ship,2050,Optimistic,0,50
 Value,Share of Technology - Methanol Freight Ship,2030,BAU,0,0
 Value,Share of Technology - Methanol Freight Ship,2030,Progressive,0,25
@@ -1002,7 +1032,7 @@ Value,Share of Technology - Methanol Freight Ship,2045,BAU,0,0
 Value,Share of Technology - Methanol Freight Ship,2045,Progressive,0,25
 Value,Share of Technology - Methanol Freight Ship,2045,Optimistic,0,30
 Value,Share of Technology - Methanol Freight Ship,2050,BAU,0,0
-Value,Share of Technology - Methanol Freight Ship,2050,Progressive,0,50
+Value,Share of Technology - Methanol Freight Ship,2050,Progressive,0,25
 Value,Share of Technology - Methanol Freight Ship,2050,Optimistic,0,10
 Value,Share of Technology - Ammonia Freight Ship,2030,BAU,0,0
 Value,Share of Technology - Ammonia Freight Ship,2030,Progressive,0,10
@@ -1019,6 +1049,36 @@ Value,Share of Technology - Ammonia Freight Ship,2045,Optimistic,0,20
 Value,Share of Technology - Ammonia Freight Ship,2050,BAU,0,0
 Value,Share of Technology - Ammonia Freight Ship,2050,Progressive,0,35
 Value,Share of Technology - Ammonia Freight Ship,2050,Optimistic,0,38
+Value,Final Energy Intensity - Methanol Freight Ship,2030,BAU,0,135.63
+Value,Final Energy Intensity - Methanol Freight Ship,2030,Progressive,0,133.41
+Value,Final Energy Intensity - Methanol Freight Ship,2030,Optimistic,0,131.22
+Value,Final Energy Intensity - Methanol Freight Ship,2035,BAU,0,132.7
+Value,Final Energy Intensity - Methanol Freight Ship,2035,Progressive,0,126.1
+Value,Final Energy Intensity - Methanol Freight Ship,2035,Optimistic,0,116.9
+Value,Final Energy Intensity - Methanol Freight Ship,2040,BAU,0,131.1
+Value,Final Energy Intensity - Methanol Freight Ship,2040,Progressive,0,119.1
+Value,Final Energy Intensity - Methanol Freight Ship,2040,Optimistic,0,104.1
+Value,Final Energy Intensity - Methanol Freight Ship,2045,BAU,0,130.5
+Value,Final Energy Intensity - Methanol Freight Ship,2045,Progressive,0,112.5
+Value,Final Energy Intensity - Methanol Freight Ship,2045,Optimistic,0,92.7
+Value,Final Energy Intensity - Methanol Freight Ship,2050,BAU,0,129.98
+Value,Final Energy Intensity - Methanol Freight Ship,2050,Progressive,0,115.21
+Value,Final Energy Intensity - Methanol Freight Ship,2050,Optimistic,0,102.06
+Value,Final Energy Intensity - Ammonia Freight Ship,2030,BAU,0,135.63
+Value,Final Energy Intensity - Ammonia Freight Ship,2030,Progressive,0,133.41
+Value,Final Energy Intensity - Ammonia Freight Ship,2030,Optimistic,0,131.22
+Value,Final Energy Intensity - Ammonia Freight Ship,2035,BAU,0,132.7
+Value,Final Energy Intensity - Ammonia Freight Ship,2035,Progressive,0,126.1
+Value,Final Energy Intensity - Ammonia Freight Ship,2035,Optimistic,0,116.9
+Value,Final Energy Intensity - Ammonia Freight Ship,2040,BAU,0,131.1
+Value,Final Energy Intensity - Ammonia Freight Ship,2040,Progressive,0,119.1
+Value,Final Energy Intensity - Ammonia Freight Ship,2040,Optimistic,0,104.1
+Value,Final Energy Intensity - Ammonia Freight Ship,2045,BAU,0,130.5
+Value,Final Energy Intensity - Ammonia Freight Ship,2045,Progressive,0,112.5
+Value,Final Energy Intensity - Ammonia Freight Ship,2045,Optimistic,0,92.7
+Value,Final Energy Intensity - Ammonia Freight Ship,2050,BAU,0,129.98
+Value,Final Energy Intensity - Ammonia Freight Ship,2050,Progressive,0,115.21
+Value,Final Energy Intensity - Ammonia Freight Ship,2050,Optimistic,0,102.06
 Value,Share of Technology - BEV Freight Ship,2030,BAU,0,0
 Value,Share of Technology - BEV Freight Ship,2030,Progressive,0,0
 Value,Share of Technology - BEV Freight Ship,2030,Optimistic,0,0
@@ -1288,7 +1348,7 @@ Value,Share of Biokerosene in Internal Aviation Fuel,2045,Progressive,0,2
 Value,Share of Biokerosene in Internal Aviation Fuel,2045,Optimistic,0,4
 Value,Share of Biokerosene in Internal Aviation Fuel,2050,BAU,0,0
 Value,Share of Biokerosene in Internal Aviation Fuel,2050,Progressive,0,20
-Value,Share of Biokerosene in Internal Aviation Fuel,2050,Optimistic,0,45
+Value,Share of Biokerosene in Internal Aviation Fuel,2050,Optimistic,0,25
 Value,Share of ICE Fuel in Plugin Hybrid,2030,BAU,50,50
 Value,Share of ICE Fuel in Plugin Hybrid,2030,Progressive,50,50
 Value,Share of ICE Fuel in Plugin Hybrid,2030,Optimistic,50,50

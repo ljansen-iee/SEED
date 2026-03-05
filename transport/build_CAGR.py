@@ -7,6 +7,26 @@ import glob
 import csv
 from pathlib import Path
 
+try:
+    from transport.helpers import DEFAULT_TARGET_YEARS
+except Exception:
+    from helpers import DEFAULT_TARGET_YEARS
+
+
+def _resolve_target_years(base_year=2020, target_years=None):
+    years_source = DEFAULT_TARGET_YEARS if target_years is None else target_years
+    years = []
+    for year in years_source:
+        try:
+            year_int = int(year)
+        except Exception:
+            continue
+        if year_int > int(base_year):
+            years.append(year_int)
+
+    years = sorted(set(years))
+    return years if years else [2030, 2050]
+
 # === Step 0: Helper to find source file (Excel or CSV) ===
 def find_cagr_file(base_dir=None, file_patterns=("CAGR_current.csv", "CAGR_compilation_*.xlsx", "CAGR.csv")):
     """Locate the CAGR source file while ignoring backups/outside copies.
@@ -374,9 +394,11 @@ except Exception:
 
 
 
-def expand_with_piecewise_cagr(base_value, cagr_dict, base_year=2020, target_years=[2030, 2050, 2055]):
+def expand_with_piecewise_cagr(base_value, cagr_dict, base_year=2020, target_years=None):
     
     import pandas as pd
+
+    target_years = _resolve_target_years(base_year=base_year, target_years=target_years)
 
     if base_value in [None] or pd.isna(base_value):
         base_value = 1.0
@@ -790,7 +812,7 @@ def export_final_energy_intensity_cagr_with_intermediate(
         raise ValueError("No countries found in build_transport_config.countries_to_process")
 
     base_year = 2020
-    target_years = [2030, 2035, 2040, 2045, 2050]
+    target_years = _resolve_target_years(base_year=base_year)
 
     header = ["Assumption Type", "Metric Name", "Year", "Scenario", *country_names]
     rows = [header]
@@ -823,7 +845,7 @@ def export_final_energy_intensity_cagr_with_intermediate(
             *[f"{float(v):.4f}" if v is not None and not pd.isna(v) else "" for v in population_base_values],
         ])
 
-        # As requested: keep population CAGR slots blank for all scenarios in 2030..2050
+        # Keep population CAGR slots blank for all configured target years
         for year in target_years:
             for scenario in scenario_names:
                 rows.append([
@@ -912,12 +934,10 @@ def export_final_energy_intensity_cagr_with_intermediate(
         mobility_df = None
 
     if mobility_df is not None:
+        timeline_years = [base_year] + target_years
         year_pairs = {
-            2030: (2020, 2030),
-            2035: (2030, 2035),
-            2040: (2035, 2040),
-            2045: (2040, 2045),
-            2050: (2045, 2050),
+            timeline_years[i]: (timeline_years[i - 1], timeline_years[i])
+            for i in range(1, len(timeline_years))
         }
 
         def get_val(series, year):
@@ -1511,7 +1531,7 @@ def export_final_energy_intensity_cagr_with_intermediate(
     ]
 
     metric_rank = {m: i for i, m in enumerate(desired_metric_order)}
-    year_rank = {2020: 0, 2030: 1, 2035: 2, 2040: 3, 2045: 4, 2050: 5}
+    year_rank = {base_year: 0, **{year: idx + 1 for idx, year in enumerate(target_years)}}
     scenario_rank = {"Base": 0, "BAU": 1, "Progressive": 2, "Optimistic": 3}
 
     df = pd.DataFrame(rows[1:], columns=header)

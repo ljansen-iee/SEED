@@ -1,5 +1,6 @@
 import os
 import glob
+import copy
 import pandas as pd
 import numpy as np
 import pycountry
@@ -69,11 +70,26 @@ def get_iso2_country_code(c):
 # 2. INDICATOR GENERATION FUNCTION (ALL TWh)
 # =============================================================================
 
-def generate_transport_indicators(final_df: pd.DataFrame, country: str) -> pd.DataFrame:
+def generate_transport_indicators(final_df: pd.DataFrame, country: str, metrics_raw: dict = None) -> pd.DataFrame:
     df = final_df.copy()
+    metrics_raw = metrics_raw or {}
+    df["Scenario"] = df["Scenario"].astype(str).str.strip()
+
+    normalized_metrics_raw = {}
+    for metric_name, metric_values in metrics_raw.items():
+        normalized_name = str(metric_name).strip()
+        if isinstance(metric_values, dict):
+            normalized_metrics_raw[normalized_name] = {
+                str(key).strip(): value for key, value in metric_values.items()
+            }
+        else:
+            normalized_metrics_raw[normalized_name] = metric_values
+    metrics_raw = normalized_metrics_raw
     unit_col = "Final Energy Demand (GWh)"
     df[unit_col] = pd.to_numeric(df[unit_col], errors="coerce").fillna(0)
-    
+    scenario_index = pd.Index(df["Scenario"].unique(), name="scenario")
+    gwh_to_twh = 1.0 / 1000.0
+
     def sum_filter(subsector=None, mode=None, enduse=None, fuels=None):
         d = df
         if subsector:
@@ -84,39 +100,113 @@ def generate_transport_indicators(final_df: pd.DataFrame, country: str) -> pd.Da
             d = d[d["End-Use"].isin(enduse if isinstance(enduse, list) else [enduse])]
         if fuels:
             d = d[d["Fuel"].isin(fuels if isinstance(fuels, list) else [fuels])]
-        return d.groupby("Scenario")[unit_col].sum()
+        return d.groupby("Scenario")[unit_col].sum().reindex(scenario_index, fill_value=0.0) * gwh_to_twh
 
+    def get_share_series(metric_name):
+        metric_values = metrics_raw.get(str(metric_name).strip(), {})
+        values = []
+        for scenario in scenario_index:
+            scenario_key = str(scenario).strip()
+            raw_val = metric_values.get(scenario_key, 0.0)
+            try:
+                share = float(raw_val)
+            except Exception:
+                share = 0.0
+            if share > 1:
+                share = share / 100.0
+            values.append(min(1.0, max(0.0, share)))
+        return pd.Series(values, index=scenario_index, dtype=float)
 
-    # safer enduse definitions (End-Use column, not Mode)
     road_enduses = ["LDV", "Bus", "2&3 Wheelers", "Light-Duty Trucks", "Heavy-Duty Trucks"]
     rail_enduses = ["Passenger Train", "Freight Train"]
-    aviation_enduses = ["Passenger Planes", "Freight Planes"]
-    navigation_enduses = ["Freight Ships"]
-    
-    result = pd.DataFrame({"scenario": df["Scenario"].unique(), "country": country}).set_index("scenario")
+    aviation_passenger_enduses = ["Passenger Planes"]
+    navigation_freight_enduses = ["Freight Ships"]
 
-    # Rail - filter by End-Use, not Mode
-    result["electricity rail"] = sum_filter(enduse=rail_enduses, fuels=["Electricity"])
-    result["rail"] = sum_filter(enduse=rail_enduses)
+    road_oil_fuels = ["Gasoline", "Synthetic Gasoline", "Diesel", "Synthetic Diesel", "LPG", "E-Diesel"]
+    rail_oil_fuels = ["Diesel", "Synthetic Diesel", "E-Diesel", "Fuel Oil", "LPG"]
+    aviation_oil_fuels = ["Kerosene", "Synthetic Kerosene", "E-Kerosene", "Fuel Oil"]
+    navigation_oil_fuels = ["Diesel", "Methanol"]
 
-    # Road - filter by End-Use, not Mode
-    result["road biomass"] = sum_filter(enduse=road_enduses, fuels=["Bio Diesel", "Bio Ethanol"])
-    result["road electricity"] = sum_filter(enduse=road_enduses, fuels=["Electricity"])
-    result["road hydrogen"] = sum_filter(enduse=road_enduses, fuels=["Hydrogen"])
-    result["road gas"] = sum_filter(enduse=road_enduses, fuels=["LPG"])
-    result["road oil"] = sum_filter(enduse=road_enduses, fuels=["Gasoline", "Diesel", "Kerosene", "Fuel Oil"])
+    share_bioethanol_road = get_share_series("Share of Bioethanol in Road Gasoline")
+    share_biodiesel_road = get_share_series("Share of Biodiesel in Road Diesel")
+    share_biokerosene_aviation = get_share_series("Share of Biokerosene in Internal Aviation Fuel")
+    share_biodiesel_navigation = get_share_series("Share of Biodiesel in Internal Navigation Diesel")
 
-    total_road = sum_filter(enduse=road_enduses)
-    result["road"] = total_road
-    result["road ev"] = result["road electricity"]
-    result["road fcev"] = result["road hydrogen"]
-    result["road ice"] = total_road - result["road electricity"] - result["road hydrogen"]
+    result = pd.DataFrame(index=scenario_index)
+    result["country"] = country
 
-    # Aviation & Navigation - filter by End-Use, not Mode
-    result["domestic aviation"] = sum_filter(enduse=aviation_enduses)
-    result["domestic navigation"] = sum_filter(enduse=navigation_enduses)
+    rail_electricity = sum_filter(enduse=rail_enduses, fuels=["Electricity"])
+    rail_hydrogen = sum_filter(enduse=rail_enduses, fuels=["Hydrogen"])
+    rail_oil = sum_filter(enduse=rail_enduses, fuels=rail_oil_fuels)
+    result["electricity rail"] = rail_electricity
+    result["total rail"] = rail_oil + rail_electricity + rail_hydrogen
+    result["total rail hydrogen"] = rail_hydrogen
 
-    return result.fillna(0).reset_index()
+    road_total = sum_filter(enduse=road_enduses)
+    road_electricity = sum_filter(enduse=road_enduses, fuels=["Electricity"])
+    road_hydrogen = sum_filter(enduse=road_enduses, fuels=["Hydrogen"])
+    road_gas = sum_filter(enduse=road_enduses, fuels=["LPG"])
+    road_oil = sum_filter(enduse=road_enduses, fuels=road_oil_fuels)
+    road_biomass = sum_filter(enduse=road_enduses, fuels=["Bio Diesel", "Bio Ethanol"])
+
+    result["road biomass"] = road_biomass
+    result["road electricity"] = road_electricity
+    result["road gas"] = road_gas
+    result["road oil"] = road_oil
+    result["total road"] = road_oil + road_biomass + road_electricity + road_hydrogen + road_gas
+    result["total road ev"] = road_electricity
+    result["total road fcev"] = road_hydrogen
+    result["total road ice"] = road_oil + road_biomass
+
+    aviation_oil_gross = sum_filter(enduse=aviation_passenger_enduses, fuels=aviation_oil_fuels)
+    aviation_electricity = sum_filter(enduse=aviation_passenger_enduses, fuels=["Electricity"])
+    aviation_hydrogen = sum_filter(enduse=aviation_passenger_enduses, fuels=["Hydrogen"])
+    aviation_biomass = sum_filter(enduse=aviation_passenger_enduses, fuels=["Bio Kerosene"])
+    aviation_oil = aviation_oil_gross
+    result["total domestic aviation"] = aviation_oil + aviation_electricity + aviation_hydrogen + aviation_biomass
+    result["total aviation biomass"] = aviation_biomass
+
+    navigation_oil_gross = sum_filter(enduse=navigation_freight_enduses, fuels=navigation_oil_fuels)
+    navigation_electricity = sum_filter(enduse=navigation_freight_enduses, fuels=["Electricity"])
+    navigation_hydrogen = sum_filter(enduse=navigation_freight_enduses, fuels=["Hydrogen"])
+    navigation_ammonia = sum_filter(enduse=navigation_freight_enduses, fuels=["Ammonia"])
+    navigation_biomass = sum_filter(enduse=navigation_freight_enduses, fuels=["Bio Diesel"])
+    navigation_oil = navigation_oil_gross
+
+    result["total domestic navigation"] = navigation_oil + navigation_electricity + navigation_hydrogen + navigation_ammonia + navigation_biomass
+    result["total navigation hydrogen"] = navigation_hydrogen
+    result["total navigation oil"] = navigation_oil
+    result["total navigation ammonia"] = navigation_ammonia
+    result["total navigation biomass"] = navigation_biomass
+
+    result["total international aviation"] = np.nan
+    result["total international navigation"] = np.nan
+
+    ordered_columns = [
+        "country",
+        "electricity rail",
+        "total rail",
+        "total rail hydrogen",
+        "road biomass",
+        "road electricity",
+        "road gas",
+        "road oil",
+        "total road",
+        "total road ev",
+        "total road fcev",
+        "total road ice",
+        "total domestic aviation",
+        "total domestic navigation",
+        "total navigation hydrogen",
+        "total navigation oil",
+        "total navigation ammonia",
+        "total navigation biomass",
+        "total aviation biomass",
+        "total international aviation",
+        "total international navigation",
+    ]
+
+    return result[ordered_columns].reset_index()
 
 
 # =============================================================================
@@ -759,6 +849,79 @@ def build_summary(df, metrics_raw):
     
     return fuel_summary.round(4), mode_summary.round(4), subsector_summary.round(4), enduse_summary.round(4)
 
+
+def parse_scenario_name(scenario_str):
+    parts = str(scenario_str).split('_')
+    year = int(parts[0]) if parts and parts[0].isdigit() else None
+    scenario = '_'.join(parts[1:]) if len(parts) > 1 else None
+    return year, scenario
+
+
+def get_country_bunker_series(country: str, scenario_labels, transport_cfg: dict):
+    empty = {'maritime': {}, 'aviation': {}}
+    if not transport_cfg:
+        return empty
+
+    parsed = [parse_scenario_name(s) for s in scenario_labels]
+    years_present = sorted(set(year for year, _ in parsed if year is not None))
+    if not years_present:
+        return empty
+
+    base_year = years_present[0]
+    target_years = years_present
+    scenario_types = sorted(set(scenario for _, scenario in parsed if scenario is not None))
+
+    try:
+        default_values, _ = extract_config_data(transport_cfg, "default")
+        country_values, _ = extract_config_data(transport_cfg, country)
+
+        cagr_values = copy.deepcopy(default_values)
+        for key, value in country_values.items():
+            if key in cagr_values and isinstance(cagr_values[key], dict) and isinstance(value, dict):
+                cagr_values[key].update(value)
+            else:
+                cagr_values[key] = value
+
+        marine_base, aviation_base = 0.0, 0.0
+        if unsd_global_output.exists():
+            unsd_df = pd.read_excel(unsd_global_output)
+            unsd_df['Country_Clean'] = unsd_df['Country'].astype(str).str.strip().str.lower()
+            target_country_clean = country.strip().lower()
+
+            match = unsd_df[
+                (unsd_df['Country_Clean'] == target_country_clean) &
+                (unsd_df['Year'].astype(str) == str(base_year))
+            ]
+            if not match.empty:
+                marine_base = float(match['Marine_Bunkers_TWh'].values[0])
+                aviation_base = float(match['Aviation_Bunkers_TWh'].values[0])
+
+        marine_cagr = get_cagr(cagr_values, "Final Energy - Int. Maritime")
+        aviation_cagr = get_cagr(cagr_values, "Final Energy - Int. Aviation")
+
+        marine_expanded = expand_with_cagr(
+            marine_base,
+            marine_cagr,
+            base_year,
+            target_years,
+            scenario_types
+        )
+        aviation_expanded = expand_with_cagr(
+            aviation_base,
+            aviation_cagr,
+            base_year,
+            target_years,
+            scenario_types
+        )
+
+        return {
+            'maritime': marine_expanded,
+            'aviation': aviation_expanded,
+        }
+    except Exception as e:
+        print(f"  [WARNING] Could not compute bunker series for {country}: {e}")
+        return empty
+
 def run(country: str, base_dir: str = "output_data") -> None:
     country_code = get_iso2_country_code(country)
 
@@ -834,7 +997,16 @@ def run(country: str, base_dir: str = "output_data") -> None:
     # Generate Indicators and save
     indicators_df = pd.DataFrame()
     try:
-        indicators_df = generate_transport_indicators(final_df, country)
+        indicators_df = generate_transport_indicators(final_df, country, metrics_raw)
+
+        bunker_series = get_country_bunker_series(country, indicators_df["scenario"].tolist(), transport_config)
+        indicators_df["total international aviation"] = indicators_df["scenario"].map(
+            lambda s: float(bunker_series["aviation"].get(str(s), 0.0))
+        )
+        indicators_df["total international navigation"] = indicators_df["scenario"].map(
+            lambda s: float(bunker_series["maritime"].get(str(s), 0.0))
+        )
+
         indicators_df.to_csv(os.path.join(country_results_dir, f"{country_code}_final_energy_demand.csv"), index=False)
     except Exception as e:
         print(f"  Warning: Could not generate indicators: {e}")
@@ -889,9 +1061,16 @@ def export_global_energy_totals(all_country_indicators: list, bunker_data_by_cou
         for idx, row in group_df_copy.iterrows():
             country = row.get("country", "Unknown")
             
-            # Get bunker values for this country and scenario
-            aviation_bunker = 0.0
-            maritime_bunker = 0.0
+            # Keep already-computed indicator values unless a bunker lookup overrides them
+            try:
+                aviation_bunker = float(row.get("total international aviation", 0.0))
+            except (TypeError, ValueError):
+                aviation_bunker = 0.0
+
+            try:
+                maritime_bunker = float(row.get("total international navigation", 0.0))
+            except (TypeError, ValueError):
+                maritime_bunker = 0.0
             
             if country in bunker_data_by_country:
                 bunker_dicts = bunker_data_by_country[country]
@@ -900,15 +1079,15 @@ def export_global_energy_totals(all_country_indicators: list, bunker_data_by_cou
                 #if idx == group_df_copy.index[0]:
                     #print(f"  [Debug] {country} aviation bunker keys: {list(bunker_dicts['aviation'].keys())[:10]}")
                 
-                # Convert TWh to GWh (multiply by 1000)
+                # Bunker values are kept in TWh for indicator outputs
                 if bunker_dicts['aviation'] and scenario_key in bunker_dicts['aviation']:
-                    aviation_bunker = float(bunker_dicts['aviation'][scenario_key]) * 1000
+                    aviation_bunker = float(bunker_dicts['aviation'][scenario_key])
                     #print(f"  [Debug] Found aviation bunker for {country}/{scenario_key}: {aviation_bunker:.2f} GWh")
                 #elif bunker_dicts['aviation']:
                     #print(f"  [Debug] ERROR: scenario_key '{scenario_key}' NOT in aviation bunker dict for {country}")
                 
                 if bunker_dicts['maritime'] and scenario_key in bunker_dicts['maritime']:
-                    maritime_bunker = float(bunker_dicts['maritime'][scenario_key]) * 1000
+                    maritime_bunker = float(bunker_dicts['maritime'][scenario_key])
                     #print(f"  [Debug] Found maritime bunker for {country}/{scenario_key}: {maritime_bunker:.2f} GWh")
                 #elif bunker_dicts['maritime']:
                     #print(f"  [Debug] ERROR: scenario_key '{scenario_key}' NOT in maritime bunker dict for {country}")
@@ -916,8 +1095,8 @@ def export_global_energy_totals(all_country_indicators: list, bunker_data_by_cou
                 #print(f"  [Debug] WARNING: {country} not in bunker_data_by_country")
             
             # Set the bunker values in the dataframe
-            group_df_copy.at[idx, "international aviation"] = aviation_bunker
-            group_df_copy.at[idx, "international navigation"] = maritime_bunker
+            group_df_copy.at[idx, "total international aviation"] = aviation_bunker
+            group_df_copy.at[idx, "total international navigation"] = maritime_bunker
         
         # Save the full dataframe with all countries and bunker data
         group_df_copy.to_csv(file_path, index=False, encoding='utf-8')
@@ -941,19 +1120,11 @@ if __name__ == "__main__":
     print(f"\n{'='*50}\n Generating Global Energy Totals\n{'='*50}")
     
     # Extract base_year, target_years, and scenarios from scenario names in the data
-    def parse_scenario_name(scenario_str):
-        """Parse scenario name like '2030_Baseline' to extract year and scenario type"""
-        parts = str(scenario_str).split('_')
-        year = int(parts[0]) if parts[0].isdigit() else 2030
-        # Only return a scenario if there's actually a scenario name after the year
-        scenario = '_'.join(parts[1:]) if len(parts) > 1 else None
-        return year, scenario
-    
-    
+
     if all_indicators_list and transport_config:
         master_df = pd.concat(all_indicators_list, ignore_index=True)
         scenarios_present = master_df["scenario"].unique()
-        years_present = sorted(set(year for year, _ in [parse_scenario_name(s) for s in scenarios_present]))
+        years_present = sorted(set(year for year, _ in [parse_scenario_name(s) for s in scenarios_present] if year is not None))
         base_year = years_present[0] if years_present else 2020
         target_years = years_present if years_present else [2030, 2035, 2040, 2045, 2050]
         # Extract scenario types, excluding None (which represents base year without specific scenario)
