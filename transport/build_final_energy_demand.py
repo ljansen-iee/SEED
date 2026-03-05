@@ -1,5 +1,6 @@
 import os
 import glob
+import re
 import pandas as pd
 import numpy as np
 import pycountry
@@ -85,7 +86,7 @@ def get_iso2_country_code(c):
 
 def generate_transport_indicators(final_df: pd.DataFrame, country: str) -> pd.DataFrame:
     df = final_df.copy()
-    unit_col = "Final Energy Demand (GWh)"
+    unit_col = "Final Energy Demand (TWh)"
     df[unit_col] = pd.to_numeric(df[unit_col], errors="coerce").fillna(0)
     
     def sum_filter(subsector=None, mode=None, enduse=None, fuels=None):
@@ -176,13 +177,12 @@ def safe_div(n, d):
 def add_row(rows, sector, subsector, mode, enduse, tech, fuel, scn, vkm, tech_share, inten, fuel_split=1.0):
     """
     Calculates Energy Demand and appends to rows.
-    Current conversion: kWh -> GWh (1e6)
-    To change to TWh later, simply change 1e6 to 1e9.
+    Current conversion: kWh -> TWh (1e9)
     """
     # Formula: Distance * % Tech * Energy Intensity * % Fuel split
     fed_kwh = vkm * tech_share * inten * fuel_split
-    #  UNIT CONVERSION: kWh to GWh
-    fed_unit = fed_kwh / 1e6
+    #  UNIT CONVERSION: kWh to TWh
+    fed_unit = fed_kwh / 1e9
     rows.append([sector, subsector, mode, enduse, tech, fuel, scn, fed_unit])
 
 
@@ -413,14 +413,14 @@ def calc_for_scenario(metrics_raw: dict, scenario: str) -> pd.DataFrame:
 
 
 
-    # ── Helper to add energy demand row (all in GWh) ─────────────────────────
+    # ── Helper to add energy demand row (all in TWh) ─────────────────────────
     def add_energy_row(sector, subsector, mode, enduse, tech, fuel, vkm, tech_share_pct, intensity_kwh_per_vkm):
         if vkm <= 0 or tech_share_pct <= 0 or intensity_kwh_per_vkm <= 0:
             return
 
         energy_kwh = vkm * (tech_share_pct / 100.0) * intensity_kwh_per_vkm
-        energy_gwh = energy_kwh / 1_000_000
-        rows.append([sector, subsector, mode, enduse, tech, fuel, scenario, energy_gwh])
+        energy_twh = energy_kwh / 1_000_000_000
+        rows.append([sector, subsector, mode, enduse, tech, fuel, scenario, energy_twh])
 
 
 
@@ -558,11 +558,11 @@ def calc_for_scenario(metrics_raw: dict, scenario: str) -> pd.DataFrame:
 
     # ── 8. Add total row ─────────────────────────────────────────────────────
     # This sum now only includes the domestic transport rows calculated in steps 1-6
-    total_gwh = sum(row[-1] for row in rows)
-    rows.append(["Transport", "TOTAL", "", "", "", "TOTAL", scenario, total_gwh])
+    total_twh = sum(row[-1] for row in rows)
+    rows.append(["Transport", "TOTAL", "", "", "", "TOTAL", scenario, total_twh])
 
     # ── Return DataFrame ─────────────────────────────────────────────────────
-    columns = ["Sector", "Subsector", "Mode", "End-Use", "Technology", "Fuel", "Scenario", "Final Energy Demand (GWh)"]
+    columns = ["Sector", "Subsector", "Mode", "End-Use", "Technology", "Fuel", "Scenario", "Final Energy Demand (TWh)"]
     df = pd.DataFrame(rows, columns=columns)
 
     return df
@@ -608,10 +608,10 @@ def build_summary(df, metrics_raw):
     df_enduse = df[df["End-Use"].astype(str).str.strip() != ""]
 
     # 1. Group by Scenario names EXACTLY as they appear in the data
-    fuel_summary = df_fuel.groupby(["Fuel", "Scenario"])["Final Energy Demand (GWh)"].sum().unstack(fill_value=0)
-    mode_summary = df_mode.groupby(["Mode", "Scenario"])["Final Energy Demand (GWh)"].sum().unstack(fill_value=0)
-    subsector_summary = df_subsector.groupby(["Subsector", "Scenario"])["Final Energy Demand (GWh)"].sum().unstack(fill_value=0)
-    enduse_summary = df_enduse.groupby(["End-Use", "Scenario"])["Final Energy Demand (GWh)"].sum().unstack(fill_value=0)
+    fuel_summary = df_fuel.groupby(["Fuel", "Scenario"])["Final Energy Demand (TWh)"].sum().unstack(fill_value=0)
+    mode_summary = df_mode.groupby(["Mode", "Scenario"])["Final Energy Demand (TWh)"].sum().unstack(fill_value=0)
+    subsector_summary = df_subsector.groupby(["Subsector", "Scenario"])["Final Energy Demand (TWh)"].sum().unstack(fill_value=0)
+    enduse_summary = df_enduse.groupby(["End-Use", "Scenario"])["Final Energy Demand (TWh)"].sum().unstack(fill_value=0)
 
     # 2. Biofuel blending logic
     def share(metric_name, scn):
@@ -637,21 +637,21 @@ def build_summary(df, metrics_raw):
 
         road_gas = scn_df[
             (scn_df["Mode"] == "Road") & (scn_df["Fuel"] == "Gasoline")
-        ]["Final Energy Demand (GWh)"].sum()
+        ]["Final Energy Demand (TWh)"].sum()
 
         road_die = scn_df[
             (scn_df["Mode"] == "Road") & (scn_df["Fuel"] == "Diesel")
-        ]["Final Energy Demand (GWh)"].sum()
+        ]["Final Energy Demand (TWh)"].sum()
         rail_die = scn_df[
             (scn_df["Mode"] == "Rail") & (scn_df["Fuel"] == "Diesel")
-        ]["Final Energy Demand (GWh)"].sum()
+        ]["Final Energy Demand (TWh)"].sum()
         nav_die = scn_df[
             (scn_df["Mode"] == "Navigation") & (scn_df["Fuel"] == "Diesel")
-        ]["Final Energy Demand (GWh)"].sum()
+        ]["Final Energy Demand (TWh)"].sum()
 
         aviation_ker = scn_df[
             (scn_df["Mode"] == "Aviation") & (scn_df["Fuel"] == "Kerosene")
-        ]["Final Energy Demand (GWh)"].sum()
+        ]["Final Energy Demand (TWh)"].sum()
 
         gas_bio = road_gas * be
         die_bio = (road_die * bd_road) + (rail_die * bd_rail) + (nav_die * bd_nav)
@@ -780,7 +780,7 @@ def run(country: str, base_dir: str = "output_data") -> None:
     country_results_dir = os.path.join(results_dir, "country_specific", country)
     os.makedirs(country_results_dir, exist_ok=True)
 
-    # Save detailed Energy Demand (GWh) as parameters_{country}.csv
+    # Save detailed Energy Demand (TWh) as parameters_{country}.csv
     final_df.to_csv(os.path.join(country_results_dir, f"parameters_{country}.csv"), index=False)
 
     # ...existing code...
@@ -819,62 +819,67 @@ def export_global_energy_totals(all_country_indicators: list, bunker_data_by_cou
 
     # Combine all collected DataFrames (keeps all country rows)
     master_df = pd.concat(all_country_indicators, ignore_index=True)
-    
+
+    # Parse scenario column into separate year and scenario name parts (handles "2030_BAU" or "2030 BAU")
+    def _split_scenario(value):
+        s = str(value).strip()
+        m = re.match(r"^(\d{4})(?:[ _-]?)(.*)$", s)
+        if m:
+            year = int(m.group(1))
+            scen = m.group(2).strip()
+            scen = scen if scen else "base"
+            return year, scen
+        # no leading year: keep scenario as-is
+        return None, (s if s else "base")
+
+    master_df[["year_parsed", "scenario_name"]] = master_df["scenario"].apply(lambda x: pd.Series(_split_scenario(x)))
+    master_df["year_parsed"] = master_df["year_parsed"].fillna(0).astype(int)
+    master_df["scenario_name"] = master_df["scenario_name"].fillna("base")
+
     # Save directly to results folder (no subfolder)
     total_dir = results_dir
 
-    # Group by scenario (e.g., 2030_Baseline, 2030_EL, 2030_RF)
-    groups = master_df.groupby("scenario")
+    # Group by parsed year and scenario name separately
+    groups = master_df.groupby(["year_parsed", "scenario_name"])
 
-    for scenario_name, group_df in groups:
-        # Build filename as transport_{scenario}_{year}.csv
-        scenario_str = str(scenario_name).replace(" ", "_")
-        parts = scenario_str.split("_", 1)
-        year_part = parts[0] if parts and parts[0].isdigit() else "unknown"
-        scenario_part = parts[1] if len(parts) > 1 and parts[1] else "all"
-        file_path = os.path.join(total_dir, f"transport_{scenario_part}_{year_part}.csv")
-        
-        # Add international bunker values to each country row
+    for (year_value, scenario_value), group_df in groups:
+        scenario_slug = str(scenario_value).strip().replace(" ", "_") or "base"
+        year_str = str(year_value) if year_value else "unknown"
+        file_path = os.path.join(total_dir, f"transport_{scenario_slug}_{year_str}.csv")
+
         group_df_copy = group_df.copy()
-        
-        scenario_key = str(scenario_name)
-        
+        scenario_key = str(group_df_copy["scenario"].iloc[0]) if not group_df_copy.empty else ""
+
+        # Include separate year/scenario columns in the exported CSV
+        group_df_copy["year"] = year_value if year_value else np.nan
+        group_df_copy["scenario_name"] = scenario_value
+
         # Add bunker columns for each country
         for idx, row in group_df_copy.iterrows():
             country = row.get("country", "Unknown")
-            
-            # Get bunker values for this country and scenario
+
             aviation_bunker = 0.0
             maritime_bunker = 0.0
-            
+
             if country in bunker_data_by_country:
                 bunker_dicts = bunker_data_by_country[country]
-                
-                # DEBUG: First time for this country, print available keys
-                #if idx == group_df_copy.index[0]:
-                    #print(f"  [Debug] {country} aviation bunker keys: {list(bunker_dicts['aviation'].keys())[:10]}")
-                
-                # Convert TWh to GWh (multiply by 1000)
+
                 if bunker_dicts['aviation'] and scenario_key in bunker_dicts['aviation']:
                     aviation_bunker = float(bunker_dicts['aviation'][scenario_key]) * 1000
-                    #print(f"  [Debug] Found aviation bunker for {country}/{scenario_key}: {aviation_bunker:.2f} GWh")
-                #elif bunker_dicts['aviation']:
-                    #print(f"  [Debug] ERROR: scenario_key '{scenario_key}' NOT in aviation bunker dict for {country}")
-                
+
                 if bunker_dicts['maritime'] and scenario_key in bunker_dicts['maritime']:
                     maritime_bunker = float(bunker_dicts['maritime'][scenario_key]) * 1000
-                    #print(f"  [Debug] Found maritime bunker for {country}/{scenario_key}: {maritime_bunker:.2f} GWh")
-                #elif bunker_dicts['maritime']:
-                    #print(f"  [Debug] ERROR: scenario_key '{scenario_key}' NOT in maritime bunker dict for {country}")
-            #else:
-                #print(f"  [Debug] WARNING: {country} not in bunker_data_by_country")
-            
-            # Set the bunker values in the dataframe
+
             group_df_copy.at[idx, "international aviation"] = aviation_bunker
             group_df_copy.at[idx, "international navigation"] = maritime_bunker
-        
-        # Save the full dataframe with all countries and bunker data
-        group_df_copy.to_csv(file_path, index=False, encoding='utf-8')
+
+        # Remove legacy scenario columns from the export and order key metadata first
+        drop_cols = [c for c in ["scenario", "year_parsed"] if c in group_df_copy.columns]
+        export_df = group_df_copy.drop(columns=drop_cols)
+        ordered_cols = ["scenario_name", "year"] + [c for c in export_df.columns if c not in ("scenario_name", "year")]
+        export_df = export_df[ordered_cols]
+
+        export_df.to_csv(file_path, index=False, encoding='utf-8')
 
 
 
