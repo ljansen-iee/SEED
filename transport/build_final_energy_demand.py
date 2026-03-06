@@ -103,7 +103,7 @@ def generate_transport_indicators(final_df: pd.DataFrame, country: str, metrics_
         return d.groupby("Scenario")[unit_col].sum().reindex(scenario_index, fill_value=0.0) * gwh_to_twh
 
     def get_share_series(metric_name):
-        metric_values = metrics_raw.get(str(metric_name).strip(), {})
+        metric_values = metrics_raw.get(metric_name, {})
         values = []
         for scenario in scenario_index:
             scenario_key = str(scenario).strip()
@@ -126,7 +126,6 @@ def generate_transport_indicators(final_df: pd.DataFrame, country: str, metrics_
     rail_oil_fuels = ["Diesel", "Synthetic Diesel", "E-Diesel", "Fuel Oil", "LPG"]
     aviation_oil_fuels = ["Kerosene", "Synthetic Kerosene", "E-Kerosene", "Fuel Oil"]
     navigation_oil_fuels = ["Diesel", "Methanol"]
-
     share_bioethanol_road = get_share_series("Share of Bioethanol in Road Gasoline")
     share_biodiesel_road = get_share_series("Share of Biodiesel in Road Diesel")
     share_biokerosene_aviation = get_share_series("Share of Biokerosene in Internal Aviation Fuel")
@@ -161,8 +160,11 @@ def generate_transport_indicators(final_df: pd.DataFrame, country: str, metrics_
     aviation_oil_gross = sum_filter(enduse=aviation_passenger_enduses, fuels=aviation_oil_fuels)
     aviation_electricity = sum_filter(enduse=aviation_passenger_enduses, fuels=["Electricity"])
     aviation_hydrogen = sum_filter(enduse=aviation_passenger_enduses, fuels=["Hydrogen"])
-    aviation_biomass = sum_filter(enduse=aviation_passenger_enduses, fuels=["Bio Kerosene"])
-    aviation_oil = aviation_oil_gross
+    aviation_kerosene = sum_filter(enduse=aviation_passenger_enduses, fuels=["Kerosene"])
+    aviation_bio_kerosene = aviation_kerosene * share_biokerosene_aviation
+    aviation_biomass_explicit = sum_filter(enduse=aviation_passenger_enduses, fuels=["Bio Kerosene"])
+    aviation_biomass = aviation_biomass_explicit + aviation_bio_kerosene
+    aviation_oil = (aviation_oil_gross - aviation_bio_kerosene).clip(lower=0.0)
     result["total domestic aviation"] = aviation_oil + aviation_electricity + aviation_hydrogen + aviation_biomass
     result["total aviation biomass"] = aviation_biomass
 
@@ -170,8 +172,11 @@ def generate_transport_indicators(final_df: pd.DataFrame, country: str, metrics_
     navigation_electricity = sum_filter(enduse=navigation_freight_enduses, fuels=["Electricity"])
     navigation_hydrogen = sum_filter(enduse=navigation_freight_enduses, fuels=["Hydrogen"])
     navigation_ammonia = sum_filter(enduse=navigation_freight_enduses, fuels=["Ammonia"])
-    navigation_biomass = sum_filter(enduse=navigation_freight_enduses, fuels=["Bio Diesel"])
-    navigation_oil = navigation_oil_gross
+    navigation_diesel = sum_filter(enduse=navigation_freight_enduses, fuels=["Diesel"])
+    navigation_bio_diesel = navigation_diesel * share_biodiesel_navigation
+    navigation_biomass_explicit = sum_filter(enduse=navigation_freight_enduses, fuels=["Bio Diesel"])
+    navigation_biomass = navigation_biomass_explicit + navigation_bio_diesel
+    navigation_oil = (navigation_oil_gross - navigation_bio_diesel).clip(lower=0.0)
 
     result["total domestic navigation"] = navigation_oil + navigation_electricity + navigation_hydrogen + navigation_ammonia + navigation_biomass
     result["total navigation hydrogen"] = navigation_hydrogen
@@ -948,7 +953,6 @@ def run(country: str, base_dir: str = "output_data") -> None:
 
     # -----------------------------------------------------------------
     # Use the top-level transport_config_path (set at the top of this file)
-    print(f"DEBUG: Checking for config at: {transport_config_path}")
 
     if transport_config_path.exists():
         print(f"  >>> Found config! Refreshing projections for {country}...")
@@ -1207,3 +1211,5 @@ if __name__ == "__main__":
         export_global_energy_totals(all_indicators_list)
     
     print("All tasks complete.")
+
+
