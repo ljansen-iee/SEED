@@ -2506,7 +2506,11 @@ def build_carrier_table_from_sec(sec_all: pd.DataFrame, country_name: str, df_me
                 # For 'steel' carrier, add green path steel (tonnes)
                 if fuel_row.lower() == "steel" and df_metrics is not None:
                     # Get steel production for this year/scenario
-                    col_name = f"{year}_{scenario}"
+                    # Handle base year (2020) which has no scenario suffix in df_metrics
+                    if int(year) == 2020 or scenario == "Historic":
+                        col_name = "2020"
+                    else:
+                        col_name = f"{year}_{scenario}"
                     steel_prod = _get_val(df_metrics, "Steel production per year", col_name, 0.0)
                     # Get DRI+EAF share (green path) directly from df_metrics
                     green_share_pct = _get_val(df_metrics, "Share of direct reduction + electric arc furnace for steel making", col_name, 0.0)
