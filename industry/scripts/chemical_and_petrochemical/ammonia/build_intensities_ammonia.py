@@ -4,11 +4,11 @@ import os
 import sys
 import numpy as np  
 from typing import Dict, List, Optional
+from pathlib import Path
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
-from helpers import get_scenarios_from_build_industry_config
+from industry.helpers import get_scenarios_from_build_config_industry
 
-SCENARIOS = get_scenarios_from_build_industry_config()
+SCENARIOS = get_scenarios_from_build_config_industry()
 
 def interpolate_or_extrapolate(data: Dict[int, float], target_years: List[int]) -> Dict[int, float]:
     """
@@ -457,7 +457,7 @@ def intensity_hvc_methanol_route(
 
 
 # --- Unspecified Chemicals activity factor (CAGR-based) ---
-from scripts.non_metallic_minerals.build_energy_intensities_cement import activity_factor_unspecified_nmm
+from industry.scripts.non_metallic_minerals.build_energy_intensities_cement import activity_factor_unspecified_nmm
 
 def activity_factor_unspecified_chemicals(
     base_year: int,

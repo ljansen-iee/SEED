@@ -49,10 +49,7 @@ def get_oecd_df (year: int, use_filter: str, countries: list) -> pd.DataFrame:
     df_filtered = df_filtered[df_filtered['Country'].isin(countries_clean)].reset_index(drop=True)  # Filter by country
 
     if df_filtered.empty:  # If no data after filtering
-        #print(f"unique years in data: {df['Time'].unique()}")
-        #print(f" unique ENDUSE values: {df['ENDUSE'].unique()}")
-        #print(f"unique countries in data: {df['Country'].unique()}")
-        print(f"Given filters => year: {year}, use_filter: '{use_filter}', countries: {countries_clean}")
+        pass  # No data found for filters
 
     # Add share per country if data present
     if not df_filtered.empty:
@@ -65,12 +62,12 @@ def get_oecd_df (year: int, use_filter: str, countries: list) -> pd.DataFrame:
 
 from typing import Dict, List, Optional
 import sys
-# Allow importing helper functions from parent directories
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
-from build_CAGR import interpolate_or_extrapolate
-from helpers import get_scenarios_from_build_industry_config
+from pathlib import Path
 
-SCENARIOS = get_scenarios_from_build_industry_config()
+from industry.build_CAGR import interpolate_or_extrapolate
+from industry.helpers import get_scenarios_from_build_config_industry
+
+SCENARIOS = get_scenarios_from_build_config_industry()
 
 def share_fuel_primary_pulp(
     target_years: List[int],
@@ -154,12 +151,12 @@ def share_fuel_secondary_pulp(
     base_data = {
         "diesel": {
             2020: [55, 55, 55],
-            2030: [55, 0.5, 0],
+            2030: [55, 1, 0],
             2050: [55, 0, 0],
         },
         "natural_gas": {
             2020: [45, 45, 45],
-            2030: [45, 0.5, 0],
+            2030: [45, 1, 0],
             2050: [45, 0, 0],
         },
         "electricity": {
@@ -179,7 +176,7 @@ def share_fuel_secondary_pulp(
         },
         "biomass": {
             2020: [0, 0, 0],
-            2030: [0, 29, 25],
+            2030: [0, 28, 25],
             2050: [0, 20, 10],
         },
         "hydrogen": {
@@ -409,7 +406,7 @@ def share_fuel_unspecified_paper_pulp(
 
 # --- Paper & Pulp: activity factor for "unspecified" (CAGR-based) ---
 from typing import Dict, List, Optional
-from scripts.non_metallic_minerals.build_energy_intensities_cement import activity_factor_unspecified_nmm
+from industry.scripts.non_metallic_minerals.build_energy_intensities_cement import activity_factor_unspecified_nmm
 
 def activity_factor_unspecified_paper_pulp(
     base_year: int,

@@ -6,11 +6,10 @@ import pandas as pd  # Import pandas for data manipulation
 from pathlib import Path
 from typing import List, Optional
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
-from build_CAGR import interpolate_or_extrapolate
-from helpers import get_scenarios_from_build_industry_config
+from industry.build_CAGR import interpolate_or_extrapolate
+from industry.helpers import get_scenarios_from_build_config_industry
 
-SCENARIOS = get_scenarios_from_build_industry_config()
+SCENARIOS = get_scenarios_from_build_config_industry()
 
 BASE_DIR = Path(__file__).parents[2]   # → industry/
 INPUT_DIR = BASE_DIR / "input_data"

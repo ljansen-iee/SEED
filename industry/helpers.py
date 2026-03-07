@@ -7,9 +7,23 @@ import pandas as pd
 DEFAULT_TARGET_YEARS = [2030, 2035, 2040, 2045, 2050]
 
 
-def get_scenarios_from_build_industry_config() -> list[str]:
-    """Read SCENARIOS directly from build_industry_config.py so all scripts follow that single source."""
-    main_industry_path = Path(__file__).resolve().parent / "build_industry_config.py"
+def _resolve_industry_dir():
+    """Resolve the industry directory path for both script and interactive use."""
+    try:
+        return Path(__file__).resolve().parent
+    except NameError:
+        cwd = Path.cwd().resolve()
+        if (cwd / "industry").exists():
+            return cwd / "industry"
+        return cwd
+
+
+INDUSTRY_DIR = _resolve_industry_dir()
+
+
+def get_scenarios_from_build_config_industry() -> list[str]:
+    """Read SCENARIOS directly from build_config_industry.py so all scripts follow that single source."""
+    main_industry_path = Path(__file__).resolve().parent / "build_config_industry.py"
 
     with main_industry_path.open("r", encoding="utf-8") as handle:
         tree = ast.parse(handle.read(), filename=str(main_industry_path))
@@ -27,7 +41,7 @@ def get_scenarios_from_build_industry_config() -> list[str]:
                         if scenarios:
                             return scenarios
 
-    raise ValueError("SCENARIOS not found or invalid in build_industry_config.py")
+    raise ValueError("SCENARIOS not found or invalid in build_config_industry.py")
 
 def convert_wide_to_long(df_wide, country):
     """
@@ -41,7 +55,7 @@ def convert_wide_to_long(df_wide, country):
     df_long["Year"] = df_long["Year"].astype(int)
     return df_long
 
-from build_CAGR import interpolate_or_extrapolate
+from industry.build_CAGR import interpolate_or_extrapolate
 
 def extract_capacity_shares(df, country, steel_types, base_year=2020, target_years=None, all_types=None):
     """
@@ -448,12 +462,20 @@ def get_mapped_config_name(metric_name: str) -> str:
         "direct reduction + electric arc furnace": "Energy intensity of direct reduction + electric arc furnaces",
         "scrap electric arc furnaces": "Energy intensity of scrap electric arc furnaces",
         "casting, rolling & finishing": "Energy intensity of casting, rolling & finishing",
+        "unspecified iron and steel": "Energy intensity of unspecified iron and steel",
         "SMR + Haber-Bosch": "Energy intensity of SMR + Haber-Bosch",
+        "Other Conventional + Haber-Bosch": "Energy intensity of Other Conventional + Haber-Bosch",
         "renewable ammonia synthesis": "Energy intensity of renewable ammonia synthesis",
+        "Naphtha cracking": "Energy intensity of Naphtha cracking",
+        "LPG cracking": "Energy intensity of LPG cracking",
+        "Methanol route": "Energy intensity of Methanol route",
+        "unspecified chemicals": "Energy intensity of unspecified chemicals",
         "cement production": "Energy intensity of cement production",
+        "unspecified non metallic minerals": "Energy intensity of unspecified non metallic minerals",
         "paper production": "Energy intensity of paper production",
-        "primary pulp": "Energy intensity of primary pulp production",
-        "secondary pulp": "Energy intensity of secondary pulp production"
+        "primary pulp production": "Energy intensity of primary pulp production",
+        "secondary pulp production": "Energy intensity of secondary pulp production",
+        "unspecified paper and pulp": "Energy intensity of unspecified paper and pulp"
     }
 
     for keyword, config_name in mapping_keywords.items():
@@ -508,14 +530,120 @@ def get_historical_sector_data(folder_path: Path, country: str, sector_keyword: 
                 history[year] = float(clean_val) * TJ_TO_GWH
                 
         except Exception as e:
-            print(f" Error processing {file_path.name} for {sector_keyword}: {e}")
+            pass  # Silently skip files with processing errors
 
     if not history:
-        print(f" No data found for sector '{sector_keyword}' in {country}")
         return None
 
     #print(f" Loaded {len(history)} years for {sector_keyword}")
     return history
+
+
+def get_fuel_shares_from_unsd(folder_path: Path, country: str, sector_keyword: str) -> dict | None:
+    """
+    Extract fuel share percentages from the latest UNSD country-year CSV for a sector.
+    
+    Args:
+        folder_path: Path to folder containing Country-Year.csv files
+        country: Country name (e.g., "Morocco")
+        sector_keyword: Sector to search for (e.g., "Food and tobacco")
+    
+    Returns:
+        Dict with fuel shares as percentages: {"oil": 30.0, "gas": 25.0, ...}
+        Returns all zeros if sector exists but has zero energy consumption.
+        Returns None only if data file is missing or sector not found (caller should handle averaging).
+    """
+    # Zero shares - returned when sector has zero energy consumption
+    zero_shares = {
+        "oil": 0.0,
+        "gas": 0.0,
+        "electricity": 0.0,
+        "coal": 0.0,
+        "biomass": 0.0,
+        "hydrogen": 0.0,
+    }
+    
+    # Find all files for this country
+    files = list(folder_path.glob(f"{country}-*.csv"))
+    if not files:
+        print(f" No UNSD files found for {country} in {folder_path}")
+        return None  # Missing data - caller should use average
+    
+    # Get the latest year file
+    year_files = []
+    for f in files:
+        try:
+            year_str = f.stem.split("-")[-1]
+            year = int(year_str)
+            year_files.append((year, f))
+        except ValueError:
+            continue
+    
+    if not year_files:
+        return None  # Missing data - caller should use average
+    
+    year_files.sort(reverse=True)
+    latest_year, latest_file = year_files[0]
+    
+    try:
+        df = pd.read_csv(latest_file)
+        df.columns = df.columns.str.strip()
+        
+        # Find the sector row (search in second column)
+        mask = df.iloc[:, 1].astype(str).str.contains(sector_keyword, case=False, na=False)
+        sector_row = df[mask]
+        
+        if sector_row.empty:
+            print(f" Sector '{sector_keyword}' not found in {latest_file.name}")
+            return None  # Sector not in file - caller should use average
+        
+        row = sector_row.iloc[0]
+        
+        # Helper to clean and parse cell values
+        def parse_val(col_pattern):
+            for col in df.columns:
+                if col_pattern.lower() in col.lower():
+                    raw = str(row[col])
+                    clean = raw.replace("*", "").replace(",", "").strip()
+                    if clean in {"---", "", "nan", "NaN"}:
+                        return 0.0
+                    try:
+                        return float(clean)
+                    except ValueError:
+                        return 0.0
+            return 0.0
+        
+        # Extract fuel values (TJ)
+        coal = parse_val("Primary Coal") + parse_val("Coal and Peat Products")
+        oil = parse_val("Oil Products")  # Primary Oil is typically 0 at industry level
+        gas = parse_val("Natural Gas")
+        electricity = parse_val("Electricity")
+        biomass = parse_val("Biofuels")  # "Biofuels and Waste"
+        heat = parse_val("Heat")
+        
+        # Total (electricity + heat + fuels)
+        total = coal + oil + gas + electricity + biomass + heat
+        
+        if total <= 0:
+            # Sector exists but uses zero energy - return all zeros (NOT None)
+            return zero_shares
+        
+        # Calculate percentages
+        shares = {
+            "oil": round(100 * oil / total, 2),
+            "gas": round(100 * gas / total, 2),
+            "electricity": round(100 * (electricity + heat) / total, 2),  # Include heat with electricity
+            "coal": round(100 * coal / total, 2),
+            "biomass": round(100 * biomass / total, 2),
+            "hydrogen": 0.0,  # No historical hydrogen data
+        }
+        
+        return shares
+        
+    except Exception as e:
+        print(f" Error extracting fuel shares from {latest_file.name}: {e}")
+        return None  # Error reading file - caller should use average
+
     
 def poly_project(years, values, target_years, degree=1):
     import numpy as np
@@ -546,9 +674,10 @@ def validate_fuel_shares(rows, base_year, target_years, scenarios):
     Filters out production route shares to avoid incorrect warnings.
     """
     # Only sum metrics that contain these specific fuel words
+    # NOTE: Removed "steel" to avoid matching "steel making" in route share names
     valid_fuels = [
         "diesel", "natural gas", "gas", "electricity", "coal", 
-        "heat", "biomass", "hydrogen", "ammonia", "methanol", "oil", "steel"
+        "heat", "biomass", "hydrogen", "ammonia", "methanol", "oil"
     ]
 
     sector_keywords = {
@@ -587,8 +716,8 @@ def validate_fuel_shares(rows, base_year, target_years, scenarios):
         for col in check_cols:
             total = sum(float(r.get(col, 0) or 0) for r in sector_rows)
             
-            # Warn if not 100%
-            if abs(total - 100) > 0.1 and total > 0:
+            # Warn if not 100% (allow 0.2% tolerance for rounding)
+            if abs(total - 100) > 0.2 and total > 0:
                 print(f" FUEL SHARE WARNING: {label} totals {total:.2f}% in {col}")
 
 
@@ -1063,7 +1192,7 @@ METRIC_ORDER = [
     "Share of heat for unspecified wood",
     "Share of biomass for unspecified wood",
     "Share of hydrogen for unspecified wood",
-        # --- MISSING METRICS FROM build_industry_config.py ---
+        # --- MISSING METRICS FROM build_config_industry.py ---
         "Final energy of food and tobacco",
         "Share of oil for unspecified food and tobacco",
         "Share of gas for unspecified food and tobacco",
@@ -1112,7 +1241,7 @@ METRIC_ORDER = [
         "Share of ammonia for unspecified wood and wood products",
         "Share of methanol for unspecified wood and wood products",
         "Share of steel for unspecified wood and wood products",
-        # --- NAME VARIANTS USED IN build_industry_config.py ---
+        # --- NAME VARIANTS USED IN build_config_industry.py ---
         "Share of diesel for blast furnaces",
         "Share of natural gas for blast furnaces",
         "Clinker-to-cement ratio",
@@ -1154,7 +1283,7 @@ def _load_metric_order_from_main_industry(default_order):
     from pathlib import Path
 
     try:
-        main_path = Path(__file__).resolve().parent / "build_industry_config.py"
+        main_path = Path(__file__).resolve().parent / "build_config_industry.py"
         source = main_path.read_text(encoding="utf-8")
         tree = ast.parse(source)
 
@@ -1187,7 +1316,7 @@ def _load_metric_order_from_main_industry(default_order):
 
 
 def get_scenarios_from_main_industry() -> list[str]:
-    return get_scenarios_from_build_industry_config()
+    return get_scenarios_from_build_config_industry()
 
 
 METRIC_ORDER = _load_metric_order_from_main_industry(METRIC_ORDER)

@@ -1,7 +1,7 @@
 import pandas as pd
 from pathlib import Path
 
-from scripts.textile_and_leather.build_textile_and_leather_energy import _clean_val
+from industry.scripts.textile_and_leather.build_textile_and_leather_energy import _clean_val
 
 def get_textiles_fuel_shares(base_path: Path, country: str, year: int, sector_name: str = "Textile and leather"):
     file_path = base_path / f"{country}-{year}.csv"

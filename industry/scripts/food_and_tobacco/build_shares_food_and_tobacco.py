@@ -1,7 +1,7 @@
 # scripts/industry/scripts/food_and_tobacco/build_food_and_tobacco_energy.py
 import pandas as pd
 from pathlib import Path
-from scripts.food_and_tobacco.build_food_and_tobacco_energy import _clean_val
+from industry.scripts.food_and_tobacco.build_food_and_tobacco_energy import _clean_val
 
 
 def get_unsd_fuel_shares(base_path: Path, country: str, year: int, sector_name: str = "Food and tobacco"):

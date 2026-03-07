@@ -1,7 +1,7 @@
 import pandas as pd
 from pathlib import Path
 
-from scripts.machinery.build_machinery_energy import _clean_val
+from industry.scripts.machinery.build_machinery_energy import _clean_val
 
 def get_machinery_fuel_shares(base_path: Path, country: str, year: int, sector_name: str = "Machinery"):
     file_path = base_path / f"{country}-{year}.csv"

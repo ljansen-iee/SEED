@@ -4,9 +4,8 @@ from typing import List, Optional
 from functools import reduce
 import pycountry
 import pandas as pd
-from helpers import get_historical_sector_data
-from scripts.chemical_and_petrochemical.methanol import METHANOL_EXTERNAL_MWH
-from scripts.chemical_and_petrochemical.ammonia.build_ammonia import (
+from industry.helpers import get_historical_sector_data
+from industry.scripts.chemical_and_petrochemical.ammonia.build_ammonia import (
     AMMONIA_SCENARIO_XLSX,
     AMMONIA_SCENARIO_SHEET,
     AMMONIA_MWH_PER_TON,
@@ -15,13 +14,14 @@ from scripts.chemical_and_petrochemical.ammonia.build_ammonia import (
 )
 
 # Single source of truth for scenario names
-from build_industry_config import SCENARIOS
+from industry.build_config_industry import SCENARIOS
 
 # Path to industry config file for CAGR values
 industry_config_path = Path(__file__).resolve().parent / "industry_config.csv"
 
-# Set to None to auto-find the latest, or set to a specific name like "industry_config"
-choose_folder = "industry_config"
+
+# Set to None to auto-find the latest, or set to a specific folder name
+choose_folder = "country_parameters"
 
 # Countries to run – you just edit this list
 available_countries = ["Morocco", "Egypt","South Africa"]
@@ -299,8 +299,8 @@ def find_latest_run_folder() -> Path:
 
 def find_country_file(run_folder: Path, country: str) -> Path:
     """
-    Search inside run_folder for an .xlsx whose name contains the country.
-    Example: 'Morocco_Output.xlsx', 'Morocco_industry.xlsx', ...
+    Search inside run_folder for a .csv whose name contains the country.
+    Example: 'Morocco_Output.csv', 'Egypt_Output.csv', ...
     """
     country_lower = country.lower()
     candidates = [
@@ -310,7 +310,7 @@ def find_country_file(run_folder: Path, country: str) -> Path:
 
     if not candidates:
         raise FileNotFoundError(
-            f"No Excel file found for country '{country}' in {run_folder}"
+            f"No CSV file found for country '{country}' in {run_folder}"
         )
 
     public_candidates = [
@@ -326,11 +326,11 @@ def find_country_file(run_folder: Path, country: str) -> Path:
 
 def get_results_folder(country: str) -> Path:
     """
-    Create (if needed) .../industry/results/country_specific/<Country> and return it.
+    Create (if needed) .../industry/output_data/country_specific/<Country> and return it.
     Aligned with transport folder structure.
     """
     root = get_industry_root()
-    results_root = root / "results" / "country_specific"
+    results_root = root / "output_data" / "country_specific"
     results_root.mkdir(parents=True, exist_ok=True)
 
     country_folder = results_root / country.replace(" ", "_")
@@ -678,11 +678,6 @@ def _load_external_ammonia_mwh(country_name: str, year: int, scenario_label: str
         return 0.0
 
     return tons_val * AMMONIA_MWH_PER_TON
-
-
-def _load_external_methanol_mwh(country_name: str, year: int, scenario_label: str) -> float:
-    table = METHANOL_EXTERNAL_MWH.get(str(country_name).strip().lower(), {})
-    return float(table.get((int(year), str(scenario_label).strip()), 0.0))
 
 
 # -------------------------------------------------------------------
@@ -2443,16 +2438,16 @@ def build_sec_ammonia_from_tidy(df: pd.DataFrame, country_name: Optional[str] = 
             y = int(row["Year"])
             sc = row["Scenario"]
             _add_fuel_to_bucket(y, sc, "Ammonia", ammonia_target_col, _load_external_ammonia_mwh(country_name, y, sc))
-            _add_fuel_to_bucket(y, sc, "Methanol", methanol_target_col, _load_external_methanol_mwh(country_name, y, sc))
 
     out["__order__"] = out["SEC_Fuel"].map({name: i for i, name in enumerate(ROW_ORDER)})
     out = out[out["__order__"].notna()].sort_values(["Year", "Scenario", "__order__"]).drop(columns="__order__")
     return out
 
 
-def build_carrier_table_from_sec(sec_all: pd.DataFrame, country_name: str) -> pd.DataFrame:
+def build_carrier_table_from_sec(sec_all: pd.DataFrame, country_name: str, df_metrics: pd.DataFrame = None) -> pd.DataFrame:
     """
     Build a 'carrier-level' table including ALL aggregated sectors and individual 'Other' sectors.
+    For 'steel' carrier, adds green path steel in tonnes (Steel Production × DRI+EAF Share).
     """
     iso = get_iso_code(country_name)
 
@@ -2507,6 +2502,17 @@ def build_carrier_table_from_sec(sec_all: pd.DataFrame, country_name: str) -> pd
                 # Map the 7 other individual industry sectors
                 for sec_col, short_name in other_mapping.items():
                     row_dict[short_name] = data.get(sec_col, 0.0)
+                
+                # For 'steel' carrier, add green path steel (tonnes)
+                if fuel_row.lower() == "steel" and df_metrics is not None:
+                    # Get steel production for this year/scenario
+                    col_name = f"{year}_{scenario}"
+                    steel_prod = _get_val(df_metrics, "Steel production per year", col_name, 0.0)
+                    # Get DRI+EAF share (green path) directly from df_metrics
+                    green_share_pct = _get_val(df_metrics, "Share of direct reduction + electric arc furnace for steel making", col_name, 0.0)
+                    # Green path steel in tonnes (share is in %, so divide by 100)
+                    green_path_steel = steel_prod * (green_share_pct / 100.0)
+                    row_dict["iron and steel"] = green_path_steel
                 
                 rows.append(row_dict)
             else:
@@ -2624,7 +2630,7 @@ def build_sec_table_from_feedstock(
     sec_all = sec_all[desired_cols]
 
     # === NEW: build the carrier sheet ===
-    carriers_df = build_carrier_table_from_sec(sec_all, country_name)
+    carriers_df = build_carrier_table_from_sec(sec_all, country_name, df_metrics)
 
     with pd.ExcelWriter(output_xlsx, engine="xlsxwriter") as writer:
         # SEC sheet
@@ -2672,7 +2678,7 @@ def build_presentation_summary(sec_all: pd.DataFrame, country_name: str) -> pd.D
 def export_energy_totals(all_countries_carrier_dfs: List[pd.DataFrame]):
     """
     Groups all collected data by Scenario and Year, then saves 
-    each group as a separate CSV directly in results/ folder.
+    each group as a separate CSV directly in output_data/ folder.
     Aligned with transport folder structure.
     """
     if not all_countries_carrier_dfs:
@@ -2681,25 +2687,29 @@ def export_energy_totals(all_countries_carrier_dfs: List[pd.DataFrame]):
     master_df = pd.concat(all_countries_carrier_dfs, ignore_index=True)
     
     root = get_industry_root()
-    total_dir = root / "results"
+    total_dir = root / "output_data"
     total_dir.mkdir(parents=True, exist_ok=True)
 
     groups = master_df.groupby(['scenario', 'year'])
 
     for (scen, year), group_df in groups:
         clean_scen = str(scen).replace(" ", "_")
-        file_name = f"{clean_scen}_{year}.csv"
+        # Match transport naming: industry_all_2020.csv for historic, industry_BAU_2030.csv for scenarios
+        if clean_scen == "Historic":
+            file_name = f"industry_all_{year}.csv"
+        else:
+            file_name = f"industry_{clean_scen}_{year}.csv"
         file_path = total_dir / file_name
         
         group_df.to_csv(file_path, index=False, encoding='utf-8')
-        print(f"  [Global Export] Saved: {file_path}")
+        print(f"  [Global Export] Saved: {file_path.name}")
 
 def run_industry_pipeline_for_country(country: str):
     """
     1. Find latest run folder in output_data
     2. Find that country's metrics .xlsx file
     3. Get ISO2 code dynamically
-    4. Create results/<Country> folder
+    4. Create output_data/country_specific/<Country> folder
     5. Run pipeline with ISO2 code in filenames
     """
     latest_folder = find_latest_run_folder()

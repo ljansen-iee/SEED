@@ -1,6 +1,6 @@
 import pandas as pd 
 from pathlib import Path 
-from scripts.mining_and_quarrying.build_mining_and_quarrying_energy import _clean_val
+from industry.scripts.mining_and_quarrying.build_mining_and_quarrying_energy import _clean_val
 
 def get_non_ferrous_fuel_shares(base_path: Path, country: str, year: int, sector_name: str = "Non-ferrous metals"):
     """

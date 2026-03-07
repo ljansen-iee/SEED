@@ -79,7 +79,7 @@ def _find_col(df: pd.DataFrame, *candidates: str) -> Optional[str]:
 
 def ammonia_production(path: Optional[Union[str, Path]] = None) -> pd.DataFrame:
     """
-    Main loader used by build_industry_config.py.
+    Main loader used by build_config_industry.py.
 
     IMPORTANT:
     - Explicitly prefers *tons* sheets (e.g. Baseline_tons, All_scenarios_tons).

@@ -1,37 +1,40 @@
 import os
 import sys
-import helpers
+import warnings
 import pandas as pd
 from datetime import datetime
 from typing import Dict, Any, List
 from pathlib import Path 
 
-# iron and steel
-from scripts.iron_and_steel.build_steel_production import load_and_process_both, share_steel
-from scripts.iron_and_steel.build_shares_steel import share_fuel_bf_ohf, share_fuel_bf_bof, share_fuel_dr_eaf, share_fuel_scrap_eaf,share_fuel_casting_rolling, share_fuel_unspecified_steel, override_steel_routes_positional
-from scripts.iron_and_steel.build_energy_intensities_steel import intensity_bf_ohf, intensity_bf_bof, intensity_dr_eaf, intensity_scrap_eaf, intensity_casting_rolling
-from helpers import extract_capacity_shares, extract_all_fuels, _build_rate_anchors_indexed,  _forecast_from_history_and_sparse_cagr, _get_value_by_index,  _interp_at, get_mapped_config_name, poly_project, get_historical_sector_data, validate_fuel_shares, country_to_iso2, METRIC_ORDER
-# PAPER & PULP
-from scripts.paper_and_pulp.build_paper_and_pulp_production import process_paper_pulp_data
-from scripts.paper_and_pulp.build_share_primary_pulp import share_fuel_primary_pulp, share_fuel_secondary_pulp, share_fuel_paper, share_primary_secondary_pulp, share_fuel_unspecified_paper_pulp, activity_factor_unspecified_paper_pulp
-from scripts.paper_and_pulp.build_energy_intensities_paper_pulp import intensity_primary_pulp, intensity_secondary_pulp, intensity_paper_production
-# CEMENT
-from scripts.non_metallic_minerals.build_energy_intensities_cement import intensity_cement_production, activity_factor_unspecified_nmm, build_unspecified_nmm_intensity
-from scripts.non_metallic_minerals.build_shares_cement import share_fuel_cement_production, share_fuel_unspecified_nmm
-from scripts.non_metallic_minerals.build_cement_production import get_cement_and_clinker
-# === Ammonia ===
-from scripts.chemical_and_petrochemical.ammonia.build_ammonia import ammonia_production, build_hvc_production_series, extract_for_countries_from_loader
-from scripts.chemical_and_petrochemical.ammonia.build_shares_ammonia import share_fuel_ammonia_smr_hb, share_fuel_ammonia_renewable, share_fuel_hvc_naphtha_cracking, share_fuel_hvc_lpg_cracking, share_fuel_hvc_methanol_route, share_fuel_unspecified_chemicals, share_HVC_production
-from scripts.chemical_and_petrochemical.ammonia.build_intensities_ammonia import intensity_ammonia_smr_hb, intensity_ammonia_renewable, intensity_hvc_naphtha_cracking, intensity_hvc_lpg_cracking, intensity_hvc_methanol_route, activity_factor_unspecified_chemicals
-# === HVC Production ===
-from scripts.chemical_and_petrochemical.HVC.build_hvc_production import get_hvc_production
-# === Food & Tobacco ===
-from scripts.food_and_tobacco.build_shares_food_and_tobacco import get_unsd_fuel_shares
-# CAGR CONFIG
-from build_CAGR import load_industry_config, interpolate_or_extrapolate, get_metric_cagr_cfg_from_excel, get_metric_config_entry_from_excel, expand_with_cagr_smooth
+# Suppress module import order warning when running as __main__
+warnings.filterwarnings("ignore", message=".*found in sys.modules.*", category=RuntimeWarning)
 
+# iron and steel
+from industry.scripts.iron_and_steel.build_steel_production import load_and_process_both, share_steel
+from industry.scripts.iron_and_steel.build_shares_steel import share_fuel_bf_ohf, share_fuel_bf_bof, share_fuel_dr_eaf, share_fuel_scrap_eaf,share_fuel_casting_rolling, share_fuel_unspecified_steel, override_steel_routes_positional
+from industry.scripts.iron_and_steel.build_energy_intensities_steel import intensity_bf_ohf, intensity_bf_bof, intensity_dr_eaf, intensity_scrap_eaf, intensity_casting_rolling
+from industry.helpers import extract_capacity_shares, extract_all_fuels, _build_rate_anchors_indexed,  _forecast_from_history_and_sparse_cagr, _get_value_by_index,  _interp_at, get_mapped_config_name, poly_project, get_historical_sector_data, validate_fuel_shares, country_to_iso2, METRIC_ORDER, DEFAULT_TARGET_YEARS
+# PAPER & PULP
+from industry.scripts.paper_and_pulp.build_paper_and_pulp_production import process_paper_pulp_data
+from industry.scripts.paper_and_pulp.build_share_primary_pulp import share_fuel_primary_pulp, share_fuel_secondary_pulp, share_fuel_paper, share_primary_secondary_pulp, share_fuel_unspecified_paper_pulp, activity_factor_unspecified_paper_pulp
+from industry.scripts.paper_and_pulp.build_energy_intensities_paper_pulp import intensity_primary_pulp, intensity_secondary_pulp, intensity_paper_production
+# CEMENT
+from industry.scripts.non_metallic_minerals.build_energy_intensities_cement import intensity_cement_production, activity_factor_unspecified_nmm, build_unspecified_nmm_intensity
+from industry.scripts.non_metallic_minerals.build_shares_cement import share_fuel_cement_production, share_fuel_unspecified_nmm
+from industry.scripts.non_metallic_minerals.build_cement_production import get_cement_and_clinker
+# === Ammonia ===
+from industry.scripts.chemical_and_petrochemical.ammonia.build_ammonia import ammonia_production, build_hvc_production_series, extract_for_countries_from_loader
+from industry.scripts.chemical_and_petrochemical.ammonia.build_shares_ammonia import share_fuel_ammonia_smr_hb, share_fuel_ammonia_renewable, share_fuel_hvc_naphtha_cracking, share_fuel_hvc_lpg_cracking, share_fuel_hvc_methanol_route, share_fuel_unspecified_chemicals, share_HVC_production
+from industry.scripts.chemical_and_petrochemical.ammonia.build_intensities_ammonia import intensity_ammonia_smr_hb, intensity_ammonia_renewable, intensity_hvc_naphtha_cracking, intensity_hvc_lpg_cracking, intensity_hvc_methanol_route, activity_factor_unspecified_chemicals
+# === HVC Production ===
+from industry.scripts.chemical_and_petrochemical.HVC.build_hvc_production import get_hvc_production
+# === Food & Tobacco ===
+from industry.scripts.food_and_tobacco.build_shares_food_and_tobacco import get_unsd_fuel_shares
+# CAGR CONFIG
+from industry.build_CAGR import load_industry_config, interpolate_or_extrapolate, get_metric_cagr_cfg_from_excel, get_metric_config_entry_from_excel, expand_with_cagr_smooth, generate_industry_config_csv
+  
 BASE_YEAR = 2020
-TARGET_YEARS = helpers.DEFAULT_TARGET_YEARS
+TARGET_YEARS = DEFAULT_TARGET_YEARS
 
 SCENARIOS = ["BAU", "Progressive", "Optimistic"]
 INDUSTRY_CONFIG_FILE = "industry_config.csv"
@@ -50,23 +53,21 @@ def main():
     target_years = TARGET_YEARS
     scenarios = SCENARIOS
 
-    industry_cfg_path = INDUSTRY_CONFIG_PATH
-  
-
-    print("===============================")
-    print("Industry configuration")
-    print(f"Using CAGR config file: {industry_cfg_path}")
-    print("===============================\n")
-
     # ---- Countries ----
     countries_to_process = ["Morocco", "Egypt", "South Africa"]
                           #"Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Nigeria",
                           #"Algeria","Argentina","Brazil","Chile","Colombia","Peru","Venezuela",
                           #"Morocco","Tunisia","Tanzania", "South Africa","Libya",
                           #G20 countries
-                           #"Australia", "Canada", "China", "France", "Germany",  
+                          #"Australia", "Canada", "China", "France", "Germany",  
                           #"India", "Indonesia", "Italy", "Japan", "Mexico","Russia", "Saudi Arabia", 
-                           #"South Korea", "United Kingdom","United States of America"
+                          #"South Korea", "United Kingdom","United States of America"
+    
+    # ---- Generate industry_config.csv from hardcoded CAGR rates ----
+    config_output_path = BASE_DIR / "industry_config.csv"
+    generate_industry_config_csv(scenarios=scenarios, countries=countries_to_process, output_path=config_output_path)
+
+    industry_cfg_path = INDUSTRY_CONFIG_PATH
 
     industry_cagr_excel = load_industry_config(
     excel_path=industry_cfg_path,
@@ -151,6 +152,7 @@ def main():
 
     
     for country in countries_to_process:
+        print(f"\n{'='*50}\n Processing country: {country}\n{'='*50}")
 
         cagr_cfg_nmm = get_metric_cagr_cfg_from_excel( industry_cagr_excel,country,"Activity factor of unspecified non metallic minerals")
         nmm_activity = activity_factor_unspecified_nmm(
@@ -269,7 +271,6 @@ def main():
             has_override = False
         else:
             share_bf_ohf, share_bf_bof, share_dr_eaf, has_override = override_steel_routes_positional(
-                country=country,
                 target_years=target_years,
                 scenarios=scenarios,
                 share_bf_ohf=share_bf_ohf,
@@ -2372,11 +2373,7 @@ def main():
                                 continue
 
                             override_val = float(per_sc[sc])
-
-                            # Config may provide shares as fractions (0-1) or percent points (0-100)
-                            if "share of" in name.lower() and 0.0 <= override_val <= 1.0:
-                                override_val *= 100.0
-
+                            # Config values are already in percentage format (0-100), no conversion needed
                             result_expanded[f"{y}_{sc}"] = override_val
 
             if name == "Clinker production per year":
@@ -2440,8 +2437,7 @@ def main():
         # Single output file: hide selected rows from direct country output view.
         df_public = df_out[~df_out["Metric"].isin(hidden_final_energy_metrics)].copy()
         df_public.to_csv(out_path, index=False, encoding='utf-8')
-
-        print(f" Saved: {out_path}")
+        print(f" Saved results for {country} in {out_path.parent.name}/{out_path.name}")
 
 if __name__ == "__main__": 
     main()

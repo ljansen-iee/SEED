@@ -3,13 +3,12 @@
 import os
 import sys
 from typing import Dict, List, Optional
+from pathlib import Path
 
-# Go up two levels to import helpers
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
-from build_CAGR import interpolate_or_extrapolate
-from helpers import get_scenarios_from_build_industry_config
+from industry.build_CAGR import interpolate_or_extrapolate
+from industry.helpers import get_scenarios_from_build_config_industry
 
-SCENARIOS = get_scenarios_from_build_industry_config()
+SCENARIOS = get_scenarios_from_build_config_industry()
 
 
 # =====================================================================

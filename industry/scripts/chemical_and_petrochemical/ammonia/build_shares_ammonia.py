@@ -3,14 +3,12 @@
 from typing import Dict, List, Optional
 import os
 import sys
+from pathlib import Path
 
-# Go up two levels (ammonia → chemicals → scripts)
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
+from industry.build_CAGR import interpolate_or_extrapolate
+from industry.helpers import get_scenarios_from_build_config_industry
 
-from build_CAGR import interpolate_or_extrapolate
-from helpers import get_scenarios_from_build_industry_config
-
-SCENARIOS = get_scenarios_from_build_industry_config()
+SCENARIOS = get_scenarios_from_build_config_industry()
 
 
 
@@ -25,7 +23,7 @@ def share_fuel_ammonia_smr_hb(target_years: List[int], scenarios: Optional[List[
     base_data = {
         "diesel": {
             2020: [0, 0, 0], 
-            2030: [0, 0, -40], 
+            2030: [0, 0, 0], 
             2050: [0, 0, 0]},
         "natural_gas": {
             2020: [97, 97, 97], 
@@ -49,7 +47,7 @@ def share_fuel_ammonia_smr_hb(target_years: List[int], scenarios: Optional[List[
             2050: [0, 0, 0]},
         "hydrogen": {
             2020: [0, 0, 0], 
-            2030: [0, 0, 40], 
+            2030: [0, 0, 0], 
             2050: [0, 0, 0]},
     }
     return _interpolate_shares(base_data, target_years, scenarios)

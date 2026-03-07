@@ -6,9 +6,9 @@ import pandas as pd
 from typing import List, Dict, Optional
 import numpy as np
 import re
+from pathlib import Path
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
-from build_CAGR import interpolate_or_extrapolate
+from industry.build_CAGR import interpolate_or_extrapolate
 
 
 def find_input_folder():
@@ -201,10 +201,10 @@ def load_cement_value(file_path, year: int) -> float:
 
 # cement_production.py (or wherever your original lived)
 from typing import Dict, List, Optional
-from build_CAGR import interpolate_or_extrapolate, load_yaml_config
-from helpers import get_scenarios_from_build_industry_config
+from industry.build_CAGR import interpolate_or_extrapolate, load_yaml_config
+from industry.helpers import get_scenarios_from_build_config_industry
 
-SCENARIOS = get_scenarios_from_build_industry_config()
+SCENARIOS = get_scenarios_from_build_config_industry()
 
 def get_cement_and_clinker(
     country_name: str,

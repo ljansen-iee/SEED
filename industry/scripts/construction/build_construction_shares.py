@@ -1,6 +1,6 @@
 import pandas as pd
 from pathlib import Path
-from scripts.construction.build_construction_energy import _clean_val
+from industry.scripts.construction.build_construction_energy import _clean_val
 
 
 def get_construction_fuel_shares(base_path: Path, country: str, year: int, sector_name: str = "Manufacturing  const. and mining"):
