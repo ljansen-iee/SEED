@@ -47,8 +47,6 @@ CARRIER_ORDER = [
     "ammonia",
     "methanol",
     "steel",
-    "process emissions",
-    "low-temperature heat",
 ]
 
 FUELS_ORDER = ["Diesel", "Natural Gas", "Electricity", "Coal", "Heat", "Biomass", "Hydrogen"]
@@ -64,7 +62,7 @@ COL_ORDER = [
 ]
 
 # Row order for SEC sheet
-ROW_ORDER = ["Total", "Oil", "Gas", "Electricity", "Coal", "Heat", "Biomass", "Hydrogen", "Ammonia", "Methanol", "Steel", "Process Emissions", "Low-Temperature Heat"]
+ROW_ORDER = ["Total", "Oil", "Gas", "Electricity", "Coal", "Heat", "Biomass", "Hydrogen", "Ammonia", "Methanol", "Steel"]
 
 FUEL_TO_SEC = {
     "Diesel": "Oil", "oil": "Oil",
@@ -77,8 +75,6 @@ FUEL_TO_SEC = {
     "Ammonia": "Ammonia", "ammonia": "Ammonia",
     "Methanol": "Methanol", "methanol": "Methanol",
     "Steel": "Steel", "steel": "Steel",
-    "Process Emissions": "Process Emissions", "process emissions": "Process Emissions",
-    "Low-Temperature Heat": "Low-Temperature Heat", "low-temperature heat": "Low-Temperature Heat"
 }
 
 # Sector-specific SEC columns

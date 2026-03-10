@@ -303,7 +303,7 @@ def main():
         }
 
         results = {}
-        all_fuels = ['electricity', 'oil', 'gas', 'coal', 'biomass', 'hydrogen', 'ammonia', 'steel','methanol', 'heat', 'low-temperature heat', "process emissions"]
+        all_fuels = ['electricity', 'oil', 'gas', 'coal', 'biomass', 'hydrogen', 'ammonia', 'steel','methanol', 'heat']
 
         for s_id, csv_name, metric_name in unsd_sectors:
             # A. Get Total Energy (GWh) from CSV
