@@ -121,15 +121,49 @@ OTHER_SEC_COLS = [
 
 def get_config_scenario_name(scenario_from_column: str) -> str:
     """
-    Map scenario name from column (e.g., 'BAU') to config scenario (e.g., 'sc_a').
-    Uses SCENARIOS list position to determine mapping.
+    Return the scenario name as-is for matching with industry_config.csv.
+    industry_config.csv has scenario names like "BAU", "Progressive", "Optimistic".
     """
-    try:
-        idx = SCENARIOS.index(scenario_from_column)
-        config_scenario = f"sc_{chr(ord('a') + idx)}"
-        return config_scenario
-    except (ValueError, IndexError):
-        return "all"
+    return scenario_from_column
+
+
+def get_aggregate_metric_name(metric: str) -> str:
+    """
+    Map fuel-specific metric names to their aggregate counterparts for CAGR lookup.
+    
+    Example:
+    - "Energy intensity of diesel in blast furnaces + open hearth furnace" 
+      -> "Energy intensity of blast furnaces + open hearth furnaces"
+    """
+    import re
+    
+    # Fuel types to strip from metric names
+    fuels = ["diesel", "natural gas", "electricity", "coal", "heat", "biomass", "hydrogen"]
+    
+    # Patterns for fuel-specific energy intensity metrics
+    # Pattern 1: "Energy intensity of {fuel} in {process}" -> "Energy intensity of {process}"
+    # Pattern 2: "Energy intensity of {fuel} for {process}" -> "Energy intensity of {process}"
+    
+    for fuel in fuels:
+        # Pattern: "Energy intensity of {fuel} in {process}"
+        pattern_in = rf"Energy intensity of {fuel} in (.+)"
+        match = re.match(pattern_in, metric, re.IGNORECASE)
+        if match:
+            process = match.group(1).strip()
+            # Handle singular/plural variations
+            if process.endswith("furnace"):
+                process = process + "s"  # furnace -> furnaces
+            return f"Energy intensity of {process}"
+        
+        # Pattern: "Energy intensity of {fuel} for {process}"
+        pattern_for = rf"Energy intensity of {fuel} for (.+)"
+        match = re.match(pattern_for, metric, re.IGNORECASE)
+        if match:
+            process = match.group(1).strip()
+            return f"Energy intensity of {process}"
+    
+    # Return original if no fuel-specific pattern matched
+    return metric
 
 
 def apply_cagr_projections(df: pd.DataFrame, config_path: Path, country: str, base_year: str = "2020") -> pd.DataFrame:
@@ -200,6 +234,22 @@ def apply_cagr_projections(df: pd.DataFrame, config_path: Path, country: str, ba
                         (cagr_config['Metric Name'] == metric) &
                         (cagr_config['Year'] == curr_yr_num)
                     ]
+
+                # If still no match, try the aggregate metric name (for fuel-specific metrics)
+                if match.empty:
+                    aggregate_metric = get_aggregate_metric_name(metric)
+                    if aggregate_metric != metric:
+                        match = cagr_config[
+                            (cagr_config['Metric Name'] == aggregate_metric) &
+                            (cagr_config['Year'] == curr_yr_num) &
+                            (cagr_config['Scenario'].str.lower() == scenario_for_lookup.lower())
+                        ]
+                        if match.empty:
+                            # Fallback to any scenario for aggregate metric/year
+                            match = cagr_config[
+                                (cagr_config['Metric Name'] == aggregate_metric) &
+                                (cagr_config['Year'] == curr_yr_num)
+                            ]
 
                 if not match.empty:
                     # Get country value or default
