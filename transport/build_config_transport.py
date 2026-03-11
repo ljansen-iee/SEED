@@ -769,6 +769,7 @@ def main(base_year=None, target_years=None, scenarios=None):
             continue
 
         # ------- Technology shares -------
+        DEFAULT_TECH_COUNTRY = "Morocco"  # Reference country for technology shares
         try:
             (technology_gasoline_ice_ldv, technology_diesel_ice_ldv, technology_lpg_ice_ldv,
              technology_bev_ldv, technology_fcev_ldv, technology_diesel_plugin_hybrid_ldv, technology_gasoline_plugin_hybrid_ldv,
@@ -782,6 +783,23 @@ def main(base_year=None, target_years=None, scenarios=None):
              technology_diesel_ice_freight_ship, technology_methanol_freight_ship, technology_ammonia_freight_ship, technology_bev_freight_ship, technology_fcev_freight_ship,
              bioethanol_in_road_gasoline, biodiesel_in_road_diesel, biodiesel_in_rail_diesel, biodiesel_in_internal_navigation_diesel, biokerosene_in_internal_aviation_fuel, ice_fuel_in_plugin_hybrid
              ) = share_technology(selected_country, year=2019)
+            
+            # Check if OECD data is missing (LDV shares are all zero)
+            ldv_total = technology_gasoline_ice_ldv + technology_diesel_ice_ldv + technology_lpg_ice_ldv
+            if ldv_total == 0 and selected_country != DEFAULT_TECH_COUNTRY:
+                print(f"   -> INFO: {selected_country} has no OECD technology data, using {DEFAULT_TECH_COUNTRY} as default")
+                (technology_gasoline_ice_ldv, technology_diesel_ice_ldv, technology_lpg_ice_ldv,
+                 technology_bev_ldv, technology_fcev_ldv, technology_diesel_plugin_hybrid_ldv, technology_gasoline_plugin_hybrid_ldv,
+                 technology_diesel_ice_bus, technology_bev_bus, technology_fcev_bus, technology_diesel_plugin_hybrid_bus,
+                 technology_gasoline_ice_2_and_3w, technology_bev_two_three_wheeler,
+                 technology_fcev_passenger_train,
+                 technology_kerosene_passenger_plane, technology_bev_passenger_plane, technology_fcev_passenger_plane,
+                 technology_diesel_ice_ldt, technology_bev_ldt, technology_fcev_ldt, technology_diesel_plugin_hybrid_ldt,
+                 technology_diesel_ice_hdt, technology_bev_hdt, technology_fcev_hdt, technology_diesel_plugin_hybrid_hdt,
+                 technology_fcev_freight_train,
+                 technology_diesel_ice_freight_ship, technology_methanol_freight_ship, technology_ammonia_freight_ship, technology_bev_freight_ship, technology_fcev_freight_ship,
+                 bioethanol_in_road_gasoline, biodiesel_in_road_diesel, biodiesel_in_rail_diesel, biodiesel_in_internal_navigation_diesel, biokerosene_in_internal_aviation_fuel, ice_fuel_in_plugin_hybrid
+                 ) = share_technology(DEFAULT_TECH_COUNTRY, year=2019)
         except Exception as e:
             print(f" Skipping {selected_country}: Technology shares error ({e})")
             continue

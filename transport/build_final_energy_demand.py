@@ -35,7 +35,18 @@ transport_config = {}
 # List of countries to process
 
 countries = [
+            "Algeria",
+            "Argentina",
+            "Brazil",
+            "Chile",
+            "Colombia",
             "Egypt",
+            "Libya",
+            "Mexico",
+            "Namibia",
+            "Peru",
+            "Tunisia",
+            "Uruguay",
             "Morocco",
             "South Africa" ]
 try:

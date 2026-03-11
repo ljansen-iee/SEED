@@ -1152,6 +1152,9 @@ def export_final_energy_intensity_cagr_with_intermediate(
 
             tech_metric_order = list(TECHNOLOGY_OVERRIDES.keys())
 
+            # Default reference country for technology shares when OECD data is missing
+            DEFAULT_TECH_COUNTRY = "Morocco"
+
             def tech_base_for_country(country):
                 (
                     technology_gasoline_ice_ldv, technology_diesel_ice_ldv, technology_lpg_ice_ldv,
@@ -1170,6 +1173,28 @@ def export_final_energy_intensity_cagr_with_intermediate(
                     biodiesel_in_internal_navigation_diesel, biokerosene_in_internal_aviation_fuel,
                     ice_fuel_in_plugin_hybrid
                 ) = share_technology(country, year=2019)
+
+                # Check if OECD data is missing (LDV shares are all zero) - fall back to default country
+                ldv_total = technology_gasoline_ice_ldv + technology_diesel_ice_ldv + technology_lpg_ice_ldv
+                if ldv_total == 0 and country != DEFAULT_TECH_COUNTRY:
+                    print(f"   -> INFO: {country} has no OECD technology data, using default column values from trans_config")
+                    (
+                        technology_gasoline_ice_ldv, technology_diesel_ice_ldv, technology_lpg_ice_ldv,
+                        technology_bev_ldv, technology_fcev_ldv,
+                        technology_diesel_plugin_hybrid_ldv, technology_gasoline_plugin_hybrid_ldv,
+                        technology_diesel_ice_bus, technology_bev_bus, technology_fcev_bus, technology_diesel_plugin_hybrid_bus,
+                        technology_gasoline_ice_2_and_3w, technology_bev_two_three_wheeler,
+                        technology_fcev_passenger_train,
+                        technology_kerosene_passenger_plane, technology_bev_passenger_plane, technology_fcev_passenger_plane,
+                        technology_diesel_ice_ldt, technology_bev_ldt, technology_fcev_ldt, technology_diesel_plugin_hybrid_ldt,
+                        technology_diesel_ice_hdt, technology_bev_hdt, technology_fcev_hdt, technology_diesel_plugin_hybrid_hdt,
+                        technology_fcev_freight_train,
+                        technology_diesel_ice_freight_ship, technology_methanol_freight_ship, technology_ammonia_freight_ship,
+                        technology_bev_freight_ship, technology_fcev_freight_ship,
+                        bioethanol_in_road_gasoline, biodiesel_in_road_diesel, biodiesel_in_rail_diesel,
+                        biodiesel_in_internal_navigation_diesel, biokerosene_in_internal_aviation_fuel,
+                        ice_fuel_in_plugin_hybrid
+                    ) = share_technology(DEFAULT_TECH_COUNTRY, year=2019)
 
                 # Direct electric train share (percent); diesel is complement
                 try:
