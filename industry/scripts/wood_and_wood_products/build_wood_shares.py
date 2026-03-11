@@ -29,7 +29,7 @@ def get_wood_fuel_shares(base_path: Path, country: str, year: int, sector_name: 
         'electricity': ['Nuclear', 'Electricity'], 
         'coal': ['Primary Coal and Peat', 'Coal and Peat Products'], 
         'biomass': ['Biofuels and Waste'], 
-        'hydrogen': [], 'ammonia': [], 'steel': [], 'methanol': []
+        'hydrogen': [], 'ammonia': [], 'methanol': []
     }
 
     # 3. Calculation logic (now uses the shared _clean_val)

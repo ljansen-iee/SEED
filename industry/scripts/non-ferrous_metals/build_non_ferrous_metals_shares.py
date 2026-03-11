@@ -16,8 +16,7 @@ def get_non_ferrous_fuel_shares(base_path: Path, country: str, year: int, sector
         'coal': ['Primary Coal and Peat', 'Coal and Peat Products'], 
         'biomass': ['Biofuels and Waste'], 
         'hydrogen': [], 
-        'ammonia': [], 
-        'steel': [], 
+        'ammonia': [],  
         'methanol': []
     }
     

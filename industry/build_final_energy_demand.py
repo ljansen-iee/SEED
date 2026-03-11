@@ -162,6 +162,85 @@ def get_aggregate_metric_name(metric: str) -> str:
     return metric
 
 
+def apply_share_overrides(df: pd.DataFrame, config_path: Path, country: str) -> pd.DataFrame:
+    """
+    Apply SHARE value overrides from industry_config.csv.
+    For metrics where user has provided country-specific share values,
+    replace the 2020 UNSD defaults with the config values for each year/scenario.
+    """
+    try:
+        config_df = pd.read_csv(config_path)
+        share_config = config_df[config_df['Assumption Type'] == 'SHARE']
+    except Exception as e:
+        print(f"  Warning: Error loading SHARE config: {e}")
+        return df
+
+    if share_config.empty:
+        return df
+
+    # Build a lookup: metric_name -> {(year, scenario) -> value}
+    share_lookup = {}
+    for _, row in share_config.iterrows():
+        metric_name = str(row['Metric Name']).strip()
+        year = int(row['Year'])
+        scenario = str(row['Scenario']).strip()
+        
+        # Get country value - check if it's set (including 0)
+        val = row.get(country)
+        country_has_value = not (pd.isna(val) or val == "")
+        
+        if not country_has_value:
+            # Fall back to default
+            val = row.get('default')
+            default_has_value = not (pd.isna(val) or val == "")
+            if not default_has_value:
+                continue  # Skip only if BOTH country AND default are empty
+            
+        if metric_name not in share_lookup:
+            share_lookup[metric_name] = {}
+        share_lookup[metric_name][(year, scenario)] = float(val)
+
+    # Identify columns to update
+    all_cols = [c for c in df.columns if c not in ["Metric", "Units"]]
+
+    def extract_year(column_name):
+        digits = "".join(filter(str.isdigit, str(column_name)))
+        return int(digits) if digits else None
+
+    for index, row in df.iterrows():
+        metric = str(row['Metric']).strip()
+        
+        if metric not in share_lookup:
+            continue
+        
+        for col in all_cols:
+            year = extract_year(col)
+            if year is None or year == 2020:
+                continue  # Don't override 2020 base values
+            
+            # Identify the scenario from column name (e.g., "2030_BAU" → "BAU")
+            scenario_from_col = None
+            for scn_name in SCENARIOS:
+                if scn_name in str(col):
+                    scenario_from_col = scn_name
+                    break
+            
+            if scenario_from_col is None:
+                continue
+            
+            # Map column scenario name to config scenario name
+            scenario_for_lookup = get_config_scenario_name(scenario_from_col)
+            
+            # Look up the value
+            key = (year, scenario_for_lookup)
+            if key in share_lookup[metric]:
+                new_val = share_lookup[metric][key]
+                # Apply the share value directly
+                df.at[index, col] = new_val
+
+    return df
+
+
 def apply_cagr_projections(df: pd.DataFrame, config_path: Path, country: str, base_year: str = "2020") -> pd.DataFrame:
     """
     Chain-linked CAGR calculation (aligned with transport):
@@ -2788,6 +2867,9 @@ def run_industry_pipeline_for_country(country: str):
     if industry_config_path.exists():
         print(f"  >>> Found config! Refreshing projections for {country}...")
         df_metrics = apply_cagr_projections(df_metrics, industry_config_path, country, base_year="2020")
+        
+        # === APPLY SHARE OVERRIDES (for other industries fuel shares) ===
+        df_metrics = apply_share_overrides(df_metrics, industry_config_path, country)
         
         # Save the refreshed data for verification (aligned with transport naming)
         updated_path = results_dir / f"output_{country}_updated.csv"

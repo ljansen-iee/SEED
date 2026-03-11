@@ -27,7 +27,7 @@ def get_machinery_fuel_shares(base_path: Path, country: str, year: int, sector_n
         'electricity': ['Nuclear', 'Electricity'], 
         'coal': ['Primary Coal and Peat', 'Coal and Peat Products'], 
         'biomass': ['Biofuels and Waste'], 
-        'hydrogen': [], 'ammonia': [], 'steel': [], 'methanol': []
+        'hydrogen': [], 'ammonia': [],  'methanol': []
     }
 
     shares = {}

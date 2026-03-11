@@ -349,11 +349,26 @@ def main():
             base_shares = get_unsd_fuel_shares(UNSD_PATH, country, base_year, sector_name=csv_name)
             fuel_shares_proj = {}
             
+            # Mapping for fuel names in CSV (some use "diesel"/"natural gas" instead of "oil"/"gas")
+            fuel_name_mapping = {
+                "oil": ["oil", "diesel"],
+                "gas": ["gas", "natural gas"],
+                "electricity": ["electricity"],
+                "coal": ["coal"],
+                "biomass": ["biomass"],
+                "hydrogen": ["hydrogen"],
+                "ammonia": ["ammonia"],
+                "methanol": ["methanol"],
+                "heat": ["heat"],
+                "steel": ["steel"]
+            }
+            
             for fuel in all_fuels:
-                lookup_candidates = [
-                    f"share of {fuel} for unspecified {alias}".lower()
-                    for alias in sector_lookup_aliases.get(s_id, [s_id])
-                ]
+                lookup_candidates = []
+                # Try both the fuel name and any mapped alternatives
+                for fuel_variant in fuel_name_mapping.get(fuel, [fuel]):
+                    for alias in sector_lookup_aliases.get(s_id, [s_id]):
+                        lookup_candidates.append(f"share of {fuel_variant} for unspecified {alias}".lower())
 
                 excel_share_values = {}
                 for lookup_name in lookup_candidates:
@@ -374,10 +389,11 @@ def main():
                             vals.append(float(base_shares.get(fuel, 0.0)))
                             continue
 
-                        # For future years: if Excel value is blank/NaN, replicate 2020 history
-                        # Explicit zeros in config are valid overrides and must be kept as 0.
-                        if excel_val is None or pd.isna(excel_val):
-                            vals.append(float(base_shares.get(fuel, 0.0)))
+                        # For future years: if Excel value is blank/NaN/0, replicate 2020 history
+                        # (0 is treated as "blank" for unspecified sectors where it's a default placeholder)
+                        base_val = float(base_shares.get(fuel, 0.0))
+                        if excel_val is None or pd.isna(excel_val) or excel_val == 0.0:
+                            vals.append(base_val)
                         else:
                             # TECH_SHARE may be provided either as fraction (0-1) or percent (0-100).
                             # Output rows use Units="%", so store percentage points.
@@ -1719,11 +1735,6 @@ def main():
                 "unit": "%", 
                 "forecast": False
             },
-             "Share of steel for unspecified food and tobacco": {
-                "source": results["food and tobacco"]["shares"]["steel"],
-                "unit": "%", 
-                "forecast": False
-             },
 
             # construction 
             "Final energy of construction": {
@@ -1768,11 +1779,6 @@ def main():
             },
             "Share of methanol for unspecified construction": {
                 "source": results["construction"]["shares"]["methanol"],
-                "unit": "%", 
-                "forecast": False
-            },
-            "Share of steel for unspecified construction": {
-                "source": results["construction"]["shares"]["steel"],
                 "unit": "%", 
                 "forecast": False
             },
@@ -1823,11 +1829,6 @@ def main():
                 "unit": "%", 
                 "forecast": False
             },
-            "Share of steel for unspecified machinery": {
-                "source": results["machinery"]["shares"]["steel"],
-                "unit": "%", 
-                "forecast": False
-            },
 
             # mining and quarrying
             "Final energy of mining and quarrying": {
@@ -1875,11 +1876,6 @@ def main():
                 "unit": "%", 
                 "forecast": False
             },
-            "Share of steel for unspecified mining and quarrying": {
-                "source": results["mining and quarrying"]["shares"]["steel"],
-                "unit": "%", 
-                "forecast": False
-            },
             
             # Non-ferrous metals
             "Final energy of non-ferrous metals": {
@@ -1924,11 +1920,6 @@ def main():
             },
             "Share of methanol for unspecified non-ferrous metals": {
                 "source": results["non-ferrous metals"]["shares"]["methanol"],
-                "unit": "%", 
-                "forecast": False
-            },
-            "Share of steel for unspecified non-ferrous metals": {
-                "source": results["non-ferrous metals"]["shares"]["steel"],
                 "unit": "%", 
                 "forecast": False
             },
@@ -1980,11 +1971,6 @@ def main():
                 "unit": "%", 
                 "forecast": False
             },
-            "Share of steel for unspecified textile and leather": {
-                "source": results["textile and leather"]["shares"]["steel"],
-                "unit": "%", 
-                "forecast": False
-            },
              
             # transport equipment
             "Final energy of transport equipment": {
@@ -2032,11 +2018,6 @@ def main():
                 "unit": "%", 
                 "forecast": False
             },
-            "Share of steel for unspecified transport equipment": {
-                "source": results["transport equipment"]["shares"]["steel"],
-                "unit": "%", 
-                "forecast": False
-            },
 
             # wood and wood products
             "Final energy of wood and wood products": {
@@ -2081,11 +2062,6 @@ def main():
             },
             "Share of methanol for unspecified wood and wood products": {
                 "source": results["wood and wood products"]["shares"]["methanol"],
-                "unit": "%", 
-                "forecast": False
-            },
-            "Share of steel for unspecified wood and wood products": {
-                "source": results["wood and wood products"]["shares"]["steel"],
                 "unit": "%", 
                 "forecast": False
             },
@@ -2362,6 +2338,8 @@ def main():
 
                 # Apply exact metric overrides from config for non-forecast metrics
                 # (e.g., TECH_SHARE rows). Explicit zeros are valid and must override.
+                # However, for "other industries" shares where the source is historical UNSD data,
+                # treat 0.0 as "not configured" and don't override the scenario_vals.
                 if assumption_type_effective != "CAGR" and isinstance(metric_cfg_exact, dict) and metric_cfg_exact:
                     for y in target_years:
                         per_sc = metric_cfg_exact.get(y, {})
@@ -2373,6 +2351,12 @@ def main():
                                 continue
 
                             override_val = float(per_sc[sc])
+                            # For "other industries" shares: if override is 0.0 and metric name starts with "Share of",
+                            # treat it as "not configured" and keep the scenario_vals (which has the historical data)
+                            is_unspecified_industry_share = name.startswith("Share of") and "unspecified" in name
+                            if is_unspecified_industry_share and override_val == 0.0:
+                                continue  # Skip applying 0.0 override; keep the scenario_vals
+                            
                             # Config values are already in percentage format (0-100), no conversion needed
                             result_expanded[f"{y}_{sc}"] = override_val
 

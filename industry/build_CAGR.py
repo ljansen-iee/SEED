@@ -1361,11 +1361,42 @@ def generate_industry_config_csv(scenarios: List[str], countries: List[str] = No
     # =====================================================================
     # === OTHER INDUSTRIES SHARES (food & tobacco, construction, machinery, etc.)
     # =====================================================================
-    # NOTE: Shares for "Other Industries" are NOT included in this config file.
-    # Instead, build_config_industry.py uses the 2020 historical fuel shares 
-    # directly from UNSD data and applies them to all future years.
-    # This ensures consistency between 2020 and projection years.
+    # These fuel shares are generated with default=0 so users can specify
+    # country-specific values. If left as 0/blank, build_config_industry.py 
+    # will use 2020 historical UNSD fuel shares.
     # =====================================================================
+    
+    other_industries = [
+        "food and tobacco",
+        "construction",
+        "machinery",
+        "mining and quarrying",
+        "non-ferrous metals",
+        "textile and leather",
+        "transport equipment",
+        "wood and wood products",
+    ]
+    
+    other_industry_fuels = ["diesel", "natural gas", "electricity", "coal", "heat", "biomass", "hydrogen"]
+    
+    for industry in other_industries:
+        for fuel in other_industry_fuels:
+            metric_name = f"Share of {fuel} for unspecified {industry}"
+            
+            for year in years:
+                for scenario in scenarios:
+                    row = {
+                        "Assumption Type": "SHARE",
+                        "Metric Name": metric_name,
+                        "Year": year,
+                        "Scenario": scenario,
+                        "default": 0.0
+                    }
+                    
+                    for country in countries:
+                        row[country] = 0.0
+                    
+                    rows.append(row)
 
     df = pd.DataFrame(rows)
     
