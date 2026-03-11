@@ -34,15 +34,10 @@ transport_config = {}
 
 # List of countries to process
 
-countries = ["Morocco"]
-    #"Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
-    #"Algeria","Argentina","Brazil","Chile","Colombia","Mexico","Peru","Venezuela",
-    #"Morocco","Tunisia","Tanzania", "South Africa","Libya",
-    #"Australia", "Canada", "China", "France", "Germany",  
-    #"India", "Indonesia", "Italy", "Japan", "Russia", "Saudi Arabia",
-   # "South Korea", "United Kingdom", "United States of America"]
-
-# NOW load transport config after countries is defined
+countries = [
+            "Egypt",
+            "Morocco",
+            "South Africa" ]
 try:
     countries_to_load = countries + ["default"]
     transport_config = load_transport_config(

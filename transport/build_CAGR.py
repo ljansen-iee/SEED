@@ -643,6 +643,7 @@ def apply_load_factor(metric, base_value, cagr_values, assumption_types, base_ye
 
 MA_METRIC_MAP = {
     "Final Energy Intensity -  ICE LDV": "Final Energy Intensity - Diesel ICE LDV",
+    "Final Energy Intensity - Gasoline ICE LDV": "Final Energy Intensity - Gasoline ICE LDV",
     "Final Energy Intensity -  ICE Bus": "Final Energy Intensity - Diesel ICE Bus",
     "Final Energy Intensity - ICE 2&3W": "Final Energy Intensity - Gasoline ICE 2&3W",
     "Final Energy Intensity - ICE LDT": "Final Energy Intensity - Diesel ICE LDT",
@@ -663,12 +664,28 @@ MA_METRIC_MAP = {
     "Final Energy Intensity - ICE Train": "Final Energy Intensity - Diesel ICE Passenger Train",
     "Final Energy Intensity - Direct Electric Train": "Final Energy Intensity - Direct Electric Passenger Train",
     "Final Energy Intensity - FCEV Train": "Final Energy Intensity - FCEV Passenger Train",
+    "Final Energy Intensity - ICE Freight Train": "Final Energy Intensity - Diesel ICE Freight Train",
+    "Final Energy Intensity - Direct Electric Freight Train": "Final Energy Intensity - Direct Electric Freight Train",
+    "Final Energy Intensity - FCEV Freight Train": "Final Energy Intensity - FCEV Freight Train",
     "Final Energy Intensity - ICE Ship": "Final Energy Intensity - Diesel Freight Ship",
     "Final Energy Intensity - BEV Ship": "Final Energy Intensity - BEV Freight Ship",
     "Final Energy Intensity - FCEV Ship": "Final Energy Intensity - FCEV Freight Ship",
+    "Final Energy Intensity - Methanol Ship": "Final Energy Intensity - Methanol Freight Ship",
+    "Final Energy Intensity - Ammonia Ship": "Final Energy Intensity - Ammonia Freight Ship",
     "Final Energy Intensity - ICE Plane": "Final Energy Intensity - Kerosene Passenger Plane",
     "Final Energy Intensity - BEV Plane": "Final Energy Intensity - BEV Passenger Plane",
     "Final Energy Intensity - FCEV Plane": "Final Energy Intensity - FCEV Passenger Plane",
+    "Final Energy Intensity - LPG ICE LDV": "Final Energy Intensity - LPG ICE LDV",
+    "Final Energy Intensity - Gasoline Plugin Hybrid LDV": "Final Energy Intensity - Gasoline Plugin Hybrid LDV",
+}
+
+# Map metrics to their CAGR source when they don't have their own CAGR data
+# Key = metric that needs CAGR, Value = metric to copy CAGR from
+CAGR_SOURCE_MAP = {
+    "Final Energy Intensity - Gasoline ICE LDV": "Final Energy Intensity - Diesel ICE LDV",
+    "Final Energy Intensity - LPG ICE LDV": "Final Energy Intensity - Diesel ICE LDV",
+    "Final Energy Intensity - Methanol Freight Ship": "Final Energy Intensity - Diesel Freight Ship",
+    "Final Energy Intensity - Ammonia Freight Ship": "Final Energy Intensity - Diesel Freight Ship",
 }
 
 
@@ -900,7 +917,9 @@ def export_final_energy_intensity_cagr_with_intermediate(
                     values_for_year = values_2030 if year in (2030, 2035) else values_2050
                     val = values_for_year[scen_idx] if scen_idx < len(values_for_year) else None
                 else:
-                    entry = cagr_values.get(source_metric, {})
+                    # Check if this metric should use another metric's CAGR
+                    cagr_lookup_metric = CAGR_SOURCE_MAP.get(source_metric, source_metric)
+                    entry = cagr_values.get(cagr_lookup_metric, {})
                     y2030 = entry.get(2030, {}) if isinstance(entry, dict) else {}
                     y2050 = entry.get(2050, {}) if isinstance(entry, dict) else {}
 
@@ -1538,10 +1557,16 @@ def export_final_energy_intensity_cagr_with_intermediate(
     # Drop base-year rows entirely; downstream pipeline will source 2020 bases from raw inputs
     df = df[~((df["Year"] == base_year) & (df["Scenario"] == "Base"))]
 
-    # Insert a default column (after Scenario) using the first non-empty country value as fallback
+    # Insert a default column (after Scenario) using Morocco's values as the default
     country_cols = [c for c in df.columns if c not in ["Assumption Type", "Metric Name", "Year", "Scenario"]]
 
     def pick_default(row):
+        # Use Morocco as the default reference country
+        if "Morocco" in row.index:
+            val = row["Morocco"]
+            if pd.notna(val) and str(val) != "":
+                return val
+        # Fallback: use first non-empty country value if Morocco is unavailable
         for col in country_cols:
             val = row[col]
             if pd.notna(val) and str(val) != "":

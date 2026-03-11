@@ -45,13 +45,20 @@ TRANSPORT_DIR = _resolve_transport_dir()
 transport_config_file = "trans_config.csv"
 transport_config_path = TRANSPORT_DIR / transport_config_file
 
-countries_to_process = ["Morocco"]
-                       #"Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Nigeria"]
-                       #"Algeria","Argentina","Brazil","Chile","Colombia","Mexico","Peru","Venezuela",
-                       #"Morocco","Tunisia","Tanzania","Libya",
-                       #"Australia", "Canada", "China", "France", "Germany",  
-                       #"India", "Indonesia", "Italy", "Japan", "Mexico","Russia", "Saudi Arabia", 
-                       #"South Africa", "South Korea", "United Kingdom", "United States of America"]
+countries_to_process = ["Algeria",
+                        "Argentina",
+                        "Brazil",
+                        "Chile",
+                        "Colombia",
+                        "Egypt",
+                        "Libya",
+                        "Mexico",
+                        "Namibia",
+                        "Peru",
+                        "Tunisia",
+                        "Uruguay",
+                        "Morocco",
+                        "South Africa" ]
 
 countries_to_load = countries_to_process + ["default"] 
 
