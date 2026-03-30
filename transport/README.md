@@ -375,10 +375,5 @@ Fix these by editing `trans_config.csv` or the country parameter files.
 
 ---
 
-## Contact
-
-For questions or issues, please open an issue in the repository or contact the development team.
-
----
 
 *Last updated: March 2026*
