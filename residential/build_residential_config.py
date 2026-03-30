@@ -55,6 +55,26 @@ INTENSITY_METRICS_MAP = helpers.INTENSITY_METRICS_MAP
 
 
 def build_metric_df(metric_name, unit_key, data_df, target_years, scenario_name, growth_pathway, selected_countries, units_dict):
+    """Build a long-format DataFrame for a single macro-indicator metric.
+
+    Creates one row per (year, scenario) combination and one column per
+    country, extracting values from *data_df* which is indexed by
+    ``(country, SSP)``.
+
+    Args:
+        metric_name: Human-readable metric label.
+        unit_key: Key into *units_dict* for the unit string.
+        data_df: Source DataFrame indexed by ``(country, SSP)`` with
+            year columns.
+        target_years: List of projection years.
+        scenario_name: Ordered list of scenario names.
+        growth_pathway: Matching list of SSP identifiers.
+        selected_countries: Countries to include.
+        units_dict: Mapping of metric keys → unit strings.
+
+    Returns:
+        pd.DataFrame: Long-format parameter table.
+    """
     unit = units_dict.get(unit_key)
     macro_rows = []
     for year in target_years:
@@ -80,6 +100,23 @@ def build_metric_df(metric_name, unit_key, data_df, target_years, scenario_name,
 
 
 def build_constant_metric_df(metric_name, unit_key, country_series, target_years, scenario_name, selected_countries, units_dict, type_label="technology share"):
+    """Build a parameter DataFrame for a metric that is constant over time.
+
+    The same base-year value is repeated across all years and scenarios.
+
+    Args:
+        metric_name: Human-readable metric label.
+        unit_key: Key into *units_dict*.
+        country_series: ``pd.Series`` indexed by country.
+        target_years: Projection years.
+        scenario_name: Scenario names.
+        selected_countries: Countries to include.
+        units_dict: Metric → unit mapping.
+        type_label: Row type label (default ``"technology share"``).
+
+    Returns:
+        pd.DataFrame: Long-format parameter table.
+    """
     unit = units_dict.get(unit_key)
     country_values = country_series.reindex(selected_countries)
     if country_values.isna().any():
@@ -295,6 +332,32 @@ def build_cagr_blocks(
     cooking_intensity_map,
     water_heating_intensity_map,
 ):
+    """Build CAGR and projected energy-intensity DataFrames.
+
+    Retrieves region-specific CAGR values via
+    :func:`build_CAGR.build_country_cagr`, then applies compound growth
+    to base-year intensities for every end-use and technology.
+
+    Args:
+        selected_countries: Country names to process.
+        target_years: Projection years.
+        base_year: Reference year.
+        units_dict: Metric → unit mapping.
+        intensity_sh: Base space-heating intensity (kWh/m²).
+        intensity_wh: Base water-heating intensity (kWh/dw).
+        intensity_sc: Base space-cooling intensity (kWh/m²).
+        intensity_cooking: Base cooking intensity (kWh/dw).
+        intensity_appliances: Base appliances intensity (kWh/dw).
+        space_heating_intensity_map: Technology → intensity overrides.
+        space_cooling_intensity_map: Technology → intensity overrides.
+        cooking_intensity_map: Technology → intensity overrides.
+        water_heating_intensity_map: Technology → intensity overrides.
+
+    Returns:
+        tuple[pd.DataFrame, pd.DataFrame]: ``(df_cagr_macro,
+        df_cagr_intensity_macro)`` — the raw CAGR rates and the
+        resulting projected intensity values.
+    """
     df_cagr_country_raw = build_cagr.build_country_cagr(
         selected_countries,
         target_years=target_years,
@@ -394,6 +457,18 @@ def build_cagr_blocks(
 # === create configuration parameters ===
 
 def create_csv_all():
+    """Run the full residential parameter pipeline and export results.
+
+    Orchestrates all build steps:
+
+    1. Macro indicators (population, floor area, persons/dwelling).
+    2. Technology shares (space heating, cooking, water heating).
+    3. Saturation rates (heating, cooling, appliances, cooking).
+    4. CAGR-based energy-intensity projections.
+
+    Concatenates all parameter DataFrames and writes
+    ``output_data/parameters_all_countries.csv``.
+    """
     # STEP 1 GENERATE MACRO INDICATORS
     macro_indicators = build_mac.create_macro_indicators_all()
     df_population, df_gdp_ssp, df_m2_p_all, df_person_dw, df_economics = macro_indicators

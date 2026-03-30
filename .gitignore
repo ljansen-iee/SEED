@@ -14,3 +14,10 @@ industry/scripts/chemical_and_petrochemical/HVC/build_hvc_production.py
 residential/test_main_residential.ipynb
 industry/test_industry.py
 transport/test.py
+
+# MkDocs: visualisation notebooks copied here by CI (plots/*.ipynb → docs/notebooks/)
+docs/notebooks/
+# MkDocs build output
+site/
+# MkDocs CI venv
+docs_venv/

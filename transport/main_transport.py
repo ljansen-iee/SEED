@@ -57,6 +57,21 @@ if not DEFAULT_VALUES:
     print(" WARNING: No 'default' data found in trans_config.xlsx. Fallback logic might fail.")
 
 def main(base_year=None, target_years=None, scenarios=None):
+    """Run the full transport pipeline for all configured countries.
+
+    For each country in ``countries_to_process``, the function:
+
+    1. Loads and merges configuration (defaults + country overrides).
+    2. Builds base-year metrics (population, subsector shares, mode
+       shares, load factors, energy intensities, technology shares).
+    3. Projects each metric to target years using CAGRs.
+    4. Exports a per-country CSV to ``output_data/country_parameters/``.
+
+    Args:
+        base_year: Override for the global ``BASE_YEAR`` (default 2020).
+        target_years: Override for ``TARGET_YEARS`` (default [2030, 2050]).
+        scenarios: Override for ``SCENARIOS`` list.
+    """
     # Use arguments if provided, else defaults
     base_year = int(base_year) if base_year is not None else BASE_YEAR
     target_years = list(map(int, target_years)) if target_years is not None else list(TARGET_YEARS)

@@ -1,0 +1,112 @@
+site_name: Sectoral Energy Demands
+site_description: >
+  Bottom-up final energy demand forecasting tool for 30+ countries.
+  Developed at Fraunhofer IEE for the DeV-KopSys-2 and H2Global meets Africa projects.
+site_url: https://gems.gitlab.cc-asp.fraunhofer.de/sectoral-energy-demands/
+repo_url: https://gitlab.cc-asp.fraunhofer.de/gems/sectoral-energy-demands
+repo_name: gems/sectoral-energy-demands
+edit_uri: edit/main/docs/
+
+docs_dir: docs
+
+theme:
+  name: material
+  logo: assets/logo.png
+  favicon: assets/logo.png
+  palette:
+    - scheme: default
+      primary: teal
+      accent: deep orange
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: teal
+      accent: deep orange
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - navigation.footer
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+    - toc.integrate
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: google
+            show_source: true
+            show_root_heading: true
+            show_category_heading: true
+            members_order: source
+  - mkdocs-jupyter:
+      execute: false          # set to true once notebooks are cleaned up
+      include_source: true
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.arithmatex:      # LaTeX math rendering
+      generic: true
+  - attr_list
+  - md_in_html
+  - tables
+  - footnotes
+  - toc:
+      permalink: true
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
+
+extra_css:
+  - stylesheets/extra.css
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+      - Quick Start: getting-started/quickstart.md
+  - Methodology:
+      - Overview: methodology/overview.md
+      - Transport: methodology/transport.md
+      - Residential: methodology/residential.md
+      - Industry: methodology/industry.md
+      - Scenarios & CAGRs: methodology/scenarios.md
+  - Data:
+      - Input Data: data/input-data.md
+      - Output Format: data/output-format.md
+      - Country Coverage: data/country-coverage.md
+  - Configuration: configuration.md
+  - Tutorials:
+      - Transport: tutorials/transport_tutorial.ipynb
+      - Residential: tutorials/residential_tutorial.ipynb
+  - Notebooks:
+      - Sector Plots: notebooks/plots.ipynb
+      - Transport Graphs: notebooks/transport_graphs.ipynb
+      - Residential Graphs: notebooks/residential_graphs.ipynb
+      - Statistics: notebooks/statistics.ipynb
+  - API Reference:
+      - Transport: api/transport.md
+      - Residential: api/residential.md
+  - Contributing: contributing.md
+  - Changelog: changelog.md
+  - References: references.md

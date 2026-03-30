@@ -1,0 +1,28 @@
+stages:
+  - deploy
+
+# Build MkDocs documentation and deploy to GitLab Pages.
+pages:
+  image: python:3.10-slim
+  stage: deploy
+  before_script:
+    # Copy visualisation notebooks from plots/ into the docs tree so
+    # mkdocs-jupyter can render them. The docs/notebooks/ dir is git-ignored.
+    - mkdir -p docs/notebooks
+    - cp plots/*.ipynb docs/notebooks/ || true
+  script:
+    - python3 -m venv ./docs_venv
+    - . ./docs_venv/bin/activate
+    - pip install --quiet
+        mkdocs-material==9.6.7
+        mkdocstrings[python]==0.29.1
+        mkdocs-jupyter==0.25.1
+    - mkdocs build --site-dir public
+    - deactivate
+  artifacts:
+    paths:
+      - public
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+  tags:
+    - asprunner

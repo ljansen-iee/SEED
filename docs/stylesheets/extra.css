@@ -1,0 +1,11 @@
+/* Custom overrides for Sectoral Energy Demands docs */
+
+/* Widen the content area slightly for wide tables */
+.md-content {
+  max-width: 960px;
+}
+
+/* Style equation blocks */
+.arithmatex {
+  overflow-x: auto;
+}

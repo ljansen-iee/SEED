@@ -31,6 +31,17 @@ def open_pdf(file_path, pages="1", multiple_tables=False, encoding="latin1", **k
     )
 
 def read_file(file_path,pdf_options=None):
+    """Read a CSV, Excel, or PDF file into a DataFrame.
+
+    Args:
+        file_path: Path to the file (must end in ``.csv``, ``.xlsx``,
+            or ``.pdf``).
+        pdf_options: Reserved for future PDF handling.
+
+    Returns:
+        pd.DataFrame | None: Parsed data, or ``None`` for PDFs and on
+        errors.
+    """
     try:
         if file_path.endswith('.csv'):
             return pd.read_csv(file_path, encoding="utf8")
@@ -46,11 +57,35 @@ def read_file(file_path,pdf_options=None):
         return None
         
 def load_files_from_folder(folder_path):
+    """Load every file in *folder_path* into a dict of DataFrames.
+
+    Args:
+        folder_path: Directory to scan.
+
+    Returns:
+        dict[str, pd.DataFrame]: Mapping of filename → DataFrame.
+    """
     return {file_doc: read_file(os.path.join(folder_path, file_doc)) 
             for file_doc in os.listdir(folder_path)}       
 
     
 def load_all_files(energy_sector="residential", base_dir=None):
+    """Load country-specific and global input data for a sector.
+
+    Scans ``{base_dir}/{energy_sector}/input_data/`` for the
+    ``country_specific`` and ``global`` sub-folders and reads every
+    file therein.
+
+    Args:
+        energy_sector: Sector name (used as directory name).
+        base_dir: Repository root; auto-detected if ``None``.
+
+    Returns:
+        tuple[dict, dict]: ``(country_specific_dfs, global_dfs)``.
+
+    Raises:
+        FileNotFoundError: If the resolved path does not exist.
+    """
     if base_dir is None:
         if '__file__' in globals():
             base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -78,6 +113,15 @@ def load_all_files(energy_sector="residential", base_dir=None):
     return dfs_country_spe, dfs_global
 
 def generate_units_dictionary():
+    """Return the canonical mapping of residential metrics to their units.
+
+    The dictionary covers macro indicators, saturation rates, technology
+    shares, and energy intensities for all five residential end-uses
+    (space heating/cooling, water heating, cooking, appliances).
+
+    Returns:
+        dict[str, str]: Metric name → unit string.
+    """
     data_units_dict = {
     "Population": "persons",
     "Residential Area per Person": "m2/p",
@@ -220,7 +264,24 @@ INTENSITY_METRICS_MAP = {
 
 
 def load_residential_config(path: Path, countries: list, scenarios: list):
+    """Load the residential configuration CSV and build a nested dict.
 
+    Reads a CSV with columns ``Assumption Type``, ``Metric Name``,
+    ``Year``, ``Scenario``, ``default``, and optional country columns.
+    Country-specific values override the default.
+
+    Args:
+        path: Path to the CSV config file.
+        countries: Country names to extract (must match column headers).
+        scenarios: Ordered list of scenario names.
+
+    Returns:
+        dict: Nested ``{country: {metric: {assumption_type, values}}}``
+        structure.
+
+    Raises:
+        ValueError: If required columns are missing.
+    """
     df = pd.read_csv(path)
     df.columns = df.columns.str.strip()
 
