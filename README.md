@@ -466,8 +466,6 @@ jupyter lab
 
 ## Contributors
 
-<!-- To refresh this list run: git shortlog -sne HEAD -->
-
 - Estefanía Duque Pérez, Fraunhofer IEE
 - Rakesh Etikala Narendar, Fraunhofer IEE
 
