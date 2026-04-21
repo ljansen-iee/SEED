@@ -1,22 +1,23 @@
 import os
 import sys
+import warnings
 import pandas as pd
 from datetime import datetime
 from typing import Dict, Any, List
 from pathlib import Path 
 
-# === Project imports ===
-BASE_DIR = Path(__file__).resolve().parent
-UNSD_PATH = BASE_DIR / "input_data" / "country_specific"
+# Suppress module import order warning when running as __main__
+warnings.filterwarnings("ignore", message=".*found in sys.modules.*", category=RuntimeWarning)
+
 # iron and steel
 from industry.scripts.iron_and_steel.build_steel_production import load_and_process_both, share_steel
 from industry.scripts.iron_and_steel.build_shares_steel import share_fuel_bf_ohf, share_fuel_bf_bof, share_fuel_dr_eaf, share_fuel_scrap_eaf,share_fuel_casting_rolling, share_fuel_unspecified_steel, override_steel_routes_positional
 from industry.scripts.iron_and_steel.build_energy_intensities_steel import intensity_bf_ohf, intensity_bf_bof, intensity_dr_eaf, intensity_scrap_eaf, intensity_casting_rolling
-from helpers import extract_capacity_shares, extract_all_fuels, _build_rate_anchors_indexed,  _forecast_from_history_and_sparse_cagr, _get_value_by_index,  _interp_at, get_mapped_config_name, poly_project, get_historical_sector_data, validate_fuel_shares, country_to_iso2
+from industry.helpers import extract_capacity_shares, extract_all_fuels, _build_rate_anchors_indexed,  _forecast_from_history_and_sparse_cagr, _get_value_by_index,  _interp_at, get_mapped_config_name, poly_project, get_historical_sector_data, validate_fuel_shares, country_to_iso2, METRIC_ORDER, DEFAULT_TARGET_YEARS
 # PAPER & PULP
 from industry.scripts.paper_and_pulp.build_paper_and_pulp_production import process_paper_pulp_data
 from industry.scripts.paper_and_pulp.build_share_primary_pulp import share_fuel_primary_pulp, share_fuel_secondary_pulp, share_fuel_paper, share_primary_secondary_pulp, share_fuel_unspecified_paper_pulp, activity_factor_unspecified_paper_pulp
-from scripts.paper_and_pulp.build_energy_intensities_paper_pulp import intensity_primary_pulp, intensity_secondary_pulp, intensity_paper_production
+from industry.scripts.paper_and_pulp.build_energy_intensities_paper_pulp import intensity_primary_pulp, intensity_secondary_pulp, intensity_paper_production
 # CEMENT
 from industry.scripts.non_metallic_minerals.build_energy_intensities_cement import intensity_cement_production, activity_factor_unspecified_nmm, build_unspecified_nmm_intensity
 from industry.scripts.non_metallic_minerals.build_shares_cement import share_fuel_cement_production, share_fuel_unspecified_nmm
@@ -30,37 +31,46 @@ from industry.scripts.chemical_and_petrochemical.HVC.build_hvc_production import
 # === Food & Tobacco ===
 from industry.scripts.food_and_tobacco.build_shares_food_and_tobacco import get_unsd_fuel_shares
 # CAGR CONFIG
-from industry.build_CAGR import load_industry_config, interpolate_or_extrapolate, get_metric_cagr_cfg_from_excel, expand_with_cagr_smooth
+from industry.build_CAGR import load_industry_config, interpolate_or_extrapolate, get_metric_cagr_cfg_from_excel, get_metric_config_entry_from_excel, expand_with_cagr_smooth, generate_industry_config_csv
+  
+BASE_YEAR = 2020
+TARGET_YEARS = DEFAULT_TARGET_YEARS
+
+SCENARIOS = ["BAU", "Progressive", "Optimistic"]
+INDUSTRY_CONFIG_FILE = "industry_config.csv"
+
+# === Project imports ===
+BASE_DIR = Path(__file__).resolve().parent
+UNSD_PATH = BASE_DIR / "input_data" / "country_specific"
+
+# === Module-level constants (from config.py) ===
+INDUSTRY_CONFIG_PATH = BASE_DIR / INDUSTRY_CONFIG_FILE
+
 
 def main():
-    # ---- USER SETTINGS ----
-    base_year = 2020
-    target_years = [2030,2035,2040,2045,2050]
-    scenarios = ["BAU", "Progressive", "Optimistic"] 
-
-
-    INDUSTRY_CFG_PATH = BASE_DIR / "industry_config.csv"
-  
-
-    print("===============================")
-    print("Industry configuration")
-    print(f"Using CAGR config file: {INDUSTRY_CFG_PATH}")
-    print("===============================\n")
+    # ---- USER SETTINGS (defaults from module constants) ----
+    base_year = BASE_YEAR
+    target_years = TARGET_YEARS
+    scenarios = SCENARIOS
 
     # ---- Countries ----
-    countries_to_process = ["Morocco", "Egypt","Tunisia","Tanzania","Libya","South Africa","Ethiopia", "Ghana","Kenya",
-                        "Namibia","Nigeria", "Algeria"
+    countries_to_process = ["Morocco", "Egypt", "South Africa"]
                           #"Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Nigeria",
                           #"Algeria","Argentina","Brazil","Chile","Colombia","Peru","Venezuela",
                           #"Morocco","Tunisia","Tanzania", "South Africa","Libya",
                           #G20 countries
-                           #"Australia", "Canada", "China", "France", "Germany",  
+                          #"Australia", "Canada", "China", "France", "Germany",  
                           #"India", "Indonesia", "Italy", "Japan", "Mexico","Russia", "Saudi Arabia", 
-                           #"South Korea", "United Kingdom","United States of America"
-                           ]
+                          #"South Korea", "United Kingdom","United States of America"
+    
+    # ---- Generate industry_config.csv from hardcoded CAGR rates ----
+    config_output_path = BASE_DIR / "industry_config.csv"
+    generate_industry_config_csv(scenarios=scenarios, countries=countries_to_process, output_path=config_output_path)
+
+    industry_cfg_path = INDUSTRY_CONFIG_PATH
 
     industry_cagr_excel = load_industry_config(
-    excel_path=INDUSTRY_CFG_PATH,
+    excel_path=industry_cfg_path,
     countries=countries_to_process,
     scenarios=scenarios,)
 
@@ -136,14 +146,13 @@ def main():
     hvc_route_shares = share_HVC_production(target_years, scenarios)
     
     share_fuel_unspecified = extract_all_fuels(share_fuel_unspecified_chemicals, target_years, scenarios)
-    # Extract the name of the config file without extension (e.g., "industry_config")
-    config_filename = INDUSTRY_CFG_PATH.stem 
-    # Create output path using the config filename instead of the date
-    output_root = BASE_DIR / "output_data" / config_filename
+    # Create output path using country_parameters subfolder (aligned with transport)
+    output_root = BASE_DIR / "output_data" / "country_parameters"
     output_root.mkdir(parents=True, exist_ok=True)
 
     
     for country in countries_to_process:
+        print(f"\n{'='*50}\n Processing country: {country}\n{'='*50}")
 
         cagr_cfg_nmm = get_metric_cagr_cfg_from_excel( industry_cagr_excel,country,"Activity factor of unspecified non metallic minerals")
         nmm_activity = activity_factor_unspecified_nmm(
@@ -245,15 +254,30 @@ def main():
             target_years=target_years,
             all_types=all_steel_types
         )
-        share_bf_ohf, share_bf_bof, share_dr_eaf, has_override = override_steel_routes_positional(
-            country=country,
-            target_years=target_years,
-            scenarios=scenarios,
-            share_bf_ohf=share_bf_ohf,
-            share_bf_bof=share_bf_bof,
-            share_dr_eaf=share_dr_eaf,
-            base_year=base_year,
-        )
+
+        steel_route_metric_names = [
+            "Share of blast furnace + open hearth furnace for steel making",
+            "Share of blast furnace + basic oxygen furnace for steel making",
+            "Share of direct reduction + electric arc furnace for steel making",
+        ]
+        has_route_config_override = False
+        for metric_name in steel_route_metric_names:
+            metric_cfg_entry = get_metric_config_entry_from_excel(industry_cagr_excel, country, metric_name)
+            if isinstance(metric_cfg_entry, dict) and metric_cfg_entry.get("values"):
+                has_route_config_override = True
+                break
+
+        if has_route_config_override:
+            has_override = False
+        else:
+            share_bf_ohf, share_bf_bof, share_dr_eaf, has_override = override_steel_routes_positional(
+                target_years=target_years,
+                scenarios=scenarios,
+                share_bf_ohf=share_bf_ohf,
+                share_bf_bof=share_bf_bof,
+                share_dr_eaf=share_dr_eaf,
+                base_year=base_year,
+            )
       
         # --- SECTOR DATA & GROWTH LOGIC ---
         unsd_sectors = [
@@ -267,14 +291,29 @@ def main():
             ("non-ferrous metals", "Non-ferrous metals", "final energy of non-ferrous metals")
         ]
 
+        sector_lookup_aliases = {
+            "wood and wood products": ["wood and wood products", "wood"],
+            "transport equipment": ["transport equipment"],
+            "textile and leather": ["textile and leather", "textiles and leather"],
+            "mining and quarrying": ["mining and quarrying", "mining"],
+            "machinery": ["machinery"],
+            "construction": ["construction"],
+            "food and tobacco": ["food and tobacco"],
+            "non-ferrous metals": ["non-ferrous metals", "non ferrous metals"],
+        }
+
         results = {}
-        all_fuels = ['electricity', 'oil', 'gas', 'coal', 'biomass', 'hydrogen', 'ammonia', 'steel','methanol', 'heat', 'low-temperature heat', "process emissions"]
+        all_fuels = ['electricity', 'oil', 'gas', 'coal', 'biomass', 'hydrogen', 'ammonia', 'steel','methanol', 'heat']
 
         for s_id, csv_name, metric_name in unsd_sectors:
             # A. Get Total Energy (GWh) from CSV
             hist_total = get_historical_sector_data(UNSD_PATH, country, csv_name)
             if isinstance(hist_total, dict):
-                base_total_val = float(hist_total.get(base_year, 0.0))
+                base_total_val = _interp_at(hist_total, base_year)
+                if base_total_val is None:
+                    base_total_val = 0.0
+                else:
+                    base_total_val = float(base_total_val)
             else:
                 base_total_val = float(hist_total if hist_total else 0.0)
 
@@ -310,12 +349,33 @@ def main():
             base_shares = get_unsd_fuel_shares(UNSD_PATH, country, base_year, sector_name=csv_name)
             fuel_shares_proj = {}
             
+            # Mapping for fuel names in CSV (some use "diesel"/"natural gas" instead of "oil"/"gas")
+            fuel_name_mapping = {
+                "oil": ["oil", "diesel"],
+                "gas": ["gas", "natural gas"],
+                "electricity": ["electricity"],
+                "coal": ["coal"],
+                "biomass": ["biomass"],
+                "hydrogen": ["hydrogen"],
+                "ammonia": ["ammonia"],
+                "methanol": ["methanol"],
+                "heat": ["heat"],
+                "steel": ["steel"]
+            }
+            
             for fuel in all_fuels:
-                lookup_name = f"share of {fuel} for unspecified {s_id}".lower()
-                
-                # We need to see if the specific COUNTRY has a value
-                # Check your build_CAGR.py to ensure this returns a dict of years/scenarios
-                excel_share_values = get_metric_cagr_cfg_from_excel(industry_cagr_excel, country, lookup_name)
+                lookup_candidates = []
+                # Try both the fuel name and any mapped alternatives
+                for fuel_variant in fuel_name_mapping.get(fuel, [fuel]):
+                    for alias in sector_lookup_aliases.get(s_id, [s_id]):
+                        lookup_candidates.append(f"share of {fuel_variant} for unspecified {alias}".lower())
+
+                excel_share_values = {}
+                for lookup_name in lookup_candidates:
+                    cfg_vals = get_metric_cagr_cfg_from_excel(industry_cagr_excel, country, lookup_name)
+                    if cfg_vals:
+                        excel_share_values = cfg_vals
+                        break
                 
                 fuel_series = {}
                 for y in [base_year] + target_years:
@@ -323,16 +383,24 @@ def main():
                     for idx, sc in enumerate(scenarios):
                         sc_name = scenarios[idx]
                         excel_val = excel_share_values.get(y, {}).get(sc_name)
-                        
-                        if excel_val is not None and not pd.isna(excel_val) and excel_val != 0.0:
-                            # Use the specific instruction from Excel
-                            vals.append(float(excel_val))
-                        elif y == base_year:
+
+                        if y == base_year:
                             # Always use history for the base year column
                             vals.append(float(base_shares.get(fuel, 0.0)))
+                            continue
+
+                        # For future years: if Excel value is blank/NaN/0, replicate 2020 history
+                        # (0 is treated as "blank" for unspecified sectors where it's a default placeholder)
+                        base_val = float(base_shares.get(fuel, 0.0))
+                        if excel_val is None or pd.isna(excel_val) or excel_val == 0.0:
+                            vals.append(base_val)
                         else:
-                            # For 2030/2050, if Excel is 0 or Blank, REPLICATE 2020
-                            vals.append(float(base_shares.get(fuel, 0.0)))
+                            # TECH_SHARE may be provided either as fraction (0-1) or percent (0-100).
+                            # Output rows use Units="%", so store percentage points.
+                            share_val = float(excel_val)
+                            if 0.0 <= share_val <= 1.0:
+                                share_val *= 100.0
+                            vals.append(share_val)
 
                     fuel_series[y] = vals
                 fuel_shares_proj[fuel] = fuel_series
@@ -399,29 +467,10 @@ def main():
                         vals.append(None)
                 return vals
 
-            # New rule: if the country has ANY non-zero local_production anywhere in extracted DF,
-            # then for the base year prefer total_production (nearest available); otherwise use local_production.
-            has_local_nonzero = False
-            try:
-                lp_rows = df_ammonia_extracted[df_ammonia_extracted["value_type"] == "local_production"]
-                if not lp_rows.empty:
-                    # if any non-zero numeric value present
-                    has_local_nonzero = lp_rows["value"].apply(lambda x: pd.notna(x) and float(x) != 0.0).any()
-            except Exception:
-                has_local_nonzero = False
-
-            # build base-year list according to rule
-            base_vals = None
-            if has_local_nonzero:
-                # prefer total_production for base year
-                base_vals = _values_for_year_and_type(base_year, "total_production")
-                if all(v is None for v in base_vals):
-                    base_vals = _values_for_year_and_type(base_year - 1, "total_production")
-            else:
-                # prefer local_production (nearest previous year)
-                base_vals = _values_for_year_and_type(base_year, "local_production")
-                if all(v is None for v in base_vals):
-                    base_vals = _values_for_year_and_type(base_year - 1, "local_production")
+            # Base-year rule: use local_production only.
+            base_vals = _values_for_year_and_type(base_year, "local_production")
+            if all(v is None for v in base_vals):
+                base_vals = _values_for_year_and_type(base_year - 1, "local_production")
 
             # fallback: if still all None, try aggregated df_ammonia (same value for all scenarios)
             if all(v is None for v in base_vals):
@@ -429,20 +478,11 @@ def main():
                     ag = df_ammonia.copy()
                     sub = ag[ag["country"].astype(str).str.strip() == str(country).strip()]
                     if not sub.empty:
-                        # if we preferred total_production, look there, else look at local_production
-                        if has_local_nonzero:
-                            # pick nearest year <= base_year for total_production
-                            le = sub[sub["year"] <= base_year]
-                            if not le.empty:
-                                v = float(le.sort_values("year").iloc[-1]["total_production"])
-                            else:
-                                v = float(sub.sort_values("year").iloc[0]["total_production"])
+                        le = sub[sub["year"] <= base_year]
+                        if not le.empty:
+                            v = float(le.sort_values("year").iloc[-1]["local_production"])
                         else:
-                            le = sub[sub["year"] <= base_year]
-                            if not le.empty:
-                                v = float(le.sort_values("year").iloc[-1]["local_production"])
-                            else:
-                                v = float(sub.sort_values("year").iloc[0]["local_production"])
+                            v = float(sub.sort_values("year").iloc[0]["local_production"])
                         base_vals = [v] * len(scenarios)
                 except Exception:
                     pass
@@ -1162,7 +1202,7 @@ def main():
                 "unit": "tons/y",
                 "forecast": True,                
             },
-            "Clinker-to-cement ratio": {
+            "Average Clinker Factor": {
                 "source": clinker_ratio,        
                 "unit": "t clinker / t cement",
                 "forecast": False,
@@ -1695,11 +1735,6 @@ def main():
                 "unit": "%", 
                 "forecast": False
             },
-             "Share of steel for unspecified food and tobacco": {
-                "source": results["food and tobacco"]["shares"]["steel"],
-                "unit": "%", 
-                "forecast": False
-             },
 
             # construction 
             "Final energy of construction": {
@@ -1744,11 +1779,6 @@ def main():
             },
             "Share of methanol for unspecified construction": {
                 "source": results["construction"]["shares"]["methanol"],
-                "unit": "%", 
-                "forecast": False
-            },
-            "Share of steel for unspecified construction": {
-                "source": results["construction"]["shares"]["steel"],
                 "unit": "%", 
                 "forecast": False
             },
@@ -1799,11 +1829,6 @@ def main():
                 "unit": "%", 
                 "forecast": False
             },
-            "Share of steel for unspecified machinery": {
-                "source": results["machinery"]["shares"]["steel"],
-                "unit": "%", 
-                "forecast": False
-            },
 
             # mining and quarrying
             "Final energy of mining and quarrying": {
@@ -1851,11 +1876,6 @@ def main():
                 "unit": "%", 
                 "forecast": False
             },
-            "Share of steel for unspecified mining and quarrying": {
-                "source": results["mining and quarrying"]["shares"]["steel"],
-                "unit": "%", 
-                "forecast": False
-            },
             
             # Non-ferrous metals
             "Final energy of non-ferrous metals": {
@@ -1900,11 +1920,6 @@ def main():
             },
             "Share of methanol for unspecified non-ferrous metals": {
                 "source": results["non-ferrous metals"]["shares"]["methanol"],
-                "unit": "%", 
-                "forecast": False
-            },
-            "Share of steel for unspecified non-ferrous metals": {
-                "source": results["non-ferrous metals"]["shares"]["steel"],
                 "unit": "%", 
                 "forecast": False
             },
@@ -1956,11 +1971,6 @@ def main():
                 "unit": "%", 
                 "forecast": False
             },
-            "Share of steel for unspecified textile and leather": {
-                "source": results["textile and leather"]["shares"]["steel"],
-                "unit": "%", 
-                "forecast": False
-            },
              
             # transport equipment
             "Final energy of transport equipment": {
@@ -2005,11 +2015,6 @@ def main():
             },
             "Share of methanol for unspecified transport equipment": {
                 "source": results["transport equipment"]["shares"]["methanol"],
-                "unit": "%", 
-                "forecast": False
-            },
-            "Share of steel for unspecified transport equipment": {
-                "source": results["transport equipment"]["shares"]["steel"],
                 "unit": "%", 
                 "forecast": False
             },
@@ -2060,17 +2065,13 @@ def main():
                 "unit": "%", 
                 "forecast": False
             },
-            "Share of steel for unspecified wood and wood products": {
-                "source": results["wood and wood products"]["shares"]["steel"],
-                "unit": "%", 
-                "forecast": False
-            },
          }
         columns = ["Metric", str(base_year)]
         columns += [f"{yr}_{sc}" for yr in target_years for sc in scenarios]
         columns += ["Units"]
 
         rows = []
+        computed_metric_values: Dict[str, Dict[Any, Any]] = {}
 
 
         for name, meta in metrics.items():
@@ -2247,13 +2248,30 @@ def main():
             # --- GENERIC FORECAST / OUTPUT for all other metrics ---
 
             result_expanded = {base_year: base_val}
-            
-            if meta.get("forecast", True) and base_val is not None:
-                # 1. Map the specific metric name to the category name in your Excel
-                search_name = get_mapped_config_name(name)
+            metric_cfg_entry_exact = get_metric_config_entry_from_excel(industry_cagr_excel, country, name)
+            metric_cfg_exact = metric_cfg_entry_exact.get("values", {}) if isinstance(metric_cfg_entry_exact, dict) else {}
+            assumption_type_exact = str(metric_cfg_entry_exact.get("assumption_type", "")).strip().upper() if isinstance(metric_cfg_entry_exact, dict) else ""
 
-                # 2. Use that search_name to get the CAGR configuration
-                metric_cfg = get_metric_cagr_cfg_from_excel(industry_cagr_excel, country, search_name)
+            metric_cfg = metric_cfg_exact
+            assumption_type_effective = assumption_type_exact
+            if not metric_cfg:
+                search_name = get_mapped_config_name(name)
+                metric_cfg_entry_mapped = get_metric_config_entry_from_excel(industry_cagr_excel, country, search_name)
+                if isinstance(metric_cfg_entry_mapped, dict):
+                    metric_cfg = metric_cfg_entry_mapped.get("values", {})
+                    assumption_type_effective = str(metric_cfg_entry_mapped.get("assumption_type", "")).strip().upper()
+
+            if assumption_type_effective == "CAGR":
+                use_forecast = True
+            elif assumption_type_effective:
+                use_forecast = False
+            else:
+                use_forecast = meta.get("forecast", True)
+
+            if name == "Ammonia production per year":
+                use_forecast = False
+
+            if use_forecast and base_val is not None:
 
                 # pull a simple history if DataFrame-based
                 hist_series = None
@@ -2278,8 +2296,14 @@ def main():
                 if name == "Steel production per year":
                     last_obs_year = base_year
                     last_obs_val  = base_val
+                elif name == "Activity factor of unspecified iron and steel":
+                    last_obs_year = base_year
+                    last_obs_val  = base_val
                 elif name == "Paper production per year":
-                    last_obs_year = 2021 
+                    last_obs_year = base_year 
+                    last_obs_val  = base_val
+                elif name == "Pulp production per year":
+                    last_obs_year = base_year 
                     last_obs_val  = base_val
                 elif hist_series:
                     last_obs_year = max(hist_series.keys())
@@ -2312,10 +2336,62 @@ def main():
                 for k, v in scenario_vals.items():
                     result_expanded[k] = v
 
+                # Apply exact metric overrides from config for non-forecast metrics
+                # (e.g., TECH_SHARE rows). Explicit zeros are valid and must override.
+                # However, for "other industries" shares where the source is historical UNSD data,
+                # treat 0.0 as "not configured" and don't override the scenario_vals.
+                if assumption_type_effective != "CAGR" and isinstance(metric_cfg_exact, dict) and metric_cfg_exact:
+                    for y in target_years:
+                        per_sc = metric_cfg_exact.get(y, {})
+                        if not isinstance(per_sc, dict):
+                            continue
+
+                        for sc in scenarios:
+                            if sc not in per_sc or pd.isna(per_sc[sc]):
+                                continue
+
+                            override_val = float(per_sc[sc])
+                            # For "other industries" shares: if override is 0.0 and metric name starts with "Share of",
+                            # treat it as "not configured" and keep the scenario_vals (which has the historical data)
+                            is_unspecified_industry_share = name.startswith("Share of") and "unspecified" in name
+                            if is_unspecified_industry_share and override_val == 0.0:
+                                continue  # Skip applying 0.0 override; keep the scenario_vals
+                            
+                            # Config values are already in percentage format (0-100), no conversion needed
+                            result_expanded[f"{y}_{sc}"] = override_val
+
+            if name == "Clinker production per year":
+                cement_vals = computed_metric_values.get("Cement production per year")
+                ratio_vals = computed_metric_values.get("Average Clinker Factor")
+
+                if cement_vals and ratio_vals:
+                    clinker_recomputed: Dict[Any, Any] = {}
+                    cement_base = cement_vals.get(base_year)
+                    ratio_base = ratio_vals.get(base_year)
+
+                    if cement_base is not None and ratio_base is not None:
+                        clinker_recomputed[base_year] = float(cement_base) * float(ratio_base)
+                    else:
+                        clinker_recomputed[base_year] = None
+
+                    for y in target_years:
+                        for sc in scenarios:
+                            key = f"{y}_{sc}"
+                            cement_v = cement_vals.get(key)
+                            ratio_v = ratio_vals.get(key)
+                            if cement_v is None or ratio_v is None:
+                                clinker_recomputed[key] = None
+                            else:
+                                clinker_recomputed[key] = float(cement_v) * float(ratio_v)
+
+                    result_expanded = clinker_recomputed
+                    base_val = clinker_recomputed.get(base_year)
+
 
             row = {"Metric": name, str(base_year): base_val, "Units": unit}
             row.update({k: v for k, v in result_expanded.items() if k != base_year})
             rows.append(row)
+            computed_metric_values[name] = result_expanded.copy()
 
             continue
 
@@ -2323,11 +2399,29 @@ def main():
         # after metrics loop
         df_out = pd.DataFrame(rows)
         df_out = df_out.reindex(columns=columns)
+
+        # Clean floating-point artifacts (e.g., -2.22E-16) by snapping near-zero values to 0
+        numeric_cols = [c for c in df_out.columns if c not in ["Metric", "Units"]]
+        for col in numeric_cols:
+            df_out[col] = pd.to_numeric(df_out[col], errors="coerce")
+            df_out[col] = df_out[col].where(df_out[col].isna() | (df_out[col].abs() >= 1e-9), 0.0)
+        
+        # Sort rows by METRIC_ORDER
+        metric_order_map = {name: i for i, name in enumerate(METRIC_ORDER)}
+        df_out["__sort_key__"] = df_out["Metric"].map(lambda x: metric_order_map.get(x, 9999))
+        df_out = df_out.sort_values("__sort_key__").drop(columns=["__sort_key__"])
+        
+        hidden_final_energy_metrics = {
+            f"Final energy of {sector_id}"
+            for sector_id, _, _ in unsd_sectors
+        }
+
         out_path = output_root / f"{country}_Output.csv"
-        #print("DEBUG output_root:", output_root)
-        #print("DEBUG type(output_root):", type(output_root))
-        df_out.to_csv(out_path, index=False, encoding='utf-8')
-        print(f" Saved: {out_path}")
+
+        # Single output file: hide selected rows from direct country output view.
+        df_public = df_out[~df_out["Metric"].isin(hidden_final_energy_metrics)].copy()
+        df_public.to_csv(out_path, index=False, encoding='utf-8')
+        print(f" Saved results for {country} in {out_path.parent.name}/{out_path.name}")
 
 if __name__ == "__main__": 
     main()

@@ -258,7 +258,7 @@ def share_technology(country, year):
 
 # =============================================================================
 #  TECHNOLOGY DEFINITIONS
-#  (Used to populate the base dictionary keys in main_transport.py)
+#  (Used to populate the base dictionary keys in build_transport_config.py)
 # =============================================================================
 TECHNOLOGY_OVERRIDES = {
     # Keys only - Values are NOT used here.

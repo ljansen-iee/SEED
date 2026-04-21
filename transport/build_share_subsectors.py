@@ -5,6 +5,8 @@ import pandas as pd
 import transport.build_macro_indicators as build_mac
 from transport.build_macro_indicators import process_population_data
 import os
+from pathlib import Path
+from build_macro_indicators import process_population_data
 import warnings # Remove unnecessary warnings
 warnings.filterwarnings("ignore")
 from pathlib import Path
@@ -727,4 +729,5 @@ def save_intermediate_data(out_df):
 if __name__ == "__main__":
     save_intermediate_data(out_df)    
     countries = final_df.index.get_level_values(0).unique()
+    export_final_df_with_mobility()
     export_final_df_with_mobility()

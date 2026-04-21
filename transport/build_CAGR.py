@@ -57,12 +57,16 @@ def find_cagr_file(base_dir=None, file_patterns=("CAGR_current.csv", "CAGR_compi
         raise FileNotFoundError(
             f"No CAGR source file found in {base_dir}. Expected one of: {list(file_patterns)}"
         )
+        raise FileNotFoundError(
+            f"No CAGR source file found in {base_dir}. Expected one of: {list(file_patterns)}"
+        )
     if len(matching_files) > 1:
         raise ValueError(f"Multiple files found: {matching_files}")
 
     return matching_files[0]
 
 
+# === Step 1: Load source file ===
 # === Step 1: Load source file ===
 try:
     file_path = find_cagr_file()
@@ -72,6 +76,7 @@ try:
     else:
         df = pd.read_excel(file_path, header=0)
 except Exception as e:
+    print(f" Could not read CAGR source: {e}")
     print(f" Could not read CAGR source: {e}")
     df = pd.DataFrame()
 
@@ -276,9 +281,26 @@ def normalize_tuple(subsector, submode, drive):
     if "shipping" in subsector.lower() or "ship" in subsector.lower():
         submode = "-"
 
+    # Source CSV uses "-" for aviation rows and explicit Passenger for inland shipping
+    if "aviation" in subsector.lower():
+        submode = "Passenger"
+    if "shipping" in subsector.lower() or "ship" in subsector.lower():
+        submode = "-"
+
     # --- Normalize drive types ---
     raw_d = d
+    raw_d = d
     d = d.replace("(bev)", "bev").replace("(ice)", "ice")
+    d = d.replace("phevbev", "efficiency phev bev")
+    d = d.replace("phevice", "efficiency phev ice")
+
+    if "efficiency ice" in raw_d:
+        drive = "Diesel"
+    elif "efficiency bev" in raw_d:
+        drive = "BEV"
+    elif "efficiency fcev" in raw_d:
+        drive = "FCEV"
+    elif "phev" in d and "bev" not in d and "ice" not in d:
     d = d.replace("phevbev", "efficiency phev bev")
     d = d.replace("phevice", "efficiency phev ice")
 
@@ -294,6 +316,8 @@ def normalize_tuple(subsector, submode, drive):
         drive = "Efficiency PHEV (ICE)"
     elif "phev" in d:
         drive = "Efficiency PHEV (BEV)"
+    elif "electric" in d:
+        drive = "Electric (incl. BEV)"
     elif "electric" in d:
         drive = "Electric (incl. BEV)"
     elif "bev" in d:
@@ -349,6 +373,10 @@ def build_cagr_values(result_df, base_values, base_year=2020):
 
         def safe_float(x):
             try:
+                val = float(str(x).replace("%", ""))
+                if abs(val) > 1.0:
+                    return val / 100.0
+                return val
                 val = float(str(x).replace("%", ""))
                 if abs(val) > 1.0:
                     return val / 100.0
@@ -453,6 +481,7 @@ def expand_with_piecewise_cagr(base_value, cagr_dict, base_year=2020, target_yea
 
 def as_fraction(val):
     
+    
     if pd.isnull(val):
         return 0.0
     try:
@@ -466,6 +495,7 @@ def as_fraction(val):
         return 0.0
 
 def get_cagr(cagr_values, metric):
+    
     
     if not isinstance(cagr_values, dict):
         raise ValueError("cagr_values must be a dictionary.")
@@ -485,6 +515,7 @@ def get_cagr(cagr_values, metric):
     return entry
 
 def expand_with_cagr(base_value, cagr_table, base_year, target_years, scenarios):
+   
    
     if base_value is None:
         base_value = 0.0
