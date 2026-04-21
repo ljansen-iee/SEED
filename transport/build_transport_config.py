@@ -91,13 +91,97 @@ def warn_missing_countries(df_cleaned, country_list):
     if missing:
         print(f"WARNING: Countries not found in transport input data: {sorted(missing)}")
 
-def main(base_year=None, target_years=None, scenarios=None):
+
+def populate_bunker_cagr_in_config(config_path, countries, unsd_folder=None):
+    """
+    Calculate CAGR for international marine and aviation bunkers using UNSD data,
+    and populate trans_config.csv with these values for all years and scenarios.
+    Uses Morocco CAGR values as the default/fallback for all rows.
+    
+    Args:
+        config_path: path to trans_config.csv
+        countries: list of country names to process
+        unsd_folder: path to UNSD folder (auto-detected if None)
+    
+    Returns:
+        Updated DataFrame with bunker CAGR values filled in
+    """
+    from transport.build_CAGR import get_bunker_cagr_for_countries
+    
+    print("\n" + "="*70)
+    print("UPDATING BUNKER CAGR VALUES IN TRANSPORT CONFIG")
+    print("="*70)
+    
+    try:
+        # Load the config
+        config_df = pd.read_csv(config_path)
+        
+        # Get CAGR values from UNSD data
+        print("\nExtracting International Marine Bunkers CAGR...")
+        marine_cagr = get_bunker_cagr_for_countries(countries, unsd_folder, bunker_type="marine")
+        
+        print("\nExtracting International Aviation Bunkers CAGR...")
+        aviation_cagr = get_bunker_cagr_for_countries(countries, unsd_folder, bunker_type="aviation")
+        
+        # Get Morocco values for default column
+        default_marine = marine_cagr.get('Morocco', 0.0)
+        default_aviation = aviation_cagr.get('Morocco', 0.0)
+        
+        print(f"\nMorocco CAGR values (for default column):")
+        print(f"  Marine: {default_marine}")
+        print(f"  Aviation: {default_aviation}")
+        
+        # Update marine bunker rows
+        marine_mask = (config_df["Metric Name"] == "Final Energy - Int. Maritime")
+        if marine_mask.any():
+            # Update country columns
+            for country in countries:
+                if country in config_df.columns and country in marine_cagr:
+                    config_df.loc[marine_mask, country] = str(marine_cagr[country])
+            # Update default column with Morocco value
+            config_df.loc[marine_mask, "default"] = str(default_marine)
+            print(f"✓ Updated {marine_mask.sum()} maritime bunker rows (default = Morocco: {default_marine})")
+        
+        # Update aviation bunker rows
+        aviation_mask = (config_df["Metric Name"] == "Final Energy - Int. Aviation")
+        if aviation_mask.any():
+            # Update country columns
+            for country in countries:
+                if country in config_df.columns and country in aviation_cagr:
+                    config_df.loc[aviation_mask, country] = str(aviation_cagr[country])
+            # Update default column with Morocco value
+            config_df.loc[aviation_mask, "default"] = str(default_aviation)
+            print(f"✓ Updated {aviation_mask.sum()} aviation bunker rows (default = Morocco: {default_aviation})")
+        
+        # Save the updated config
+        config_df.to_csv(config_path, index=False)
+        print(f"\n[OK] Updated trans_config.csv with bunker CAGR values")
+        
+        return config_df, marine_cagr, aviation_cagr
+        
+    except Exception as e:
+        print(f"[!] Error updating bunker CAGR in config: {e}")
+        import traceback
+        traceback.print_exc()
+        return None, None, None
+
+
+def main(base_year=None, target_years=None, scenarios=None, countries_list=None):
     # Use arguments if provided, else defaults
     base_year = int(base_year) if base_year is not None else BASE_YEAR
     target_years = list(map(int, target_years)) if target_years is not None else list(TARGET_YEARS)
     scenarios = list(scenarios) if scenarios is not None else list(SCENARIOS)
+    
+    # Use provided countries list or defaults
+    if countries_list is None:
+        countries_list = countries_to_process
+    else:
+        countries_list = list(countries_list) if not isinstance(countries_list, list) else countries_list
 
     ensure_transport_config()
+    
+    # === UPDATE BUNKER CAGR VALUES FROM UNSD DATA ===
+    populate_bunker_cagr_in_config(transport_config_path, countries_list, unsd_folder=None)
 
     transport_config_local = load_transport_config(
         excel_path=transport_config_path,
@@ -762,6 +846,7 @@ def main(base_year=None, target_years=None, scenarios=None):
             continue
 
         # ------- Technology shares -------
+        DEFAULT_TECH_COUNTRY = "Morocco"  # Reference country for technology shares
         try:
             (technology_gasoline_ice_ldv, technology_diesel_ice_ldv, technology_lpg_ice_ldv,
              technology_bev_ldv, technology_fcev_ldv, technology_diesel_plugin_hybrid_ldv, technology_gasoline_plugin_hybrid_ldv,
@@ -775,6 +860,23 @@ def main(base_year=None, target_years=None, scenarios=None):
              technology_diesel_ice_freight_ship, technology_methanol_freight_ship, technology_ammonia_freight_ship, technology_bev_freight_ship, technology_fcev_freight_ship,
              bioethanol_in_road_gasoline, biodiesel_in_road_diesel, biodiesel_in_rail_diesel, biodiesel_in_internal_navigation_diesel, biokerosene_in_internal_aviation_fuel, ice_fuel_in_plugin_hybrid
              ) = share_technology(selected_country, year=2019)
+            
+            # Check if OECD data is missing (LDV shares are all zero)
+            ldv_total = technology_gasoline_ice_ldv + technology_diesel_ice_ldv + technology_lpg_ice_ldv
+            if ldv_total == 0 and selected_country != DEFAULT_TECH_COUNTRY:
+                print(f"   -> INFO: {selected_country} has no OECD technology data, using {DEFAULT_TECH_COUNTRY} as default")
+                (technology_gasoline_ice_ldv, technology_diesel_ice_ldv, technology_lpg_ice_ldv,
+                 technology_bev_ldv, technology_fcev_ldv, technology_diesel_plugin_hybrid_ldv, technology_gasoline_plugin_hybrid_ldv,
+                 technology_diesel_ice_bus, technology_bev_bus, technology_fcev_bus, technology_diesel_plugin_hybrid_bus,
+                 technology_gasoline_ice_2_and_3w, technology_bev_two_three_wheeler,
+                 technology_fcev_passenger_train,
+                 technology_kerosene_passenger_plane, technology_bev_passenger_plane, technology_fcev_passenger_plane,
+                 technology_diesel_ice_ldt, technology_bev_ldt, technology_fcev_ldt, technology_diesel_plugin_hybrid_ldt,
+                 technology_diesel_ice_hdt, technology_bev_hdt, technology_fcev_hdt, technology_diesel_plugin_hybrid_hdt,
+                 technology_fcev_freight_train,
+                 technology_diesel_ice_freight_ship, technology_methanol_freight_ship, technology_ammonia_freight_ship, technology_bev_freight_ship, technology_fcev_freight_ship,
+                 bioethanol_in_road_gasoline, biodiesel_in_road_diesel, biodiesel_in_rail_diesel, biodiesel_in_internal_navigation_diesel, biokerosene_in_internal_aviation_fuel, ice_fuel_in_plugin_hybrid
+                 ) = share_technology(DEFAULT_TECH_COUNTRY, year=2019)
         except Exception as e:
             print(f" Skipping {selected_country}: Technology shares error ({e})")
             continue
@@ -905,10 +1007,6 @@ def main(base_year=None, target_years=None, scenarios=None):
 if __name__ == "__main__":
     refresh_unsd_master_data()
     main()
-    try:
-        from transport.build_CAGR import export_final_energy_intensity_cagr_with_intermediate
-        export_final_energy_intensity_cagr_with_intermediate(output_csv_path=transport_config_path)
-        print(f"  Saved: {transport_config_path}")
-    except Exception as e:
-        print(f" WARNING: Failed to export trans_config.csv ({e})")
+    # Note: Bunker CAGR values are now populated via populate_bunker_cagr_in_config() 
+    # during main(), so we don't regenerate trans_config.csv here anymore
 

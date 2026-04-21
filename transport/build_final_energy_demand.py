@@ -531,17 +531,11 @@ def calc_for_scenario(metrics_raw: dict, scenario: str) -> pd.DataFrame:
     nav_frt_tkm    = total_tkm * pct(metrics_raw, "Share per Subsector - Navigation Freight = Ship", scenario)
     aviation_frt_tkm = total_tkm * pct(metrics_raw, "Share per Subsector - Aviation Freight = Plane", scenario)
 
-
-
     share_ldt = pct(metrics_raw, "Share per Mode - LDT", scenario)
     share_hdt = pct(metrics_raw, "Share per Mode - HDT", scenario)
 
-
-
     tkm_ldt = road_frt_tkm * share_ldt
     tkm_hdt = road_frt_tkm * share_hdt
-
-
 
     vkm_ldt = safe_div(tkm_ldt, get_metric(metrics_raw, "Load Factor - LDT", scenario, 1.0))
     vkm_hdt = safe_div(tkm_hdt, get_metric(metrics_raw, "Load Factor - HDT", scenario, 1.0))

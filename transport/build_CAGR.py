@@ -109,7 +109,7 @@ csv_cagr_mapping = {
 if any(col in df.columns for col in csv_cagr_mapping):
     df = df.rename(columns={k: v for k, v in csv_cagr_mapping.items() if k in df.columns})
 
-# Convert percentage strings → numeric
+# Convert percentage strings - numeric
 for col in df.columns:
     if col.startswith("CAGR_"):
         df[col] = df[col].apply(lambda x: float(x.strip('%'))/100 if isinstance(x, str) and '%' in x else x)
@@ -143,7 +143,7 @@ except Exception as e:
     result_df = pd.DataFrame()
 
 
-# === Step 4: Mapping (Excel → metric names) ===
+# === Step 4: Mapping (Excel - metric names) ===
 METRIC_NAME_MAP = {
     ("Cars", "Passenger", "Gasoline"): "Final Energy Intensity - Gasoline ICE LDV",
     ("Cars", "Passenger", "Diesel"): "Final Energy Intensity - Diesel ICE LDV",
@@ -413,11 +413,11 @@ def expand_with_piecewise_cagr(base_value, cagr_dict, base_year=2020, target_yea
         prev_years = [yr for yr in available_years if yr <= year]
         next_years = [yr for yr in available_years if yr >= year]
 
-        # if below first known year → use first CAGR
+        # if below first known year - use first CAGR
         if not prev_years:
             y1 = available_years[0]
             year_data = cagr_dict.get(y1, {})
-        # if beyond last known year → use last CAGR (extrapolate)
+        # if beyond last known year - use last CAGR (extrapolate)
         elif not next_years:
             y1 = available_years[-1]
             year_data = cagr_dict.get(y1, {})
@@ -643,6 +643,7 @@ def apply_load_factor(metric, base_value, cagr_values, assumption_types, base_ye
 
 MA_METRIC_MAP = {
     "Final Energy Intensity -  ICE LDV": "Final Energy Intensity - Diesel ICE LDV",
+    "Final Energy Intensity - Gasoline ICE LDV": "Final Energy Intensity - Gasoline ICE LDV",
     "Final Energy Intensity -  ICE Bus": "Final Energy Intensity - Diesel ICE Bus",
     "Final Energy Intensity - ICE 2&3W": "Final Energy Intensity - Gasoline ICE 2&3W",
     "Final Energy Intensity - ICE LDT": "Final Energy Intensity - Diesel ICE LDT",
@@ -663,12 +664,28 @@ MA_METRIC_MAP = {
     "Final Energy Intensity - ICE Train": "Final Energy Intensity - Diesel ICE Passenger Train",
     "Final Energy Intensity - Direct Electric Train": "Final Energy Intensity - Direct Electric Passenger Train",
     "Final Energy Intensity - FCEV Train": "Final Energy Intensity - FCEV Passenger Train",
+    "Final Energy Intensity - ICE Freight Train": "Final Energy Intensity - Diesel ICE Freight Train",
+    "Final Energy Intensity - Direct Electric Freight Train": "Final Energy Intensity - Direct Electric Freight Train",
+    "Final Energy Intensity - FCEV Freight Train": "Final Energy Intensity - FCEV Freight Train",
     "Final Energy Intensity - ICE Ship": "Final Energy Intensity - Diesel Freight Ship",
     "Final Energy Intensity - BEV Ship": "Final Energy Intensity - BEV Freight Ship",
     "Final Energy Intensity - FCEV Ship": "Final Energy Intensity - FCEV Freight Ship",
+    "Final Energy Intensity - Methanol Ship": "Final Energy Intensity - Methanol Freight Ship",
+    "Final Energy Intensity - Ammonia Ship": "Final Energy Intensity - Ammonia Freight Ship",
     "Final Energy Intensity - ICE Plane": "Final Energy Intensity - Kerosene Passenger Plane",
     "Final Energy Intensity - BEV Plane": "Final Energy Intensity - BEV Passenger Plane",
     "Final Energy Intensity - FCEV Plane": "Final Energy Intensity - FCEV Passenger Plane",
+    "Final Energy Intensity - LPG ICE LDV": "Final Energy Intensity - LPG ICE LDV",
+    "Final Energy Intensity - Gasoline Plugin Hybrid LDV": "Final Energy Intensity - Gasoline Plugin Hybrid LDV",
+}
+
+# Map metrics to their CAGR source when they don't have their own CAGR data
+# Key = metric that needs CAGR, Value = metric to copy CAGR from
+CAGR_SOURCE_MAP = {
+    "Final Energy Intensity - Gasoline ICE LDV": "Final Energy Intensity - Diesel ICE LDV",
+    "Final Energy Intensity - LPG ICE LDV": "Final Energy Intensity - Diesel ICE LDV",
+    "Final Energy Intensity - Methanol Freight Ship": "Final Energy Intensity - Diesel Freight Ship",
+    "Final Energy Intensity - Ammonia Freight Ship": "Final Energy Intensity - Diesel Freight Ship",
 }
 
 
@@ -691,6 +708,108 @@ MANUAL_FINAL_ENERGY_CAGR = {
         -0.0102, -0.0113, -0.0125,
     ),
 }
+
+
+def export_rolling_cagr_analysis(
+    rolling_cagr_df=None,
+    output_csv_path="transport/output_data/country_parameters/rolling_cagr_analysis.csv",
+):
+    """
+    Export the rolling CAGR analysis to CSV for inspection and validation.
+    Includes: original CAGR, outlier bounds (IQR), capped CAGR, and suggested CAGR.
+    """
+    if rolling_cagr_df is None or rolling_cagr_df.empty:
+        print("Warning: No rolling CAGR data to export")
+        return None
+    
+    # Select relevant columns for export
+    export_cols = [
+        "country", "sector", "year", "start_year",
+        "total_tj", "total_twh", "start_twh",
+        "CAGR", "IQR_lower", "IQR_upper", "CAGR_capped", "suggested_cagr"
+    ]
+    
+    available_cols = [c for c in export_cols if c in rolling_cagr_df.columns]
+    df_export = rolling_cagr_df[available_cols].copy()
+    
+    # Round numeric columns for readability
+    for col in ["total_tj", "total_twh", "start_twh", "CAGR", "IQR_lower", "IQR_upper", "CAGR_capped", "suggested_cagr"]:
+        if col in df_export.columns:
+            df_export[col] = df_export[col].round(6)
+    
+    os.makedirs(os.path.dirname(output_csv_path), exist_ok=True)
+    df_export.to_csv(output_csv_path, index=False)
+    print(f"Rolling CAGR analysis exported to: {output_csv_path}")
+    
+    return output_csv_path
+
+
+def get_suggested_cagr_by_country_sector(rolling_cagr_df=None, country=None, sector=None):
+    """
+    Query suggested CAGR from rolling CAGR analysis by country and sector.
+    Returns: Single suggested CAGR value or None if not found.
+    """
+    if rolling_cagr_df is None or rolling_cagr_df.empty:
+        return None
+    
+    if country is None or sector is None:
+        return None
+    
+    subset = rolling_cagr_df[
+        (rolling_cagr_df["country"] == country) &
+        (rolling_cagr_df["sector"] == sector)
+    ]
+    
+    if subset.empty:
+        return None
+    
+    # Return the first (consistent) suggested_cagr value for this country-sector pair
+    suggested = subset["suggested_cagr"].iloc[0]
+    return suggested if pd.notna(suggested) else None
+
+
+def build_cagr_matrix_from_rolling(rolling_cagr_df, base_year=2020, target_years=None):
+    """
+    Convert rolling CAGR suggestions into the standard CAGR_VALUES dictionary structure.
+    This allows seamless integration with the existing export_final_energy_intensity_cagr_with_intermediate() function.
+    
+    Returns: Dictionary structured like CAGR_VALUES for use in config export.
+    """
+    if rolling_cagr_df is None or rolling_cagr_df.empty:
+        return {}
+    
+    if target_years is None:
+        target_years = _resolve_target_years(base_year=base_year)
+    
+    cagr_matrix = {}
+    
+    # Group by country and sector to extract unique suggested CAGR values
+    for (country, sector), group in rolling_cagr_df.groupby(["country", "sector"]):
+        suggested_cagr = group["suggested_cagr"].iloc[0]
+        
+        if pd.isna(suggested_cagr):
+            continue
+        
+        # Create a metric key (e.g., "Road - Passenger LDV - Suggested")
+        metric_key = f"{sector} ({country}) - Suggested CAGR"
+        
+        # Structure with 2030 and 2050 scenarios (replicating across Baseline/RF/EL)
+        cagr_matrix[metric_key] = {
+            str(base_year): None,  # No base value needed
+            2030: {
+                "Baseline": suggested_cagr,
+                "RF": suggested_cagr,
+                "EL": suggested_cagr,
+            },
+            2050: {
+                "Baseline": suggested_cagr,
+                "RF": suggested_cagr,
+                "EL": suggested_cagr,
+            },
+        }
+    
+    print(f"Built CAGR matrix from {len(cagr_matrix)} country-sector combinations")
+    return cagr_matrix
 
 
 def export_final_energy_intensity_ma_format(
@@ -916,7 +1035,9 @@ def export_final_energy_intensity_cagr_with_intermediate(
                     values_for_year = values_2030 if year in (2030, 2035) else values_2050
                     val = values_for_year[scen_idx] if scen_idx < len(values_for_year) else None
                 else:
-                    entry = cagr_values.get(source_metric, {})
+                    # Check if this metric should use another metric's CAGR
+                    cagr_lookup_metric = CAGR_SOURCE_MAP.get(source_metric, source_metric)
+                    entry = cagr_values.get(cagr_lookup_metric, {})
                     y2030 = entry.get(2030, {}) if isinstance(entry, dict) else {}
                     y2050 = entry.get(2050, {}) if isinstance(entry, dict) else {}
 
@@ -1149,6 +1270,9 @@ def export_final_energy_intensity_cagr_with_intermediate(
 
             tech_metric_order = list(TECHNOLOGY_OVERRIDES.keys())
 
+            # Default reference country for technology shares when OECD data is missing
+            DEFAULT_TECH_COUNTRY = "Morocco"
+
             def tech_base_for_country(country):
                 (
                     technology_gasoline_ice_ldv, technology_diesel_ice_ldv, technology_lpg_ice_ldv,
@@ -1167,6 +1291,28 @@ def export_final_energy_intensity_cagr_with_intermediate(
                     biodiesel_in_internal_navigation_diesel, biokerosene_in_internal_aviation_fuel,
                     ice_fuel_in_plugin_hybrid
                 ) = share_technology(country, year=2019)
+
+                # Check if OECD data is missing (LDV shares are all zero) - fall back to default country
+                ldv_total = technology_gasoline_ice_ldv + technology_diesel_ice_ldv + technology_lpg_ice_ldv
+                if ldv_total == 0 and country != DEFAULT_TECH_COUNTRY:
+                    print(f"   -> INFO: {country} has no OECD technology data, using default column values from trans_config")
+                    (
+                        technology_gasoline_ice_ldv, technology_diesel_ice_ldv, technology_lpg_ice_ldv,
+                        technology_bev_ldv, technology_fcev_ldv,
+                        technology_diesel_plugin_hybrid_ldv, technology_gasoline_plugin_hybrid_ldv,
+                        technology_diesel_ice_bus, technology_bev_bus, technology_fcev_bus, technology_diesel_plugin_hybrid_bus,
+                        technology_gasoline_ice_2_and_3w, technology_bev_two_three_wheeler,
+                        technology_fcev_passenger_train,
+                        technology_kerosene_passenger_plane, technology_bev_passenger_plane, technology_fcev_passenger_plane,
+                        technology_diesel_ice_ldt, technology_bev_ldt, technology_fcev_ldt, technology_diesel_plugin_hybrid_ldt,
+                        technology_diesel_ice_hdt, technology_bev_hdt, technology_fcev_hdt, technology_diesel_plugin_hybrid_hdt,
+                        technology_fcev_freight_train,
+                        technology_diesel_ice_freight_ship, technology_methanol_freight_ship, technology_ammonia_freight_ship,
+                        technology_bev_freight_ship, technology_fcev_freight_ship,
+                        bioethanol_in_road_gasoline, biodiesel_in_road_diesel, biodiesel_in_rail_diesel,
+                        biodiesel_in_internal_navigation_diesel, biokerosene_in_internal_aviation_fuel,
+                        ice_fuel_in_plugin_hybrid
+                    ) = share_technology(DEFAULT_TECH_COUNTRY, year=2019)
 
                 # Direct electric train share (percent); diesel is complement
                 try:
@@ -1431,7 +1577,7 @@ def export_final_energy_intensity_cagr_with_intermediate(
                 ]
                 rows.append(row)
 
-    # === Order rows: 2020 first, then 2030→2050; metrics in requested order ===
+    # === Order rows: 2020 first, then 2030-2050; metrics in requested order ===
     desired_metric_order = [
         "Population",
         "Mobility per capita - Passenger",
@@ -1554,10 +1700,16 @@ def export_final_energy_intensity_cagr_with_intermediate(
     # Drop base-year rows entirely; downstream pipeline will source 2020 bases from raw inputs
     df = df[~((df["Year"] == base_year) & (df["Scenario"] == "Base"))]
 
-    # Insert a default column (after Scenario) using the first non-empty country value as fallback
+    # Insert a default column (after Scenario) using Morocco's values as the default
     country_cols = [c for c in df.columns if c not in ["Assumption Type", "Metric Name", "Year", "Scenario"]]
 
     def pick_default(row):
+        # Use Morocco as the default reference country
+        if "Morocco" in row.index:
+            val = row["Morocco"]
+            if pd.notna(val) and str(val) != "":
+                return val
+        # Fallback: use first non-empty country value if Morocco is unavailable
         for col in country_cols:
             val = row[col]
             if pd.notna(val) and str(val) != "":
@@ -1587,5 +1739,71 @@ def export_final_energy_intensity_cagr_with_intermediate(
 
 
 if __name__ == "__main__":
-    # Generate the long-format CAGR export when the script is run directly.
+    # =========================================================================
+    # OPTION 1: Use the existing CAGR calculation (current workflow)
+    # =========================================================================
+    print("\n" + "="*60)
+    print("OPTION 1: Original CAGR Workflow")
+    print("="*60)
     export_final_energy_intensity_cagr_with_intermediate()
+    print("[OK] Generated: trans_config.csv with existing CAGR values")
+    
+    # =========================================================================
+    # OPTION 2: Use the new rolling CAGR calculation
+    # =========================================================================
+    print("\n" + "="*60)
+    print("OPTION 2: New Rolling CAGR Workflow")
+    print("="*60)
+    
+    if not ROLLING_CAGR_DF.empty:
+        # Export rolling CAGR analysis for inspection
+        rolling_cagr_path = export_rolling_cagr_analysis(ROLLING_CAGR_DF)
+        
+        # View sample of suggested CAGRs
+        print("\nSample of suggested CAGRs (by country-sector):")
+        sample_df = ROLLING_CAGR_DF[["country", "sector", "CAGR", "CAGR_capped", "suggested_cagr"]].drop_duplicates(["country", "sector"]).head(10)
+        print(sample_df.to_string(index=False))
+        
+        # Convert rolling CAGR suggestions to CAGR matrix format
+        rolling_cagr_matrix = build_cagr_matrix_from_rolling(ROLLING_CAGR_DF)
+        print(f"\n[OK] Generated CAGR matrix from rolling calculations: {len(rolling_cagr_matrix)} metrics")
+    else:
+        print("[!] Rolling CAGR DataFrame is empty - skipping export")
+    
+    # =========================================================================
+    # USAGE TIPS
+    # =========================================================================
+    print("\n" + "="*60)
+    print("USAGE TIPS")
+    print("="*60)
+    print("""
+To use rolling CAGR values in the config export:
+
+1. **View rolling CAGR analysis:** 
+   rolling_cagr_analysis.csv contains:
+   - Original CAGR (per year-pair)
+   - IQR outlier bounds
+   - Capped CAGR (outliers removed)
+   - Suggested CAGR (average of capped values)
+
+2. **Query suggested CAGR:**
+   >>> cagr = get_suggested_cagr_by_country_sector(
+   ...     ROLLING_CAGR_DF, 
+   ...     country="Brazil", 
+   ...     sector="Road - Passenger LDV"
+   ... )
+   >>> print(f"Suggested CAGR: {cagr*100:.2f}%")
+
+3. **Use rolling CAGR matrix:**
+   >>> cagr_matrix = build_cagr_matrix_from_rolling(ROLLING_CAGR_DF)
+   >>> # Modify export function to use this matrix instead of CAGR_VALUES
+   >>> export_final_energy_intensity_cagr_with_intermediate(
+   ...     cagr_values=rolling_cagr_matrix,
+   ...     output_csv_path="transport/output_data/trans_config_rolling_cagr.csv"
+   ... )
+
+4. **Compare both approaches:**
+   - Check rolling_cagr_analysis.csv for data-driven CAGR values
+   - Check trans_config.csv for literature-based CAGR values
+   - Use rolling CAGR if your data is reliable; use literature CAGR for expert inputs
+    """)
