@@ -10,7 +10,7 @@ from pathlib import Path
 from transport.build_CAGR import expand_with_cagr, get_cagr
 from transport.build_technology_share import get_unsd_bunker_fuel_shares
 from transport.helpers import unsd_global_output, unsd_input_folder, load_transport_config, extract_config_data
-from transport.build_config_transport import SCENARIOS
+from transport.build_transport_config import SCENARIOS
 
 # =============================================================================
 # 1. SETUP & CONFIGURATION
@@ -24,7 +24,7 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 results_dir = os.path.join(script_dir, "output_data")
 os.makedirs(results_dir, exist_ok=True)
 
-choose_folder = "country_parameters"
+choose_folder = "interim_parametrisation"
 
 # Placeholder - will be loaded after countries is defined
 transport_config_file = "trans_config.csv"
@@ -34,7 +34,7 @@ transport_config = {}
 
 # List of countries to process
 
-countries = ["Morocco"]
+countries = ["Morocco","South Africa","Egypt","Namibia"]
     #"Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
     #"Algeria","Argentina","Brazil","Chile","Colombia","Mexico","Peru","Venezuela",
     #"Morocco","Tunisia","Tanzania", "South Africa","Libya",

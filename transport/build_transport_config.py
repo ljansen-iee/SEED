@@ -45,7 +45,7 @@ TRANSPORT_DIR = _resolve_transport_dir()
 transport_config_file = "trans_config.csv"
 transport_config_path = TRANSPORT_DIR / transport_config_file
 
-countries_to_process = ["Morocco"]
+countries_to_process = ["Morocco","South Africa","Egypt","Namibia"]
                        #"Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Nigeria"]
                        #"Algeria","Argentina","Brazil","Chile","Colombia","Mexico","Peru","Venezuela",
                        #"Morocco","Tunisia","Tanzania","Libya",
@@ -137,7 +137,7 @@ def main(base_year=None, target_years=None, scenarios=None):
 
     # Output folder
     # Use the configuration file name as the folder name
-    base_output_dir = TRANSPORT_DIR / "output_data" / "country_parameters"
+    base_output_dir = TRANSPORT_DIR / "output_data" / "interim_parametrisation"
     
     base_output_dir.mkdir(parents=True, exist_ok=True)
 

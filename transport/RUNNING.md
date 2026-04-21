@@ -9,7 +9,7 @@
 - Example:
 
 ```bash
-python -m transport.build_config_transport
+python -m transport.build_transport_config
 ```
 
 - This ensures all imports and paths resolve correctly.
@@ -33,7 +33,7 @@ python -m transport.build_config_transport
          ```
     3. **Now you can import and run any transport module:**
          ```python
-         from transport import build_config_transport
+         from transport import build_transport_config
          # Use functions/classes as needed
          ```
 
@@ -51,7 +51,7 @@ python -m transport.build_config_transport
 
 | Use Case         | Where to Run         | How to Run/Import                                    |
 |------------------|---------------------|------------------------------------------------------|
-| CLI script       | Repo root           | `python -m transport.build_config_transport`         |
+| CLI script       | Repo root           | `python -m transport.build_transport_config`         |
 | Interactive Win  | Any (set cwd first) | `os.chdir(...)`, `sys.path.insert(...)`, then import |
 | Notebook         | Any (set cwd first) | Same as above                                       |
 

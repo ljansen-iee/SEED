@@ -6,6 +6,7 @@ import os
 import glob
 import csv
 from pathlib import Path
+# from helpers import load_expert_config
 
 try:
     from transport.helpers import DEFAULT_TARGET_YEARS
@@ -153,10 +154,10 @@ METRIC_NAME_MAP = {
     ("Cars", "Passenger", "Efficiency PHEV (BEV)"): "Final Energy Intensity - Gasoline Plugin Hybrid LDV",
 
     # === Passenger Bus ===
-    ("BUS", "Passenger", "Diesel"): "Final Energy Intensity - Diesel ICE Bus",
-    ("BUS", "Passenger", "BEV"): "Final Energy Intensity - BEV Bus",
-    ("BUS", "Passenger", "FCEV"): "Final Energy Intensity - FCEV Bus",
-    ("BUS", "Passenger", "Efficiency PHEV (ICE)"): "Final Energy Intensity - Diesel Plugin Hybrid Bus",
+    ("Bus", "Passenger", "Diesel"): "Final Energy Intensity - Diesel ICE Bus",
+    ("Bus", "Passenger", "BEV"): "Final Energy Intensity - BEV Bus",
+    ("Bus", "Passenger", "FCEV"): "Final Energy Intensity - FCEV Bus",
+    ("Bus", "Passenger", "Efficiency PHEV (ICE)"): "Final Energy Intensity - Diesel Plugin Hybrid Bus",
     # ( No "Gasoline Plugin Hybrid Bus" in your final list → excluded)
 
     # === Passenger 2&3 Wheelers ===
@@ -236,7 +237,7 @@ def normalize_tuple(subsector, submode, drive):
     if "car" in s or "ldv" in s:
         subsector = "Cars"
     elif "bus" in s:
-        subsector = "BUS"
+        subsector = "Bus"
     elif "2" in s and "3" in s:
         subsector = "Cars"
         d = "2&3W " + d
@@ -316,7 +317,7 @@ def normalize_tuple(subsector, submode, drive):
     elif "ammonia" in d:
         drive = "Ammonia"
     else:
-        drive = drive.strip().capitalize()
+        drive = d.drive.strip().capitalize()
 
     return subsector, submode, drive
 
@@ -374,12 +375,11 @@ def build_cagr_values(result_df, base_values, base_year=2020):
     return values
 
 
-try:
-    from helpers import load_expert_config
-    BASE_VALUES = load_expert_config()   # <-- NO ARGUMENTS NOW
-except Exception as e:
-    #print(f" Could not load base values from YAML: {e}")
-    BASE_VALUES = {}
+# try:
+#     BASE_VALUES = load_expert_config()   # <-- NO ARGUMENTS NOW
+# except Exception as e:
+#     #print(f" Could not load base values from YAML: {e}")
+#     BASE_VALUES = {}
 
 
 try:
@@ -795,14 +795,26 @@ def export_final_energy_intensity_cagr_with_intermediate(
     # Scenario labels and country list come from transport config (no hardcoded defaults).
     # Ensure the transport folder is on sys.path so build_transport_config
     # can import its local helpers module correctly.
-    import sys
-    transport_dir = os.path.dirname(__file__)
-    if transport_dir not in sys.path:
-        sys.path.append(transport_dir)
+    
+    # import sys
+    # transport_dir = os.path.dirname(__file__)
+    # if transport_dir not in sys.path:
+    #     sys.path.append(transport_dir)
 
-    # Use the actual config module name in this repository
-    from build_config_transport import SCENARIOS as TRANSPORT_SCENARIOS, countries_to_process
-    from build_share_subsectors import get_final_df_with_mobility
+    # # Use the actual config module name in this repository
+    # from transport.build_transport_config import SCENARIOS as TRANSPORT_SCENARIOS, countries_to_process
+    # from build_share_subsectors import get_final_df_with_mobility
+
+    try:
+        from transport.build_transport_config import SCENARIOS as TRANSPORT_SCENARIOS, countries_to_process
+    except Exception:
+        from build_transport_config import SCENARIOS as TRANSPORT_SCENARIOS, countries_to_process
+
+    try:
+        from transport.build_share_subsectors import get_final_df_with_mobility
+    except Exception:
+        from build_share_subsectors import get_final_df_with_mobility
+
     scenario_names = list(TRANSPORT_SCENARIOS)
     country_names = list(countries_to_process)
 
@@ -819,8 +831,12 @@ def export_final_energy_intensity_cagr_with_intermediate(
 
     # === Population rows (2020 base + blank CAGR placeholders) ===
     try:
-        from helpers import load_country_specific_data, find_input_folder, get_interpolated_value
-        from build_macro_indicators import process_population_data
+        try:
+            from transport.helpers import load_country_specific_data, find_input_folder, get_interpolated_value
+            from transport.build_macro_indicators import process_population_data
+        except Exception:
+            from helpers import load_country_specific_data, find_input_folder, get_interpolated_value
+            from build_macro_indicators import process_population_data
 
         dfs_country = load_country_specific_data(find_input_folder())
         df_population = process_population_data(dfs_country)
