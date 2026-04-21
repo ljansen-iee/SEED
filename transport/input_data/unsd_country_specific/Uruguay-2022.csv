@@ -1,0 +1,54 @@
+Country (2022),Transactions(down)/Commodity(right),Primary Coal and Peat,Coal and Peat Products,Primary Oil,Oil Products,Natural Gas,Biofuels and Waste,Nuclear,Electricity,Heat,Total Energy,memo: Of which Renewables
+Uruguay,Primary production,---,---,---,---,---,*96012,---,39498,---,*135511,135209
+Uruguay,Imports,82,*3,83368,20898,2711,268,---,303,---,107634,268
+Uruguay,Exports,---,---,---,-32,---,-336,---,-5099,---,-5467,-336
+Uruguay,International marine bunkers,---,---,---,-4043,---,---,---,---,---,-4043,---
+Uruguay,International aviation bunkers,---,---,---,-3241,---,---,---,---,---,-3241,---
+Uruguay,Stock changes,-21,---,2049,-2364,---,-102,---,---,---,-437,-102
+Uruguay,Total energy supply,61,*3,85418,11217,2711,*95843,---,34703,---,*229957,135040
+Uruguay,Statistical differences,4,0,0,-1213,4,*7,---,-402,---,-1600,39506
+Uruguay,Transfers and recycled products,---,---,---,---,---,---,---,---,---,---,---
+Uruguay,Transformation,---,---,-85418,77220,0,-12781,---,13633,---,-7346,-12781
+Uruguay,Electricity  CHP & Heat Plants,---,---,---,-10726,0,-12781,---,13633,---,-9874,-12781
+Uruguay,Electricity Plants,---,---,---,-10726,0,-12781,---,13633,---,-9874,-12781
+Uruguay,CHP plants,---,---,---,---,---,---,---,---,---,---,---
+Uruguay,Heat plants,---,---,---,---,---,---,---,---,---,---,---
+Uruguay,Coke ovens,---,---,---,---,---,---,---,---,---,---,---
+Uruguay,Briquetting plants,---,---,---,---,---,---,---,---,---,---,---
+Uruguay,Liquefaction plants,---,---,---,---,---,---,---,---,---,---,---
+Uruguay,Gas works,---,---,---,---,---,---,---,---,---,---,---
+Uruguay,Blast furnaces,---,---,---,---,---,---,---,---,---,---,---
+Uruguay,NGL & gas blending,---,---,---,---,---,---,---,---,---,---,---
+Uruguay,Oil refineries,---,---,-85418,87946,---,---,---,---,---,2528,---
+Uruguay,Other transformation,---,---,---,---,---,---,---,---,---,---,---
+Uruguay,Energy industries own use,---,---,---,-4391,-796,---,---,-1732,---,-6918,---
+Uruguay,Losses,---,---,0,-93,-8,*-2805,---,-4705,---,-7611,*-2805
+Uruguay,Final consumption,57,3,---,85166,1904,80250,---,42302,---,209682,79948
+Uruguay,Final Energy Consumption,55,3,---,80732,1904,80250,---,42302,---,205245,79948
+Uruguay,Manufacturing  const. and mining,55,3,---,10833,479,62328,---,12709,---,86406,62027
+Uruguay,Iron and steel,---,---,---,---,---,---,---,---,---,---,---
+Uruguay,Chemical and petrochemical,---,---,---,258,30,1645,---,2583,---,4516,1628
+Uruguay,Non-ferrous metals,---,---,---,---,---,---,---,---,---,---,---
+Uruguay,Non-metallic minerals,55,---,---,3579,41,406,---,419,---,4500,168
+Uruguay,Transport equipment,---,---,---,---,---,---,---,---,---,---,---
+Uruguay,Machinery,---,---,---,---,---,---,---,---,---,---,---
+Uruguay,Mining and quarrying,---,---,---,348,---,0,---,113,---,461,0
+Uruguay,Food and tobacco,---,---,---,1339,185,9929,---,4056,---,15509,9908
+Uruguay,Paper  pulp and printing,---,---,---,4548,53,43234,---,3834,---,51669,43234
+Uruguay,Wood and wood products,---,---,---,80,---,6400,---,632,---,7112,6400
+Uruguay,Textile and leather,---,---,---,29,11,618,---,226,---,885,618
+Uruguay,Construction,---,---,---,---,---,---,---,---,---,---,---
+Uruguay,Industry n.e.s,0,3,---,652,158,96,---,846,---,1755,71
+Uruguay,Transport,---,---,---,57688,---,1935,---,25,---,59649,1935
+Uruguay,Road,---,---,---,57021,---,1935,---,25,---,58982,1935
+Uruguay,Rail,---,---,---,9,---,0,---,---,---,9,0
+Uruguay,Domestic aviation,---,---,---,199,---,---,---,---,---,199,---
+Uruguay,Domestic navigation,---,---,---,460,---,---,---,---,---,460,---
+Uruguay,Pipeline transport,---,---,---,---,---,---,---,---,---,---,---
+Uruguay,Transport n.e.s,---,---,---,---,---,---,---,---,---,---,---
+Uruguay,Other Consumption,---,---,---,12211,1425,15986,---,29568,---,59190,15986
+Uruguay,Agriculture  forestry and fishing,---,---,---,5558,---,760,---,954,---,7272,760
+Uruguay,Commerce and public services,---,---,---,1067,558,1073,---,11731,---,14429,1073
+Uruguay,Households,---,---,---,5454,867,14153,---,16882,---,37357,14153
+Uruguay,Other consumption n.e.s,---,---,---,131,---,---,---,0,---,131,---
+Uruguay,Non-energy use,3,---,---,4434,---,---,---,---,---,4437,---

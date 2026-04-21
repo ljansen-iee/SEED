@@ -1,28 +1,30 @@
 import os
 import glob
+import copy
 import pandas as pd
 import numpy as np
 import pycountry
 from pathlib import Path
 
 # Import transport-specific functions
-from build_CAGR import expand_with_cagr, get_cagr
-from build_technology_share import get_unsd_bunker_fuel_shares
-from helpers import unsd_global_output, unsd_input_folder, load_transport_config, extract_config_data
-from main_transport import SCENARIOS
+from transport.build_CAGR import expand_with_cagr, get_cagr
+from transport.build_technology_share import get_unsd_bunker_fuel_shares
+from transport.helpers import unsd_global_output, unsd_input_folder, load_transport_config, extract_config_data
+from transport.build_transport_config import SCENARIOS
 
 # =============================================================================
 # 1. SETUP & CONFIGURATION
 # =============================================================================
 
-# Get the absolute path of this script
+# Get the absolute path of this script and project root
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
-transport_output_dir = os.path.join(script_dir, "output_data")
-results_dir = os.path.join(script_dir, "results")
+
+# All transport outputs stay within transport/output_data
+results_dir = os.path.join(script_dir, "output_data")
 os.makedirs(results_dir, exist_ok=True)
 
-choose_folder = "country_parameters"
+choose_folder = "interim_parametrisation"
 
 # Placeholder - will be loaded after countries is defined
 transport_config_file = "trans_config.csv"
@@ -32,7 +34,7 @@ transport_config = {}
 
 # List of countries to process
 
-countries = ["Egypt", "Morocco","South Africa"]
+countries = ["Morocco","South Africa","Egypt","Namibia"]
     #"Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
     #"Algeria","Argentina","Brazil","Chile","Colombia","Mexico","Peru","Venezuela",
     #"Morocco","Tunisia","Tanzania", "South Africa","Libya",
@@ -68,11 +70,26 @@ def get_iso2_country_code(c):
 # 2. INDICATOR GENERATION FUNCTION (ALL TWh)
 # =============================================================================
 
-def generate_transport_indicators(final_df: pd.DataFrame, country: str) -> pd.DataFrame:
+def generate_transport_indicators(final_df: pd.DataFrame, country: str, metrics_raw: dict = None) -> pd.DataFrame:
     df = final_df.copy()
+    metrics_raw = metrics_raw or {}
+    df["Scenario"] = df["Scenario"].astype(str).str.strip()
+
+    normalized_metrics_raw = {}
+    for metric_name, metric_values in metrics_raw.items():
+        normalized_name = str(metric_name).strip()
+        if isinstance(metric_values, dict):
+            normalized_metrics_raw[normalized_name] = {
+                str(key).strip(): value for key, value in metric_values.items()
+            }
+        else:
+            normalized_metrics_raw[normalized_name] = metric_values
+    metrics_raw = normalized_metrics_raw
     unit_col = "Final Energy Demand (GWh)"
     df[unit_col] = pd.to_numeric(df[unit_col], errors="coerce").fillna(0)
-    
+    scenario_index = pd.Index(df["Scenario"].unique(), name="scenario")
+    gwh_to_twh = 1.0 / 1000.0
+
     def sum_filter(subsector=None, mode=None, enduse=None, fuels=None):
         d = df
         if subsector:
@@ -83,51 +100,123 @@ def generate_transport_indicators(final_df: pd.DataFrame, country: str) -> pd.Da
             d = d[d["End-Use"].isin(enduse if isinstance(enduse, list) else [enduse])]
         if fuels:
             d = d[d["Fuel"].isin(fuels if isinstance(fuels, list) else [fuels])]
-        return d.groupby("Scenario")[unit_col].sum()
+        return d.groupby("Scenario")[unit_col].sum().reindex(scenario_index, fill_value=0.0) * gwh_to_twh
 
+    def get_share_series(metric_name):
+        metric_values = metrics_raw.get(metric_name, {})
+        values = []
+        for scenario in scenario_index:
+            scenario_key = str(scenario).strip()
+            raw_val = metric_values.get(scenario_key, 0.0)
+            try:
+                share = float(raw_val)
+            except Exception:
+                share = 0.0
+            if share > 1:
+                share = share / 100.0
+            values.append(min(1.0, max(0.0, share)))
+        return pd.Series(values, index=scenario_index, dtype=float)
 
-    # safer enduse definitions (End-Use column, not Mode)
     road_enduses = ["LDV", "Bus", "2&3 Wheelers", "Light-Duty Trucks", "Heavy-Duty Trucks"]
     rail_enduses = ["Passenger Train", "Freight Train"]
-    aviation_enduses = ["Passenger Planes", "Freight Planes"]
-    navigation_enduses = ["Freight Ships"]
-    
-    result = pd.DataFrame({"scenario": df["Scenario"].unique(), "country": country}).set_index("scenario")
+    aviation_passenger_enduses = ["Passenger Planes"]
+    navigation_freight_enduses = ["Freight Ships"]
 
-    # Rail - filter by End-Use, not Mode
-    result["electricity rail"] = sum_filter(enduse=rail_enduses, fuels=["Electricity"])
-    result["rail"] = sum_filter(enduse=rail_enduses)
+    road_oil_fuels = ["Gasoline", "Synthetic Gasoline", "Diesel", "Synthetic Diesel", "LPG", "E-Diesel"]
+    rail_oil_fuels = ["Diesel", "Synthetic Diesel", "E-Diesel", "Fuel Oil", "LPG"]
+    aviation_oil_fuels = ["Kerosene", "Synthetic Kerosene", "E-Kerosene", "Fuel Oil"]
+    navigation_oil_fuels = ["Diesel", "Methanol"]
+    share_bioethanol_road = get_share_series("Share of Bioethanol in Road Gasoline")
+    share_biodiesel_road = get_share_series("Share of Biodiesel in Road Diesel")
+    share_biokerosene_aviation = get_share_series("Share of Biokerosene in Internal Aviation Fuel")
+    share_biodiesel_navigation = get_share_series("Share of Biodiesel in Internal Navigation Diesel")
 
-    # Road - filter by End-Use, not Mode
-    result["road biomass"] = sum_filter(enduse=road_enduses, fuels=["Bio Diesel", "Bio Ethanol"])
-    result["road electricity"] = sum_filter(enduse=road_enduses, fuels=["Electricity"])
-    result["road hydrogen"] = sum_filter(enduse=road_enduses, fuels=["Hydrogen"])
-    result["road gas"] = sum_filter(enduse=road_enduses, fuels=["LPG"])
-    result["road oil"] = sum_filter(enduse=road_enduses, fuels=["Gasoline", "Diesel", "Kerosene", "Fuel Oil"])
+    result = pd.DataFrame(index=scenario_index)
+    result["country"] = country
 
-    total_road = sum_filter(enduse=road_enduses)
-    result["road"] = total_road
-    result["road ev"] = result["road electricity"]
-    result["road fcev"] = result["road hydrogen"]
-    result["road ice"] = total_road - result["road electricity"] - result["road hydrogen"]
+    rail_electricity = sum_filter(enduse=rail_enduses, fuels=["Electricity"])
+    rail_hydrogen = sum_filter(enduse=rail_enduses, fuels=["Hydrogen"])
+    rail_oil = sum_filter(enduse=rail_enduses, fuels=rail_oil_fuels)
+    result["electricity rail"] = rail_electricity
+    result["total rail"] = rail_oil + rail_electricity + rail_hydrogen
+    result["total rail hydrogen"] = rail_hydrogen
 
-    # Aviation & Navigation - filter by End-Use, not Mode
-    result["domestic aviation"] = sum_filter(enduse=aviation_enduses)
-    result["domestic navigation"] = sum_filter(enduse=navigation_enduses)
+    road_total = sum_filter(enduse=road_enduses)
+    road_electricity = sum_filter(enduse=road_enduses, fuels=["Electricity"])
+    road_hydrogen = sum_filter(enduse=road_enduses, fuels=["Hydrogen"])
+    road_gas = sum_filter(enduse=road_enduses, fuels=["LPG"])
+    road_oil = sum_filter(enduse=road_enduses, fuels=road_oil_fuels)
+    road_biomass = sum_filter(enduse=road_enduses, fuels=["Bio Diesel", "Bio Ethanol"])
 
-    return result.fillna(0).reset_index()
+    result["road biomass"] = road_biomass
+    result["road electricity"] = road_electricity
+    result["road gas"] = road_gas
+    result["road oil"] = road_oil
+    result["total road"] = road_oil + road_biomass + road_electricity + road_hydrogen + road_gas
+    result["total road ev"] = road_electricity
+    result["total road fcev"] = road_hydrogen
+    result["total road ice"] = road_oil + road_biomass
+
+    aviation_oil_gross = sum_filter(enduse=aviation_passenger_enduses, fuels=aviation_oil_fuels)
+    aviation_electricity = sum_filter(enduse=aviation_passenger_enduses, fuels=["Electricity"])
+    aviation_hydrogen = sum_filter(enduse=aviation_passenger_enduses, fuels=["Hydrogen"])
+    aviation_kerosene = sum_filter(enduse=aviation_passenger_enduses, fuels=["Kerosene"])
+    aviation_bio_kerosene = aviation_kerosene * share_biokerosene_aviation
+    aviation_biomass_explicit = sum_filter(enduse=aviation_passenger_enduses, fuels=["Bio Kerosene"])
+    aviation_biomass = aviation_biomass_explicit + aviation_bio_kerosene
+    aviation_oil = (aviation_oil_gross - aviation_bio_kerosene).clip(lower=0.0)
+    result["total domestic aviation"] = aviation_oil + aviation_electricity + aviation_hydrogen + aviation_biomass
+    result["total aviation biomass"] = aviation_biomass
+
+    navigation_oil_gross = sum_filter(enduse=navigation_freight_enduses, fuels=navigation_oil_fuels)
+    navigation_electricity = sum_filter(enduse=navigation_freight_enduses, fuels=["Electricity"])
+    navigation_hydrogen = sum_filter(enduse=navigation_freight_enduses, fuels=["Hydrogen"])
+    navigation_ammonia = sum_filter(enduse=navigation_freight_enduses, fuels=["Ammonia"])
+    navigation_diesel = sum_filter(enduse=navigation_freight_enduses, fuels=["Diesel"])
+    navigation_bio_diesel = navigation_diesel * share_biodiesel_navigation
+    navigation_biomass_explicit = sum_filter(enduse=navigation_freight_enduses, fuels=["Bio Diesel"])
+    navigation_biomass = navigation_biomass_explicit + navigation_bio_diesel
+    navigation_oil = (navigation_oil_gross - navigation_bio_diesel).clip(lower=0.0)
+
+    result["total domestic navigation"] = navigation_oil + navigation_electricity + navigation_hydrogen + navigation_ammonia + navigation_biomass
+    result["total navigation hydrogen"] = navigation_hydrogen
+    result["total navigation oil"] = navigation_oil
+    result["total navigation ammonia"] = navigation_ammonia
+    result["total navigation biomass"] = navigation_biomass
+
+    result["total international aviation"] = np.nan
+    result["total international navigation"] = np.nan
+
+    ordered_columns = [
+        "country",
+        "electricity rail",
+        "total rail",
+        "total rail hydrogen",
+        "road biomass",
+        "road electricity",
+        "road gas",
+        "road oil",
+        "total road",
+        "total road ev",
+        "total road fcev",
+        "total road ice",
+        "total domestic aviation",
+        "total domestic navigation",
+        "total navigation hydrogen",
+        "total navigation oil",
+        "total navigation ammonia",
+        "total navigation biomass",
+        "total aviation biomass",
+        "total international aviation",
+        "total international navigation",
+    ]
+
+    return result[ordered_columns].reset_index()
 
 
 # =============================================================================
 # 3. HELPER FUNCTIONS
 # =============================================================================
-
-try:
-    from main_transport import SCENARIOS
-except ImportError:
-    # Fallback: use default scenarios when running standalone
-    SCENARIOS = ["BAU", "Progressive", "Optimistic"]
-
 
 # === Dynamic Scenario Mapping Function ===
 def get_config_scenario_name(scenario_from_column):
@@ -165,6 +254,7 @@ def safe_div(n, d):
 
 
 
+
 def add_row(rows, sector, subsector, mode, enduse, tech, fuel, scn, vkm, tech_share, inten, fuel_split=1.0):
     """
     Calculates Energy Demand and appends to rows.
@@ -188,26 +278,76 @@ def apply_cagr_projections(df, config_path, country, base_year="2020"):
     """
     try:
         config_df = pd.read_csv(config_path)
-        # Filter for rows where Assumption Type is CAGR
-        cagr_config = config_df[config_df['Assumption Type'] == 'CAGR']
+        config_df['Scenario'] = config_df['Scenario'].astype(str)
+
+        # Separate CAGR and Value rows
+        cagr_config = config_df[config_df['Assumption Type'].str.upper() == 'CAGR']
+        value_config = config_df[config_df['Assumption Type'].str.upper() == 'VALUE']
     except Exception as e:
         print(f"  Warning: Error loading CAGR config: {e}")
         return df
 
 
 
-    # 1. Identify and sort milestone years present in the dataframe columns
-    # We extract digits to identify years like '2020', '2030_Baseline', etc.
+    # 1. Identify and sort milestone years present in the dataeline', etc.
     all_cols = [c for c in df.columns if c not in ["Metric", "Units"]]
 
     def extract_year(column_name):
         digits = "".join(filter(str.isdigit, column_name))
         return int(digits) if digits else None
 
-    # Get a sorted list of unique numeric years: [2020, 2030, 2035, 2040, 2045, 2050]
+    # Get a sorted listframe columns
+    # We extract digits to identify years like '2020', '2030_Bas of unique numeric years: [2020, 2030, 2035, 2040, 2045, 2050]
     unique_years = sorted(list(set(extract_year(c) for c in all_cols if extract_year(c) is not None)))
     if len(unique_years) < 2:
         return df
+    # --- Apply VALUE overrides before chaining CAGRs ---
+    def resolve_target_scenarios(scen_value):
+        scen_lower = str(scen_value).lower()
+        if scen_value in SCENARIOS:
+            return [scen_value]
+        if scen_lower == 'all':
+            return list(SCENARIOS)
+        # handle aliases sc_a/sc_b/sc_c
+        if scen_lower.startswith('sc_') and len(scen_lower) == 4:
+            idx = ord(scen_lower[-1]) - ord('a')
+            if 0 <= idx < len(SCENARIOS):
+                return [SCENARIOS[idx]]
+        return []
+
+    override_cells = set()
+    for _, row in value_config.iterrows():
+        metric = str(row.get('Metric Name', '')).strip()
+        try:
+            year_val = int(row.get('Year'))
+        except Exception:
+            continue
+        target_scenarios = resolve_target_scenarios(row.get('Scenario', ''))
+        if not target_scenarios:
+            continue
+
+        # pick country value, else default
+        country_val = row.get(country, np.nan)
+        val = country_val if pd.notna(country_val) and str(country_val) != '' else row.get('default', np.nan)
+        if pd.isna(val) or str(val) == '':
+            continue
+        try:
+            val = float(val)
+        except Exception:
+            continue
+
+        for scen in target_scenarios:
+            # Base year columns in the source file are stored without scenario suffix
+            if year_val == int(base_year):
+                col_name = str(year_val)
+            else:
+                col_name = f"{year_val}_{scen}"
+
+            if col_name not in df.columns:
+                df[col_name] = np.nan
+            df.loc[df['Metric'] == metric, col_name] = val
+            override_cells.add((metric, col_name))
+
     # 2. Iterate through the intervals (e.g., 2020-2030, 2030-2035, 2035-2040)
     for i in range(1, len(unique_years)):
         prev_yr_num = unique_years[i-1]
@@ -225,25 +365,27 @@ def apply_cagr_projections(df, config_path, country, base_year="2020"):
                     if scn_name in col:
                         scenario_from_col = scn_name
                         break
-                
-                if scenario_from_col is None:
-                    # Fallback: if no scenario found, use "all" or skip
-                    scenario_for_lookup = "all"
-                else:
-                    # Dynamically map to config scenario name (sc_a, sc_b, sc_c, etc.)
-                    # based on position in SCENARIOS list - NO hardcoding
-                    scenario_for_lookup = get_config_scenario_name(scenario_from_col)
+
+                # Build a set of possible labels to match against the config (handles BAU/Progressive/Optimistic or sc_a/sc_b/sc_c/all)
+                scenario_candidates = []
+                if scenario_from_col:
+                    scenario_candidates.append(scenario_from_col)
+                    scenario_candidates.append(scenario_from_col.lower())
+                    scenario_alias = get_config_scenario_name(scenario_from_col)
+                    if scenario_alias:
+                        scenario_candidates.append(scenario_alias)
+                scenario_candidates.append("all")
+                scenario_candidates_lower = {str(s).lower() for s in scenario_candidates if s}
 
                 # Find the specific CAGR for this Metric, Year, and Scenario
-
                 match = cagr_config[
                     (cagr_config['Metric Name'] == metric) &
                     (cagr_config['Year'] == curr_yr_num) &
-                    (cagr_config['Scenario'].str.lower() == scenario_for_lookup.lower())
+                    (cagr_config['Scenario'].str.lower().isin(scenario_candidates_lower))
                 ]
-            
+
                 if match.empty:
-                    # Fallback to 'all' scenario or 'default' if specific scenario not found
+                    # Fallback to any scenario for that metric/year
                     match = cagr_config[
                         (cagr_config['Metric Name'] == metric) &
                         (cagr_config['Year'] == curr_yr_num)
@@ -256,6 +398,10 @@ def apply_cagr_projections(df, config_path, country, base_year="2020"):
 
                     if not pd.isna(cagr_val):
                         cagr = float(cagr_val)
+
+                        # Skip if this cell was explicitly overridden by a Value row
+                        if (metric, col) in override_cells:
+                            continue
 
                         # Find the corresponding base value from the PREVIOUS milestone
                         # We look for a column with the same scenario suffix in the previous year
@@ -385,17 +531,11 @@ def calc_for_scenario(metrics_raw: dict, scenario: str) -> pd.DataFrame:
     nav_frt_tkm    = total_tkm * pct(metrics_raw, "Share per Subsector - Navigation Freight = Ship", scenario)
     aviation_frt_tkm = total_tkm * pct(metrics_raw, "Share per Subsector - Aviation Freight = Plane", scenario)
 
-
-
     share_ldt = pct(metrics_raw, "Share per Mode - LDT", scenario)
     share_hdt = pct(metrics_raw, "Share per Mode - HDT", scenario)
 
-
-
     tkm_ldt = road_frt_tkm * share_ldt
     tkm_hdt = road_frt_tkm * share_hdt
-
-
 
     vkm_ldt = safe_div(tkm_ldt, get_metric(metrics_raw, "Load Factor - LDT", scenario, 1.0))
     vkm_hdt = safe_div(tkm_hdt, get_metric(metrics_raw, "Load Factor - HDT", scenario, 1.0))
@@ -545,8 +685,8 @@ def calc_for_scenario(metrics_raw: dict, scenario: str) -> pd.DataFrame:
     # ── 7. International bunkers (REMOVED to match Excel Summary) ──────────
     # Note: Excel excludes these from the main transport fuel summary table.
     # If you need them later for a separate report, keep the variables but don't append to 'rows'.
-    # int_maritime_twh = get_metric(metrics_raw, "Total Energy - Int. Maritime", scenario, 0.0)
-    # int_aviation_twh = get_metric(metrics_raw, "Total Energy - Int. Aviation", scenario, 0.0)
+    # int_maritime_twh = get_metric(metrics_raw, "Final Energy - Int. Maritime", scenario, 0.0)
+    # int_aviation_twh = get_metric(metrics_raw, "Final Energy - Int. Aviation", scenario, 0.0)
 
     # ── 8. Add total row ─────────────────────────────────────────────────────
     # This sum now only includes the domestic transport rows calculated in steps 1-6
@@ -708,6 +848,79 @@ def build_summary(df, metrics_raw):
     
     return fuel_summary.round(4), mode_summary.round(4), subsector_summary.round(4), enduse_summary.round(4)
 
+
+def parse_scenario_name(scenario_str):
+    parts = str(scenario_str).split('_')
+    year = int(parts[0]) if parts and parts[0].isdigit() else None
+    scenario = '_'.join(parts[1:]) if len(parts) > 1 else None
+    return year, scenario
+
+
+def get_country_bunker_series(country: str, scenario_labels, transport_cfg: dict):
+    empty = {'maritime': {}, 'aviation': {}}
+    if not transport_cfg:
+        return empty
+
+    parsed = [parse_scenario_name(s) for s in scenario_labels]
+    years_present = sorted(set(year for year, _ in parsed if year is not None))
+    if not years_present:
+        return empty
+
+    base_year = years_present[0]
+    target_years = years_present
+    scenario_types = sorted(set(scenario for _, scenario in parsed if scenario is not None))
+
+    try:
+        default_values, _ = extract_config_data(transport_cfg, "default")
+        country_values, _ = extract_config_data(transport_cfg, country)
+
+        cagr_values = copy.deepcopy(default_values)
+        for key, value in country_values.items():
+            if key in cagr_values and isinstance(cagr_values[key], dict) and isinstance(value, dict):
+                cagr_values[key].update(value)
+            else:
+                cagr_values[key] = value
+
+        marine_base, aviation_base = 0.0, 0.0
+        if unsd_global_output.exists():
+            unsd_df = pd.read_excel(unsd_global_output)
+            unsd_df['Country_Clean'] = unsd_df['Country'].astype(str).str.strip().str.lower()
+            target_country_clean = country.strip().lower()
+
+            match = unsd_df[
+                (unsd_df['Country_Clean'] == target_country_clean) &
+                (unsd_df['Year'].astype(str) == str(base_year))
+            ]
+            if not match.empty:
+                marine_base = float(match['Marine_Bunkers_TWh'].values[0])
+                aviation_base = float(match['Aviation_Bunkers_TWh'].values[0])
+
+        marine_cagr = get_cagr(cagr_values, "Final Energy - Int. Maritime")
+        aviation_cagr = get_cagr(cagr_values, "Final Energy - Int. Aviation")
+
+        marine_expanded = expand_with_cagr(
+            marine_base,
+            marine_cagr,
+            base_year,
+            target_years,
+            scenario_types
+        )
+        aviation_expanded = expand_with_cagr(
+            aviation_base,
+            aviation_cagr,
+            base_year,
+            target_years,
+            scenario_types
+        )
+
+        return {
+            'maritime': marine_expanded,
+            'aviation': aviation_expanded,
+        }
+    except Exception as e:
+        print(f"  [WARNING] Could not compute bunker series for {country}: {e}")
+        return empty
+
 def run(country: str, base_dir: str = "output_data") -> None:
     country_code = get_iso2_country_code(country)
 
@@ -734,7 +947,6 @@ def run(country: str, base_dir: str = "output_data") -> None:
 
     # -----------------------------------------------------------------
     # Use the top-level transport_config_path (set at the top of this file)
-    print(f"DEBUG: Checking for config at: {transport_config_path}")
 
     if transport_config_path.exists():
         print(f"  >>> Found config! Refreshing projections for {country}...")
@@ -742,6 +954,9 @@ def run(country: str, base_dir: str = "output_data") -> None:
         df = apply_cagr_projections(df, transport_config_path, country, base_year="2020")
         # 2. Balance the 100% shares
         df = calculate_remainders(df)
+
+        # Persist the refreshed assumptions back to the source CSV so the user can see the applied values
+        df.to_csv(file_path, index=False)
 
         # SAVE THE REFRESHED DATA FOR VERIFICATION
         debug_dir = os.path.join(results_dir, "country_specific", country)
@@ -768,29 +983,40 @@ def run(country: str, base_dir: str = "output_data") -> None:
     final_df = pd.concat(all_results, ignore_index=True)
     fuel_summary, mode_summary, subsector_summary, enduse_summary = build_summary(final_df, metrics_raw)
 
+    # Save results in output_data/country_specific
     country_results_dir = os.path.join(results_dir, "country_specific", country)
     os.makedirs(country_results_dir, exist_ok=True)
 
-    # Save detailed Energy Demand (GWh)
-    final_df.to_csv(os.path.join(country_results_dir, f"{country_code}_energy_demand.csv"), index=False)
+    # Save detailed Energy Demand (GWh) as parameters_{country}.csv
+    final_df.to_csv(os.path.join(country_results_dir, f"parameters_{country}.csv"), index=False)
+
+    # ...existing code...
+
     # Generate Indicators and save
     indicators_df = pd.DataFrame()
     try:
+        indicators_df = generate_transport_indicators(final_df, country, metrics_raw)
 
-        indicators_df = generate_transport_indicators(final_df, country)
+        bunker_series = get_country_bunker_series(country, indicators_df["scenario"].tolist(), transport_config)
+        indicators_df["total international aviation"] = indicators_df["scenario"].map(
+            lambda s: float(bunker_series["aviation"].get(str(s), 0.0))
+        )
+        indicators_df["total international navigation"] = indicators_df["scenario"].map(
+            lambda s: float(bunker_series["maritime"].get(str(s), 0.0))
+        )
+
         indicators_df.to_csv(os.path.join(country_results_dir, f"{country_code}_final_energy_demand.csv"), index=False)
     except Exception as e:
         print(f"  Warning: Could not generate indicators: {e}")
 
     # Save Summaries (Excel)
-
     with pd.ExcelWriter(os.path.join(country_results_dir, f"{country_code}_summary.xlsx")) as writer:
         fuel_summary.to_excel(writer, sheet_name="Fuel")
         mode_summary.to_excel(writer, sheet_name="Mode")
         subsector_summary.to_excel(writer, sheet_name="Subsector")
         enduse_summary.to_excel(writer, sheet_name="EndUse")
 
-    print(f" Saved results for {country} ({country_code})")
+    print(f" Saved results for {country} ({country_code}) in {country_results_dir}")
     return indicators_df
 
 def export_global_energy_totals(all_country_indicators: list, bunker_data_by_country: dict = None):
@@ -817,9 +1043,12 @@ def export_global_energy_totals(all_country_indicators: list, bunker_data_by_cou
     groups = master_df.groupby("scenario")
 
     for scenario_name, group_df in groups:
-        # Clean the name for filename (e.g., "2030_Baseline" -> "2030_Baseline.csv")
-        clean_name = str(scenario_name).replace(" ", "_")
-        file_path = os.path.join(total_dir, f"{clean_name}.csv")
+        # Build filename as transport_{scenario}_{year}.csv
+        scenario_str = str(scenario_name).replace(" ", "_")
+        parts = scenario_str.split("_", 1)
+        year_part = parts[0] if parts and parts[0].isdigit() else "unknown"
+        scenario_part = parts[1] if len(parts) > 1 and parts[1] else "all"
+        file_path = os.path.join(total_dir, f"transport_{scenario_part}_{year_part}.csv")
         
         # Add international bunker values to each country row
         group_df_copy = group_df.copy()
@@ -830,9 +1059,16 @@ def export_global_energy_totals(all_country_indicators: list, bunker_data_by_cou
         for idx, row in group_df_copy.iterrows():
             country = row.get("country", "Unknown")
             
-            # Get bunker values for this country and scenario
-            aviation_bunker = 0.0
-            maritime_bunker = 0.0
+            # Keep already-computed indicator values unless a bunker lookup overrides them
+            try:
+                aviation_bunker = float(row.get("total international aviation", 0.0))
+            except (TypeError, ValueError):
+                aviation_bunker = 0.0
+
+            try:
+                maritime_bunker = float(row.get("total international navigation", 0.0))
+            except (TypeError, ValueError):
+                maritime_bunker = 0.0
             
             if country in bunker_data_by_country:
                 bunker_dicts = bunker_data_by_country[country]
@@ -841,15 +1077,15 @@ def export_global_energy_totals(all_country_indicators: list, bunker_data_by_cou
                 #if idx == group_df_copy.index[0]:
                     #print(f"  [Debug] {country} aviation bunker keys: {list(bunker_dicts['aviation'].keys())[:10]}")
                 
-                # Convert TWh to GWh (multiply by 1000)
+                # Bunker values are kept in TWh for indicator outputs
                 if bunker_dicts['aviation'] and scenario_key in bunker_dicts['aviation']:
-                    aviation_bunker = float(bunker_dicts['aviation'][scenario_key]) * 1000
+                    aviation_bunker = float(bunker_dicts['aviation'][scenario_key])
                     #print(f"  [Debug] Found aviation bunker for {country}/{scenario_key}: {aviation_bunker:.2f} GWh")
                 #elif bunker_dicts['aviation']:
                     #print(f"  [Debug] ERROR: scenario_key '{scenario_key}' NOT in aviation bunker dict for {country}")
                 
                 if bunker_dicts['maritime'] and scenario_key in bunker_dicts['maritime']:
-                    maritime_bunker = float(bunker_dicts['maritime'][scenario_key]) * 1000
+                    maritime_bunker = float(bunker_dicts['maritime'][scenario_key])
                     #print(f"  [Debug] Found maritime bunker for {country}/{scenario_key}: {maritime_bunker:.2f} GWh")
                 #elif bunker_dicts['maritime']:
                     #print(f"  [Debug] ERROR: scenario_key '{scenario_key}' NOT in maritime bunker dict for {country}")
@@ -857,8 +1093,8 @@ def export_global_energy_totals(all_country_indicators: list, bunker_data_by_cou
                 #print(f"  [Debug] WARNING: {country} not in bunker_data_by_country")
             
             # Set the bunker values in the dataframe
-            group_df_copy.at[idx, "international aviation"] = aviation_bunker
-            group_df_copy.at[idx, "international navigation"] = maritime_bunker
+            group_df_copy.at[idx, "total international aviation"] = aviation_bunker
+            group_df_copy.at[idx, "total international navigation"] = maritime_bunker
         
         # Save the full dataframe with all countries and bunker data
         group_df_copy.to_csv(file_path, index=False, encoding='utf-8')
@@ -872,7 +1108,7 @@ if __name__ == "__main__":
         try:
             print(f"\n{'='*50}\n Processing country: {country}\n{'='*50}")
             # Capture the returned dataframe
-            country_indicators = run(country=country, base_dir=transport_output_dir)
+            country_indicators = run(country=country, base_dir=results_dir)
             if not country_indicators.empty:
                 all_indicators_list.append(country_indicators)
         except Exception as e:
@@ -882,19 +1118,11 @@ if __name__ == "__main__":
     print(f"\n{'='*50}\n Generating Global Energy Totals\n{'='*50}")
     
     # Extract base_year, target_years, and scenarios from scenario names in the data
-    def parse_scenario_name(scenario_str):
-        """Parse scenario name like '2030_Baseline' to extract year and scenario type"""
-        parts = str(scenario_str).split('_')
-        year = int(parts[0]) if parts[0].isdigit() else 2030
-        # Only return a scenario if there's actually a scenario name after the year
-        scenario = '_'.join(parts[1:]) if len(parts) > 1 else None
-        return year, scenario
-    
-    
+
     if all_indicators_list and transport_config:
         master_df = pd.concat(all_indicators_list, ignore_index=True)
         scenarios_present = master_df["scenario"].unique()
-        years_present = sorted(set(year for year, _ in [parse_scenario_name(s) for s in scenarios_present]))
+        years_present = sorted(set(year for year, _ in [parse_scenario_name(s) for s in scenarios_present] if year is not None))
         base_year = years_present[0] if years_present else 2020
         target_years = years_present if years_present else [2030, 2035, 2040, 2045, 2050]
         # Extract scenario types, excluding None (which represents base year without specific scenario)
@@ -942,8 +1170,8 @@ if __name__ == "__main__":
                         print(f"    [WARNING] UNSD file not found at {unsd_global_output}")
                     
                     # Expand bunker values using CAGR for all target years and scenarios
-                    marine_cagr = get_cagr(cagr_values, "Total Energy - Int. Maritime")
-                    aviation_cagr = get_cagr(cagr_values, "Total Energy - Int. Aviation")
+                    marine_cagr = get_cagr(cagr_values, "Final Energy - Int. Maritime")
+                    aviation_cagr = get_cagr(cagr_values, "Final Energy - Int. Aviation")
                     
                     marine_expanded = expand_with_cagr(
                         marine_base,
@@ -977,3 +1205,5 @@ if __name__ == "__main__":
         export_global_energy_totals(all_indicators_list)
     
     print("All tasks complete.")
+
+

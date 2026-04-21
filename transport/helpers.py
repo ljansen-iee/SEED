@@ -20,26 +20,26 @@ unsd_global_output = unsd_global_dir / "international_marine_and_aviation_data.x
 os.makedirs(unsd_global_dir, exist_ok=True)
 
 # Default target years used across transport scripts when not overridden
-DEFAULT_TARGET_YEARS = [2030, 2050]
+DEFAULT_TARGET_YEARS = [2030,2035,2040,2045,2050]
 
 def find_input_folder():
-    """Locate the ``input_data`` directory relative to this file.
+    script_dir = Path(__file__).resolve().parent
+    project_root = script_dir.parent
 
-    Searches the current directory and one level up.
+    candidates = [
+        script_dir / "input_data",
+        project_root / "transport" / "input_data",
+        project_root / "input_data",
+    ]
 
-    Returns:
-        str: Absolute path to the ``input_data`` folder.
+    for candidate in candidates:
+        if candidate.is_dir():
+            return str(candidate)
 
-    Raises:
-        FileNotFoundError: If no ``input_data`` folder is found.
-    """
-    start_dir = os.path.dirname(os.path.abspath(__file__))
-    for _ in range(2):  # current dir and one level up
-        input_folder = os.path.join(start_dir, "input_data")
-        if os.path.isdir(input_folder):
-            return input_folder
-        start_dir = os.path.dirname(start_dir)
-    raise FileNotFoundError("Could not find 'input_data' folder")
+    raise FileNotFoundError(
+        "Could not find 'input_data' folder. Checked:\n"
+        + "\n".join(str(path) for path in candidates)
+    )
 
 def read_excel_file(file_path, sheet_name):
     try:
@@ -582,6 +582,10 @@ def generate_units_dictionary():
         "Share of Biodiesel in Internal Navigation Diesel": "% of km",
         "Share of Biokerosene in Internal Aviation Fuel": "% of km",
         "Share of ICE Fuel in Plugin Hybrid": "% of km",
+
+        # === International bunkers (totals) ===
+        "Final Energy - Int. Maritime": "TWh",
+        "Final Energy - Int. Aviation": "TWh",
         
     }
 
@@ -802,13 +806,28 @@ def load_transport_config(excel_path: Path, countries: list, scenarios: list):
     """
     # --- NEW: Robust Path Check ---
     excel_path = Path(excel_path)
+    if excel_path.suffix == "":
+        excel_path = excel_path.with_suffix(".csv")
+
+    # Auto-create a blank config if it is missing to avoid hard failures
     if not excel_path.exists():
-        # Try adding .csv if it was missing
-        if excel_path.suffix == "":
-            excel_path = excel_path.with_suffix(".csv")
-    
-    if not excel_path.exists():
-        raise FileNotFoundError(f"Could not find config file at {excel_path}")
+        excel_path.parent.mkdir(parents=True, exist_ok=True)
+        columns = [
+            "Assumption Type",
+            "Metric Name",
+            "Year",
+            "Scenario",
+            "default",
+        ]
+        for country in countries:
+            if country not in columns:
+                columns.append(country)
+
+        df_empty = pd.DataFrame(columns=columns)
+        if excel_path.suffix.lower() == ".csv":
+            df_empty.to_csv(excel_path, index=False)
+        else:
+            df_empty.to_excel(excel_path, index=False)
 
     # --- NEW: Handle both CSV and Excel ---
     if excel_path.suffix.lower() == ".csv":
@@ -906,18 +925,7 @@ def load_transport_config(excel_path: Path, countries: list, scenarios: list):
     return config
 
 def extract_config_data(config, country):
-    """Extract per-metric values and assumption types for a country.
 
-    Args:
-        config: Nested config dict as returned by
-            :func:`load_transport_config`.
-        country: Country name key.
-
-    Returns:
-        tuple[dict, dict]: ``(values, assumption_types)`` where *values*
-        maps metric → {year → {scenario → value}} and *assumption_types*
-        maps metric → ``"CAGR"`` or ``"TARGET"``.
-    """
     values = {}
     assumption_types = {}
 
