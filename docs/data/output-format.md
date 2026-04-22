@@ -30,6 +30,17 @@ All outputs are written to `output_data/` directories (git-ignored).
 |------|---------|
 | `energy_total+{scenario}+{year}.csv` | Merged residential + additional-sector demand per country |
 
+## Industry
+
+All files are written to `industry/output_data/` (git-ignored).
+
+| File | Content |
+|------|---------|
+| `country_parameters/{Country}_Output_.csv` | Intermediate parameter table: production, shares, intensities, fuel splits for all sub-sectors × milestone years × scenarios |
+| `{ISO}_final_energy_demand.xlsx` | Final energy demand by fuel and sub-sector per scenario and milestone year |
+| `{ISO}_energy_demand_summary.xlsx` | Aggregated final energy demand by energy carrier per scenario and milestone year |
+| `industry_{scenario}_{year}.csv` | Flat aggregated outputs used for cross-sector merging |
+
 ## Units
 
 | Quantity | Unit |

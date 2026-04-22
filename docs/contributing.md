@@ -32,8 +32,8 @@ base year and SSP pathway are correct for your country.
 ```bash
 python build_shares.py
 python build_CAGR.py
-python transport/main_transport.py
-python transport/build_final_energy_demand.py
+python -m transport.build_transport_config
+python -m transport.build_final_energy_demand
 ```
 
 Check the output CSVs for implausible values (negative demand, zero shares, etc.).

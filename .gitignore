@@ -17,6 +17,8 @@ transport_from_test_transport_workflow/
 transport_backup_20260304163310/
 graphic_tool
 
+trans_config.csv
+
 # MkDocs: visualisation notebooks copied here by CI (plots/*.ipynb → docs/notebooks/)
 docs/notebooks/
 # MkDocs build output

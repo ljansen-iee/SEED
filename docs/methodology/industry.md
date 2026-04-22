@@ -1,23 +1,13 @@
 # Industry Methodology
 
-!!! warning "Planned module"
-    The `industry/` module is not yet present in this branch.
-    `build_pypsa_industry.py` exists as an empty placeholder.
-    This page documents the intended methodology.
+## Scope
 
-## Planned sub-sectors
+The industry module covers final energy demand for the industrial sector across
+three countries (Morocco, Egypt, South Africa) from a base year of **2020** to
+milestone years **2030, 2035, 2040, 2045, 2050** under three scenarios: BAU,
+Progressive, and Optimistic.
 
-| Sub-sector | Key processes |
-|------------|--------------|
-| Iron & Steel | BF+BOF, BF+OHF (primary); Scrap EAF (secondary) |
-| Chemical & Petrochemical | HVC (naphtha/LPG/methanol cracking) |
-| Non-metallic Minerals | Cement dry/wet kilns |
-| Paper, Pulp & Printing | Primary (kraft/sulfite) and secondary pulp |
-| Food & Tobacco | — |
-| Non-ferrous Metals | Aluminium (primary/secondary) |
-| Other industries | Mining, construction, textiles, machinery, wood, transport equipment |
-
-## Intended formula
+## Core formula
 
 \[
 \text{FED}_{\text{sub-sector}} =
@@ -25,12 +15,71 @@
   \times \text{Fuel share}
 \]
 
-## Data sources (planned)
+Each factor is projected from the base year using scenario-specific CAGRs and
+share overrides defined in `industry/industry_config.csv`.
 
-| Dataset | Sub-sector |
-|---------|-----------|
-| WorldSteel data | Iron & Steel |
-| USGS Mineral Yearbook | Cement |
-| FAO STAT | Paper & Pulp |
-| UN Comtrade / IFA | Ammonia |
-| UNSD Energy Statistics | All (base-year calibration) |
+## Sub-sectors
+
+The module distinguishes between energy-intensive sub-sectors modelled
+bottom-up and remaining industries modelled top-down via UNSD data and
+sector-level CAGRs.
+
+### Energy-intensive (bottom-up)
+
+| Sub-sector | Processes modelled |
+|------------|-------------------|
+| **Iron & Steel** | BF+OHF, BF+BOF (primary); DR+EAF; Scrap EAF (secondary); Casting/Rolling/Finishing |
+| **Non-Metallic Minerals** | Cement (dry/wet kiln), Clinker, Unspecified NMM |
+| **Paper, Pulp & Printing** | Primary pulp (kraft/sulfite), Secondary pulp, Paper |
+| **Chemical & Petrochemical** | Ammonia (SMR+Haber-Bosch, Renewable); HVC (naphtha, LPG, methanol cracking) |
+
+For each process the model tracks production volume (t/y), technology/process
+share, energy intensity (MWh/t), and fuel share.
+
+### Other industries (top-down)
+
+The following sub-sectors are projected using historical UNSD energy data and
+sector-level CAGRs: Food & Tobacco, Non-ferrous Metals, Mining & Quarrying,
+Machinery, Transport Equipment, Textile & Leather, Wood & Wood Products,
+Construction.
+
+## Workflow
+
+The module runs in two sequential steps.
+
+**Step 1 — Build parameters** (`build_config_industry.py`)
+
+Loads production databases (WorldSteel, FAO FAOSTAT, IFA, UNSD) and computes
+base-year fuel shares and energy intensities for each sub-sector. CAGR
+assumptions are read from `industry/industry_config.csv`. Results are written
+to `industry/country_parameters/{Country}_Output_.csv`.
+
+**Step 2 — Calculate final energy demand** (`build_final_energy_demand.py`)
+
+Reads the country parameter files, applies `SHARE` overrides and chain-linked
+`CAGR` projections from `industry_config.csv`, and writes final energy demand
+outputs to `industry/output_data/`.
+
+## Scenarios
+
+| Scenario | Description |
+|----------|-------------|
+| **BAU** | Business As Usual — continuation of current production trends, no additional policy action |
+| **Progressive** | Moderate decarbonisation — gradual technology shifts and efficiency improvements |
+| **Optimistic** | Aggressive decarbonisation — rapid electrification, hydrogen adoption, and fuel switching |
+
+## Data sources
+
+| Dataset | Sub-sector | Variable |
+|---------|-----------|---------|
+| WorldSteel Annual Statistics | Iron & Steel | Production volumes, capacity shares |
+| FAO FAOSTAT | Paper & Pulp | Production volumes |
+| IFA / UN Comtrade | Chemical & Petrochemical | Ammonia production |
+| USGS Mineral Yearbook | Non-Metallic Minerals | Cement/clinker production |
+| UNSD Energy Statistics | All | Base-year fuel demand and calibration |
+
+## Limitations
+
+- Country coverage is currently limited to Morocco, Egypt, and South Africa.
+- Aluminium (primary/secondary) is listed as a planned sub-sector but is not yet modelled.
+- International industrial bunker fuels are not included.

@@ -10,7 +10,7 @@ conversion and distribution losses — for three main sectors:
 | **Transport** | Bottom-up: mode × vehicle × technology × fuel | 2020 |
 | **Residential** | Bottom-up: end-use × technology × fuel | 2018 |
 | **Additional sectors** | Top-down: UNSD totals × fuel shares × CAGR | 2011–2023 (avg.) |
-| **Industry** | Planned — see [Industry](industry.md) | — |
+| **Industry** | Bottom-up (energy-intensive sub-sectors) + top-down (UNSD CAGR) | 2020 |
 
 ## Core formula
 
@@ -24,33 +24,29 @@ Every sector resolves to a variant of:
 \]
 
 where each factor is projected independently from the base year to milestone
-years (2030, 2040, 2050) using scenario-specific
+years (2030, 2035, 2040, 2045, 2050) using scenario-specific
 [CAGRs](scenarios.md).
 
 ## Common pipeline
-
-```
-Input data  →  build_*.py scripts  →  main_*.py (per country)  →  Output CSVs
-                 (one per factor)       (loop + assemble)
-```
 
 1. **Load** — country-specific CSVs (SSP, UNSD), global reference datasets,
    configuration files.
 2. **Build base-year metrics** — one `build_*.py` script per factor
    (activity, technology shares, energy intensities, fuel shares).
-3. **Project** — `build_CAGR.py` chains growth rates and interpolates between
+3. **Project** — sector CAGR scripts chain growth rates and interpolate between
    milestone years for each scenario.
-4. **Export** — the entry-point script assembles all factors and writes
+4. **Export** — the entry-point script (`build_transport_config.py`,
+   `build_config_industry.py`, etc.) assembles all factors and writes
    per-country output files.
 
 ## Scenario framework
 
 Three scenarios are defined per sector (names vary slightly):
 
-| Generic name | Transport | Residential | Meaning |
-|---|---|---|---|
-| **Baseline** | Baseline | Current Policies | No additional policy action beyond today |
-| **Moderate** | Er | Progressive | Moderate decarbonisation effort |
-| **Ambitious** | RL | Ambitious Net Zero | Full decarbonisation by 2050 |
+| Generic name | Transport | Residential | Industry | Meaning |
+|---|---|---|---|---|
+| **Baseline** | BAU | Current Policies | BAU | No additional policy action beyond today |
+| **Moderate** | Progressive | Progressive | Progressive | Moderate decarbonisation effort |
+| **Ambitious** | Optimistic | Ambitious Net Zero | Optimistic | Full decarbonisation by 2050 |
 
 See [Scenarios & CAGRs](scenarios.md) for the mathematical details.
