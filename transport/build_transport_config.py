@@ -7,7 +7,6 @@ from datetime import datetime
 from pathlib import Path
 
 # === Imports from project libraries ===
-<<<<<<< HEAD
 from transport.helpers import find_input_folder, load_country_specific_data, load_global_transport_data, get_transport_constants, interpolate_or_extrapolate, clean_column_headers, clean_missing_countries, generate_units_dictionary, reorder_and_filter_columns, DEFAULT_TARGET_YEARS
 from transport.build_macro_indicators import process_population_data, get_ssp_for_scenario, validate_scenarios_and_ssp
 from transport.build_share_subsectors import extract_country_transport_data, create_country_dfs, final_df as TRANSPORT_SUBSECTOR_FINAL
@@ -18,17 +17,6 @@ from transport.build_technology_share import Share_of_Direct_Electric_Passenger_
 from transport.build_CAGR import poly_project, expand_with_cagr, expand_constant, as_fraction, get_cagr, apply_load_factor
 from transport.helpers import refresh_unsd_master_data, unsd_global_output, check_technology_groups, tech_groups, get_interpolated_value, unsd_input_folder, load_transport_config, extract_config_data
 
-=======
-from helpers import find_input_folder, load_country_specific_data, load_global_transport_data, get_transport_constants, interpolate_or_extrapolate, clean_column_headers, clean_missing_countries, generate_units_dictionary, reorder_and_filter_columns
-from build_macro_indicators import process_population_data, get_ssp_for_scenario, validate_scenarios_and_ssp
-from build_share_subsectors import extract_country_transport_data, create_country_dfs, final_df as TRANSPORT_SUBSECTOR_FINAL
-from build_share_mode import process_bus_share_data, share_of_two_Three
-from build_load_factors import get_Load_factor_Car, Load_factor_Bus, Load_factor_two_three_occupancy, heavy_load_factor, medium_load_factor, load_factor
-from build_energy_intensities import generate_energy_intensities, expand_intensity
-from build_technology_share import Share_of_Direct_Electric_Passenger_Train, share_technology, TECHNOLOGY_OVERRIDES, enforce_share_constraints, apply_technology_overrides, get_unsd_bunker_fuel_shares
-from build_CAGR import poly_project, expand_with_cagr, expand_constant, as_fraction, get_cagr, apply_load_factor
-from helpers import refresh_unsd_master_data, unsd_global_output, check_technology_groups, tech_groups, get_interpolated_value, unsd_input_folder, load_transport_config, extract_config_data
->>>>>>> industry_new_workflow
 
 # === Constants ===
 BASE_YEAR = 2020  
