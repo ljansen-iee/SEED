@@ -50,7 +50,9 @@ We categorized input_data into country-specific and global
         - technology shares: 
            - the shares for cooking technologies are the reference value for shares for water heating, unless noted different.
            - air conditioning is by defaul 100% electric.
-        -
+        - CAGR:
+            - influence directly and oly final energy intensity growth.
+        - saturation rates:
 
 
         Data is available for the following countries: 
@@ -62,8 +64,9 @@ We categorized input_data into country-specific and global
                 "South Africa", "South Korea", "United Kingdom", "United States of America"
             ]
 
-* IMPORTANT NOTE: in the parameters.csv it is possible to change only the CAGR for the final energy intensity. If final energy intensity absolute values are change in this conf file, it wont be possible to overwrite the values.
-*District heating is disable 
+* IMPORTANT NOTE: in the RESIDENTIAL_CONFIG.csv only CAGR can be changed to influence final energy intensity, i.e., final energy intensity absolute values are not overwritten.
+
+* DISTRICT HEATING TECHNOLOGIES AND DEMAND IS NOT AVAILABLE
 
 # Steps in PyPSA
 
@@ -75,24 +78,6 @@ We categorized input_data into country-specific and global
 # Adding a new Country - 
 		note: after download please complete the csv name with the category and name of country like this, e.g. "_gpd_country_name" or "_pop_country_name"
 		note: after download please complete the csv name with the word "UNSD_" 
+
 # Changing Scenario configurations
 
-
-### OLD VERSION ###
-Getting started
-Usage
-    How to add a country:
-        1. Download the following
-            country_specific: 
-            - SSP pathways - Projections(pop & GDP): https://www.climate-solutions-explorer.eu/dashboard/ISL/overview
-            - UNSD - Historical values (fuel shares): https://unstats.un.org/unsd/energystats/dataPortal/
-            
-            global:
-            -
-            -
-            -
-
-
-Calibration of projections:
-    to validate: C:\Users\eduque\Fraunhofer\DeV-KopSys-2 - Globale ESA\04_methods_and_models\Sectoral_End-Use_Energy_Scenario\validation
-        - EGYPT 

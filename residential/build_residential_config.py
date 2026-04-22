@@ -732,12 +732,14 @@ def create_csv_all():
             ignore_index=True,
         )
 
-        output_dir = Path(__file__).resolve().parent / "output_data"
+        output_dir = Path(__file__).resolve().parent / "output_data/CONFIG"
         output_dir.mkdir(parents=True, exist_ok=True)
-        df_all.to_csv(output_dir / "parameters_all_countries.csv", index=False)
+        df_all.to_csv(output_dir / "RESIDENTIAL_CONFIG.csv", index=False)
 
     except Exception as e:
+        import traceback
         print(f"Error generating macro indicators CSV: {e}")
+        traceback.print_exc()
 
 
 if __name__=="__main__":

@@ -208,7 +208,7 @@ def clean_worldbank(df):
 def historical_gdp(df):
     # use the latest values - most upt to date
     updated_info = df.groupby("Entity")["Year"].idxmax()
-    df = df.iloc[updated_info]
+    df = df.iloc[updated_info].copy()
     df["GDP per capita(€2015)"] = df["GDP per capita, PPP (constant 2017 international $)"].apply(convert_to_euro,args=(2017,2015,0.92))
     df.drop("GDP per capita, PPP (constant 2017 international $)",inplace=True,axis=1)
 
@@ -352,7 +352,41 @@ def create_macro_indicators_all():
         how="left",
     )
 
-    
+    # Fallback region map for countries absent from WorldBank historical data.
+    # Higher finance gap => harder transition => CAGR multiplier < 1.
+    MANUAL_REGION_MAP = {
+        "Algeria":      "Middle East & North Africa",
+        "Morocco":      "Middle East & North Africa",
+        "Egypt":        "Middle East & North Africa",
+        "Tunisia":      "Middle East & North Africa",
+        "Libya":        "Middle East & North Africa",
+        "South Africa": "Sub-Saharan Africa",
+        "Namibia":      "Sub-Saharan Africa",
+        "Ghana":        "Sub-Saharan Africa",
+        "Kenya":        "Sub-Saharan Africa",
+        "Ethiopia":     "Sub-Saharan Africa",
+        "Tanzania":     "Sub-Saharan Africa",
+        "Niger":        "Sub-Saharan Africa",
+        "Argentina":    "Latin America & Caribbean",
+        "Brazil":       "Latin America & Caribbean",
+        "Chile":        "Latin America & Caribbean",
+        "Colombia":     "Latin America & Caribbean",
+        "Mexico":       "Latin America & Caribbean",
+        "Peru":         "Latin America & Caribbean",
+        "Uruguay":      "Latin America & Caribbean",
+        "Venezuela":          "Latin America & Caribbean",
+        "Republic_of_Congo":   "Sub-Saharan Africa",
+        "Republic of Congo":   "Sub-Saharan Africa",
+        "Republic of the Congo": "Sub-Saharan Africa",
+    }
+    df_gdp_ssp["Region"] = df_gdp_ssp["Region"].fillna(
+        df_gdp_ssp["country"].map(MANUAL_REGION_MAP)
+    )
+    _missing_regions = df_gdp_ssp[df_gdp_ssp["Region"].isna()]["country"].unique()
+    if len(_missing_regions):
+        print(f"WARNING: No Region mapping for countries: {list(_missing_regions)}. "
+              f"Add them to MANUAL_REGION_MAP in build_macro_indicators.py.")
+
     categories = create_categories(df_economics_std, df_all)
     df_mean_classification, bins_dict, labels_dict, years_ssp_gdp = categories
 

@@ -1,6 +1,5 @@
 import os
 import pandas as pd
-import tabula
 from pathlib import Path
 import glob
 import build_energy_intensities as build_en_int
@@ -11,25 +10,24 @@ DEFAULT_TARGET_YEARS = [2020, 2030, 2035, 2040, 2045, 2050]
 def open_pdf(file_path, pages="1", multiple_tables=False, encoding="latin1", **kwargs):
     """
     Reads tables from a PDF file using tabula-py.
-    
-    Args:
-        file_path (str): The path to the PDF file.
-        pages (str or int): The pages to read (e.g., "140", "1-3", "all").
-        multiple_tables (bool): Whether to extract multiple tables.
-        encoding (str): The character encoding for the PDF.
-        **kwargs: Any other keyword arguments for tabula.read_pdf.
-        
-    Returns:
-        list of DataFrames (if multiple_tables=True) or DataFrame
     """
-    return tabula.read_pdf(
-        file_path, 
-        pages=pages, 
-        multiple_tables=multiple_tables, 
-        encoding=encoding,
-        **kwargs
-    )
+    try:
+        # Preferred import style for tabula-py
+        from tabula.io import read_pdf  # tabula-py
+    except Exception as e:
+        raise ImportError(
+            "tabula-py is required to read PDFs, but it could not be imported.\n"
+            "Fix: `pip install -U tabula-py` (and ensure Java is installed),\n"
+            "and make sure you don't have a different 'tabula' package shadowing it."
+        ) from e
 
+    return read_pdf(
+        file_path,
+        pages=pages,
+        multiple_tables=multiple_tables,
+        encoding=encoding,
+        **kwargs,
+    )
 def read_file(file_path,pdf_options=None):
     """Read a CSV, Excel, or PDF file into a DataFrame.
 
