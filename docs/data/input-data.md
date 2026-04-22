@@ -36,3 +36,7 @@ Used by both Transport and Residential modules.
 | UNDESA household-size Excel | Residential | Persons per dwelling | UN DESA |
 | World Bank access CSVs | Residential | Electricity & cooking access rates | World Bank |
 | World Bank cooking-fuel PDF | Residential | Cooking technology mix | World Bank |
+| WorldSteel Annual Statistics | Industry | Iron & Steel production volumes, capacity shares | worldsteel.org |
+| FAO FAOSTAT | Industry | Paper & Pulp production volumes | fao.org/faostat |
+| IFA / UN Comtrade | Industry | Ammonia production volumes | fertilizer.org / comtrade.un.org |
+| USGS Mineral Yearbook | Industry | Cement and clinker production | usgs.gov |

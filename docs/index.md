@@ -23,7 +23,7 @@ often too aggregated or rely on proprietary assumptions.
 - Computing base-year energy balances from **UN Statistics Division (UNSD)**
   energy-balance data (2011–2023, ~34 countries).
 - Applying country- and scenario-specific **Compound Annual Growth Rates (CAGRs)**
-  at milestone years (2030, 2040, 2050) with linear interpolation in between.
+  at milestone years (2030, 2035, 2040, 2045, 2050) with linear interpolation in between.
 - Decomposing demand through a hierarchy of activity levels, technology shares,
   fuel shares, and energy intensities via the core formula:
 

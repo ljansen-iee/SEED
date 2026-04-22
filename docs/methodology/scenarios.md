@@ -12,7 +12,7 @@ Three scenarios capture different levels of policy ambition:
 
 ## CAGR mechanics
 
-Growth between the base year and each milestone year (2030, 2040, 2050) is
+Growth between the base year and each milestone year (2030, 2035, 2040, 2045, 2050) is
 expressed as a **Compound Annual Growth Rate**:
 
 \[
