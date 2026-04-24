@@ -3,17 +3,26 @@
 import os
 import pandas as pd
 import numpy as np
+from pathlib import Path
 
 def find_input_folder():
-    start_dir = os.path.dirname(os.path.abspath(__file__))
-    input_folder = os.path.join(start_dir, 'input_data')
-    if os.path.exists(input_folder) and os.path.isdir(input_folder):
-        return input_folder
-    parent_dir = os.path.dirname(start_dir)
-    input_folder = os.path.join(parent_dir, 'input_data')
-    if os.path.exists(input_folder) and os.path.isdir(input_folder):
-        return input_folder
-    raise FileNotFoundError("Could not find 'input_data' folder")
+    script_dir = Path(__file__).resolve().parent
+    project_root = script_dir.parent
+
+    candidates = [
+        script_dir / "input_data",
+        project_root / "transport" / "input_data",
+        project_root / "input_data",
+    ]
+
+    for candidate in candidates:
+        if candidate.is_dir():
+            return str(candidate)
+
+    raise FileNotFoundError(
+        "Could not find 'input_data' folder. Checked:\n"
+        + "\n".join(str(path) for path in candidates)
+    )
 
 def read_file(file_path):
     try:
