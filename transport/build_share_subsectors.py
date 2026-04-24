@@ -6,7 +6,6 @@ import transport.build_macro_indicators as build_mac
 from transport.build_macro_indicators import process_population_data
 import os
 from pathlib import Path
-from build_macro_indicators import process_population_data
 import warnings # Remove unnecessary warnings
 warnings.filterwarnings("ignore")
 from pathlib import Path

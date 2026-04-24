@@ -1,12 +1,12 @@
 
 import os
-import helpers
 import pandas as pd
 import numpy as np
 from datetime import datetime
 from pathlib import Path
 
-# === Imports from project libraries ===w
+# === Imports from project libraries ===
+import transport.helpers as helpers
 from transport.helpers import find_input_folder, load_country_specific_data, load_global_transport_data, get_transport_constants, interpolate_or_extrapolate, clean_column_headers, clean_missing_countries, generate_units_dictionary, reorder_and_filter_columns, DEFAULT_TARGET_YEARS
 from transport.build_macro_indicators import process_population_data, get_ssp_for_scenario, validate_scenarios_and_ssp
 from transport.build_share_subsectors import extract_country_transport_data, create_country_dfs, final_df as TRANSPORT_SUBSECTOR_FINAL
@@ -44,7 +44,8 @@ def _resolve_transport_dir():
 # === Transport assumptions file ===
 TRANSPORT_DIR = _resolve_transport_dir()
 transport_config_file = "trans_config.csv"
-transport_config_path = TRANSPORT_DIR / transport_config_file
+transport_config_path = TRANSPORT_DIR / "output_data" / "CONFIG" / transport_config_file
+transport_config_path.parent.mkdir(parents=True, exist_ok=True)
 
 countries_to_process = ["Morocco","South Africa","Egypt","Namibia"]
                        #"Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Nigeria"]

@@ -984,9 +984,6 @@ def export_final_energy_intensity_cagr_with_intermediate(
         try:
             from transport.helpers import load_country_specific_data, find_input_folder, get_interpolated_value
             from transport.build_macro_indicators import process_population_data
-        except Exception:
-            from helpers import load_country_specific_data, find_input_folder, get_interpolated_value
-            from build_macro_indicators import process_population_data
 
         dfs_country = load_country_specific_data(find_input_folder())
         df_population = process_population_data(dfs_country)
