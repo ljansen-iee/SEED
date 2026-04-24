@@ -6,7 +6,7 @@ from pathlib import Path
 import build_energy_intensities as build_en_int
 
 
-RESIDENTIAL_CONFIG_FILE = "RESIDENTIAL_CONFIG.csv"
+RESIDENTIAL_CONFIG_FILE = "DEFAULT_RESIDENTIAL_CONFIG.csv"
 
 residential_config_path = Path(__file__).resolve().parent / "output_data/CONFIG" / RESIDENTIAL_CONFIG_FILE
 

@@ -734,7 +734,7 @@ def create_csv_all():
 
         output_dir = Path(__file__).resolve().parent / "output_data/CONFIG"
         output_dir.mkdir(parents=True, exist_ok=True)
-        df_all.to_csv(output_dir / "RESIDENTIAL_CONFIG.csv", index=False)
+        df_all.to_csv(output_dir / "DEFAULT_RESIDENTIAL_CONFIG.csv", index=False)
 
     except Exception as e:
         import traceback
