@@ -1,7 +1,7 @@
 # build_load_factors.py
 import pandas as pd
 import numpy as np
-from transport.helpers import clean_column_headers
+from helpers import clean_column_headers
 
 def get_Load_factor_Car(df):
     "Extracts the load factor data for cars from the given DataFrame."
