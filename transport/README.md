@@ -377,4 +377,3 @@ Fix these by editing `trans_config.csv` or the country parameter files.
 
 
 *Last updated: March 2026*
-- Logic notes- the first step is to run the transport_config.py, this will generate a CONFIG file and additional interim results. It is important to note that the interim results only display the configuration but are not modifiable. 

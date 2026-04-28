@@ -1,12 +1,14 @@
 # build_share_subsectors.py
 
-from helpers import clean_column_headers, clean_missing_countries
+from transport.helpers import clean_column_headers, clean_missing_countries, load_country_specific_data, find_input_folder
 import pandas as pd
-import build_macro_indicators as build_mac
+import transport.build_macro_indicators as build_mac
+from transport.build_macro_indicators import process_population_data
 import os
-from pathlib import Path
 import warnings # Remove unnecessary warnings
 warnings.filterwarnings("ignore")
+from pathlib import Path
+
 
 def split_by_sector(df):
     """
@@ -532,6 +534,60 @@ final_df.reset_index(drop=True, inplace=True)
 final_df.set_index(['Country', 'subsector_transport'], inplace=True)
 
 
+def export_final_df_with_mobility(population_scenario="SSP1", population_year="2018", output_path=None, save_csv=True):
+    """Augment final_df with mobility per capita for passenger and freight.
+
+    If save_csv is True (default), writes to disk; always returns the augmented DataFrame.
+    """
+    dfs_country_spe = load_country_specific_data(find_input_folder())
+    df_population = process_population_data(dfs_country_spe)
+    df_population = df_population.drop(columns=[c for c in df_population.columns if c.lower() == "unit"], errors="ignore")
+
+    year_cols = [c for c in final_df.columns if str(c).replace('.', '', 1).isdigit()]
+    mobility_rows = []
+
+    for country in final_df.index.get_level_values("Country").unique():
+        try:
+            pop = float(df_population.loc[(country, population_scenario), str(population_year)])
+        except KeyError:
+            continue
+
+        passenger_key = f"Total Passenger {country}"
+        freight_key = f"Total Freight {country}"
+
+        try:
+            passenger = pd.to_numeric(final_df.loc[(country, passenger_key), year_cols], errors="coerce")
+            freight = pd.to_numeric(final_df.loc[(country, freight_key), year_cols], errors="coerce")
+        except KeyError:
+            continue
+
+        mobility_passenger = passenger / pop
+        mobility_freight = freight / pop
+
+        mobility_rows.append(pd.concat([pd.Series({"Country": country, "subsector_transport": "Mobility per capita - Passenger"}), mobility_passenger]))
+        mobility_rows.append(pd.concat([pd.Series({"Country": country, "subsector_transport": "Mobility per capita - Freight"}), mobility_freight]))
+
+    if not mobility_rows:
+        raise ValueError("No mobility rows generated; check population data.")
+
+    mobility_df = pd.DataFrame(mobility_rows)
+    mobility_df.set_index(["Country", "subsector_transport"], inplace=True)
+
+    augmented = pd.concat([final_df, mobility_df]).sort_index()
+
+    if save_csv:
+        output_path = Path(output_path) if output_path else Path(__file__).resolve().parent / "output_data" / "final_df_with_mobility.csv"
+        augmented.to_csv(output_path)
+        print(f"Saved mobility-augmented dataset to {output_path} with shape {augmented.shape}")
+
+    return augmented
+
+
+def get_final_df_with_mobility(population_scenario="SSP1", population_year="2018"):
+    """Return augmented final_df with mobility rows without writing to disk."""
+    return export_final_df_with_mobility(population_scenario=population_scenario, population_year=population_year, output_path=None, save_csv=False)
+
+
 
 def create_country_dfs(df, country_list):
     """
@@ -671,5 +727,4 @@ def save_intermediate_data(out_df):
 if __name__ == "__main__":
     save_intermediate_data(out_df)    
     countries = final_df.index.get_level_values(0).unique()
-    export_final_df_with_mobility()
     export_final_df_with_mobility()

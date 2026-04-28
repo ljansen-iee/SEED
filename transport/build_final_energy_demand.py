@@ -1,5 +1,6 @@
 import os
 import glob
+import copy
 import pandas as pd
 import numpy as np
 import pycountry
@@ -1015,7 +1016,7 @@ def run(country: str, base_dir: str = "output_data") -> None:
         subsector_summary.to_excel(writer, sheet_name="Subsector")
         enduse_summary.to_excel(writer, sheet_name="EndUse")
 
-    print(f" Saved results for {country} ({country_code})")
+    print(f" Saved results for {country} ({country_code}) in {country_results_dir}")
     return indicators_df
 
 def export_global_energy_totals(all_country_indicators: list, bunker_data_by_country: dict = None):

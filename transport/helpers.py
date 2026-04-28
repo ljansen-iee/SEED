@@ -49,18 +49,6 @@ def read_excel_file(file_path, sheet_name):
         return None
 
 def load_global_transport_data(output_folder="output_data"):
-    """Load the Khalili 2019 global transportation demand dataset.
-
-    Reads the *Transportation Demand* sheet from the Khalili 2019
-    supplementary Excel file located in ``input_data/global/``.
-
-    Args:
-        output_folder: Directory name for intermediate outputs
-            (created if absent).
-
-    Returns:
-        pd.DataFrame | None: Raw dataframe, or ``None`` on failure.
-    """
     input_path = find_input_folder()
     file_path = os.path.join(input_path, "global", "Supplementary_Material_Khalili2019_Data_final.xlsx")
     sheet_name = "Transportation Demand"
@@ -88,14 +76,6 @@ def read_file(file_path):
         return None
 
 def load_country_specific_data(input_path):
-    """Load all files from the ``country_specific`` sub-folder.
-
-    Args:
-        input_path: Path to the ``input_data`` directory.
-
-    Returns:
-        dict[str, pd.DataFrame]: Mapping of filename → DataFrame.
-    """
     folder_path = os.path.join(input_path, "country_specific")
     dfs_country_spe = {}
     if os.path.exists(folder_path):
@@ -119,20 +99,6 @@ def load_excel_files_from_folder(folder_path, sheet_name="Transportation Demand"
     return dfs
 
 def get_transport_constants(parameter, vehicle_type=None):
-    """Return a transport constant for a given parameter and vehicle type.
-
-    Contains hard-coded energy intensities (kWh/vkm) and load-factor
-    multipliers used across the transport pipeline.
-
-    Args:
-        parameter: Category key, e.g. ``"energy_intensity"`` or
-            ``"load_factor_multiplier"``.
-        vehicle_type: Specific vehicle string, e.g.
-            ``"Diesel ICE Passenger Train"``.
-
-    Returns:
-        float: The requested constant, or ``np.nan`` if not found.
-    """
     constants = {
         "energy_intensity": {
             "Diesel ICE Passenger Train": 0.248 * 288,
@@ -409,15 +375,6 @@ def remove_missing_countries(df, columns=["Countries", "Countries List"]):
 
 
 def extract_country_data(df, countries):
-    """Extract per-country sub-DataFrames from a (Multi)Indexed DataFrame.
-
-    Args:
-        df: DataFrame indexed by country (possibly MultiIndex).
-        countries: List of country names to extract.
-
-    Returns:
-        dict[str, pd.DataFrame]: Mapping of country name → sub-DataFrame.
-    """
     country_data_dict = {}
 
     for country in countries:
@@ -650,19 +607,7 @@ def refresh_unsd_master_data():
     #print(f" UNSD Master Data Refreshed: {unsd_global_output}")
 
 def check_technology_groups(df, tech_groups, base_year, target_years, scenarios, tolerance=0.01):
-    """Validate that technology-share groups sum to 100 % for every year.
 
-    Prints a warning for each group/year combination whose shares deviate
-    from 100 % by more than *tolerance* percentage points.
-
-    Args:
-        df: DataFrame with a ``Metric`` column and year columns.
-        tech_groups: Dict mapping group name → list of metric names.
-        base_year: The base year (int).
-        target_years: List of projected years.
-        scenarios: List of scenario names.
-        tolerance: Allowed deviation from 100 %.
-    """
     years = [str(base_year)] + [f"{y}_{s}" for y in target_years for s in scenarios]
 
     for group_name, metrics in tech_groups.items():
@@ -761,19 +706,6 @@ tech_groups = {
 
 
 def get_interpolated_value(df, ssp, year):
-    """Linearly interpolate a value for *year* from an SSP row.
-
-    Args:
-        df: DataFrame with SSP rows and year-string columns.
-        ssp: SSP label (e.g. ``"SSP2"``).
-        year: Target year (int).
-
-    Returns:
-        float: Interpolated value.
-
-    Raises:
-        ValueError: If the year is outside the available range.
-    """
     available_years = [int(y) for y in df.columns if y.isdigit()]
     available_years.sort()
 
@@ -925,18 +857,7 @@ def load_transport_config(excel_path: Path, countries: list, scenarios: list):
     return config
 
 def extract_config_data(config, country):
-    """Extract per-metric values and assumption types for a country.
 
-    Args:
-        config: Nested config dict as returned by
-            :func:`load_transport_config`.
-        country: Country name key.
-
-    Returns:
-        tuple[dict, dict]: ``(values, assumption_types)`` where *values*
-        maps metric → {year → {scenario → value}} and *assumption_types*
-        maps metric → ``"CAGR"`` or ``"TARGET"``.
-    """
     values = {}
     assumption_types = {}
 
