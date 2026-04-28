@@ -925,7 +925,18 @@ def load_transport_config(excel_path: Path, countries: list, scenarios: list):
     return config
 
 def extract_config_data(config, country):
+    """Extract per-metric values and assumption types for a country.
 
+    Args:
+        config: Nested config dict as returned by
+            :func:`load_transport_config`.
+        country: Country name key.
+
+    Returns:
+        tuple[dict, dict]: ``(values, assumption_types)`` where *values*
+        maps metric → {year → {scenario → value}} and *assumption_types*
+        maps metric → ``"CAGR"`` or ``"TARGET"``.
+    """
     values = {}
     assumption_types = {}
 

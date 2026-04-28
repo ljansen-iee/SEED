@@ -6,9 +6,9 @@ from pathlib import Path
 import build_energy_intensities as build_en_int
 
 
-RESIDENTIAL_CONFIG_FILE = "parameters_all_countries.csv"
+RESIDENTIAL_CONFIG_FILE = "DEFAULT_RESIDENTIAL_CONFIG.csv"
 
-residential_config_path = Path(__file__).resolve().parent / "output_data" / RESIDENTIAL_CONFIG_FILE
+residential_config_path = Path(__file__).resolve().parent / "output_data/CONFIG" / RESIDENTIAL_CONFIG_FILE
 
 
 print("\n===============================")
@@ -51,7 +51,24 @@ def get_cagr_adjusted_intensity(
 	base_aligned.index = cagr_series.index
 	base_aligned = base_aligned.fillna(base_intensity)
 
-	return base_aligned * (1 + cagr_series / 100) ** 5
+	# Roll-forward: each 5-year period compounds on the previous period's result.
+	# I_t = I_{t-5} * (1 + CAGR_t/100)^5
+	df_roll = pd.DataFrame({"cagr": cagr_series, "base_intensity": base_aligned})
+	df_roll = df_roll.reset_index()
+	df_roll = df_roll.sort_values(["country", "scenario", "year"])
+	results = []
+	for (country, scenario), grp in df_roll.groupby(["country", "scenario"], sort=False):
+		grp = grp.sort_values("year").copy()
+		prev = grp["base_intensity"].iloc[0]
+		intensitiess = []
+		for _, row in grp.iterrows():
+			curr = prev * (1 + row["cagr"] / 100) ** 5
+			intensitiess.append(curr)
+			prev = curr
+		grp["intensity"] = intensitiess
+		results.append(grp)
+	df_roll = pd.concat(results, ignore_index=True)
+	return df_roll.set_index(["country", "scenario", "year"])["intensity"]
 
 
 def add_end_use_column(df: pd.DataFrame) -> pd.DataFrame:
@@ -133,7 +150,23 @@ def build_tech_intensity_frame(
 		tech_frame["tech"].map(default_intensity_map)
 	).fillna(default_base_intensity)
 	tech_frame["cagr"] = pd.to_numeric(tech_frame["cagr"], errors="coerce").fillna(0)
-	tech_frame["intensity"] = tech_frame["base_intensity"] * (1 + tech_frame["cagr"] / 100) ** 5
+
+	# Roll-forward: each period's intensity builds on the previous period's result.
+	# I_t = I_{t-5} * (1 + CAGR_t/100)^5  (5-year step per CAGR interval)
+	tech_frame = tech_frame.sort_values(["country", "scenario", "tech", "year"])
+	results = []
+	for (country, scenario, tech), grp in tech_frame.groupby(["country", "scenario", "tech"], sort=False):
+		grp = grp.sort_values("year").copy()
+		prev_intensity = grp["base_intensity"].iloc[0]
+		intensitiess = []
+		for _, row in grp.iterrows():
+			curr = prev_intensity * (1 + row["cagr"] / 100) ** 5
+			intensitiess.append(curr)
+			prev_intensity = curr
+		grp["intensity"] = intensitiess
+		results.append(grp)
+	tech_frame = pd.concat(results, ignore_index=True)
+
 	tech_frame = tech_frame.dropna(subset=["share", "intensity"])
 	return tech_frame.reset_index()
 
@@ -412,7 +445,22 @@ def compute_cooking_demand(df: pd.DataFrame) -> pd.DataFrame:
 		tech_frame["tech"].map(default_cooking_map)
 	).fillna(INTENSITY_COOKING)
 	tech_frame["cagr"] = pd.to_numeric(tech_frame["cagr"], errors="coerce").fillna(0)
-	tech_frame["intensity"] = tech_frame["base_intensity"] * (1 + tech_frame["cagr"] / 100) ** 5
+
+	# Roll-forward: each 5-year period compounds on the previous period's result.
+	tech_frame = tech_frame.sort_values(["country", "scenario", "tech", "year"])
+	cooking_results = []
+	for (country, scenario, tech), grp in tech_frame.groupby(["country", "scenario", "tech"], sort=False):
+		grp = grp.sort_values("year").copy()
+		prev_intensity = grp["base_intensity"].iloc[0]
+		intensitiess = []
+		for _, row in grp.iterrows():
+			curr = prev_intensity * (1 + row["cagr"] / 100) ** 5
+			intensitiess.append(curr)
+			prev_intensity = curr
+		grp["intensity"] = intensitiess
+		cooking_results.append(grp)
+	tech_frame = pd.concat(cooking_results, ignore_index=True)
+
 	tech_frame = tech_frame.dropna(subset=["share", "intensity"])
 	tech_frame = tech_frame.reset_index()
 

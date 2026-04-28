@@ -7,9 +7,9 @@ Auto-generated from docstrings via
     Add Google-style docstrings to the functions below so this page
     populates automatically. See the [Contributing](../contributing.md) guide.
 
-## `main_transport`
+## `build_transport_config`
 
-::: transport.main_transport
+::: transport.build_transport_config
 
 ## `helpers`
 

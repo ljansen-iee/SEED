@@ -1,5 +1,29 @@
 # Transport Methodology
 
+## Scope
+
+The transport module covers Morocco, Egypt, South Africa, and Namibia from a
+base year of **2020** to milestone years **2030, 2035, 2040, 2045, 2050**
+under three scenarios: BAU, Progressive, and Optimistic.
+
+## Workflow
+
+The module runs in two sequential steps.
+
+**Step 1 — Build parameters** (`build_transport_config.py`)
+
+Loads UNSD base-year data, SSP projections, Khalili reference data, and
+OECD technology shares. Computes base-year values for all model dimensions
+and writes CAGR assumptions to `transport/trans_config.csv` (auto-generated
+on first run; hand-editable afterwards). Per-country parameter files are
+written to `transport/country_parameters/output_{Country}.csv`.
+
+**Step 2 — Calculate final energy demand** (`build_final_energy_demand.py`)
+
+Reads the country parameter files, applies chain-linked CAGR projections
+from `trans_config.csv`, and writes final energy demand outputs to
+`transport/output_data/`.
+
 ## System decomposition
 
 Transport final energy demand is decomposed hierarchically:
@@ -52,3 +76,6 @@ Base-year kWh/vkm values for ~35 vehicle-fuel combinations are defined in
   data and are not decomposed by technology.
 - Rail electrification share is currently fixed; no endogenous electrification
   model is applied.
+- Setting `INCLUDE_BUNKER_TOTALS_IN_OUTPUT = False` (default) excludes
+  international bunker totals from the country parameter CSV while still
+  allowing CAGR overrides in `trans_config.csv`.

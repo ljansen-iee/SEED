@@ -103,10 +103,12 @@ nav:
       - Sector Plots: notebooks/plots.ipynb
       - Transport Graphs: notebooks/transport_graphs.ipynb
       - Residential Graphs: notebooks/residential_graphs.ipynb
+      - Industry Graphs: notebooks/industry_graphs.ipynb
       - Statistics: notebooks/statistics.ipynb
   - API Reference:
       - Transport: api/transport.md
       - Residential: api/residential.md
+      - Industry: api/industry.md
   - Contributing: contributing.md
   - Changelog: changelog.md
   - References: references.md

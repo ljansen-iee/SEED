@@ -2,8 +2,8 @@
 
 import pandas as pd
 import numpy as np
-from transport.helpers import clean_column_headers
-from transport.build_CAGR import expand_with_cagr, get_cagr
+from helpers import clean_column_headers
+from build_CAGR import expand_with_cagr, get_cagr
 # =============================================================================
 #  HELPER: Interpolate Overrides
 # =============================================================================
@@ -11,40 +11,22 @@ from transport.build_CAGR import expand_with_cagr, get_cagr
 from pathlib import Path
 import pandas as pd
 
-
-TRANSPORT_DIR = Path(__file__).resolve().parent
-OECD_TRANSPORT_FILENAME = "OECD.Stat-EEI_TRANSPORT.csv"
-
-
-def _resolve_oecd_transport_csv(base_dir=None):
-    if base_dir is None:
-        candidate_paths = [
-            TRANSPORT_DIR / "input_data" / "global" / OECD_TRANSPORT_FILENAME,
-        ]
-    else:
-        base_path = Path(base_dir)
-        candidate_paths = [
-            base_path / "input_data" / "global" / OECD_TRANSPORT_FILENAME,
-            base_path / "transport" / "input_data" / "global" / OECD_TRANSPORT_FILENAME,
-        ]
-
-    for candidate in candidate_paths:
-        if candidate.exists():
-            return candidate
-
-    raise FileNotFoundError(
-        "OECD transport file not found. Checked:\n"
-        + "\n".join(str(path) for path in candidate_paths)
-    )
-
-
 def load_oecd_transport_file(base_dir=None):
     """
     Finds and loads OECD.Stat-EEI_TRANSPORT.csv
     from input_data/transport/global/ folder.
     """
 
-    file_path = _resolve_oecd_transport_csv(base_dir=base_dir)
+    # If base_dir not provided, auto-detect project root
+    if base_dir is None:
+        base_dir = Path(__file__).resolve().parents[2]
+
+    file_path = base_dir / "transport" / "input_data" / "global" / "OECD.Stat-EEI_TRANSPORT.csv"
+
+    if not file_path.exists():
+        raise FileNotFoundError(
+            f"OECD transport file not found at:\n{file_path}"
+        )
 
     df = pd.read_csv(file_path)
     #print(" OECD transport file loaded successfully!")
@@ -56,13 +38,13 @@ def find_oecd_transport_file(start_dir=None):
     Recursively search for OECD.Stat-EEI_TRANSPORT.csv
     """
     if start_dir is None:
-        start_dir = TRANSPORT_DIR
+        start_dir = Path(__file__).resolve().parents[2]
 
-    for path in Path(start_dir).rglob(OECD_TRANSPORT_FILENAME):
+    for path in start_dir.rglob("OECD.Stat-EEI_TRANSPORT.csv"):
         print(f" Found file at: {path}")
         return pd.read_csv(path)
 
-    raise FileNotFoundError(f"{OECD_TRANSPORT_FILENAME} not found.")
+    raise FileNotFoundError("OECD.Stat-EEI_TRANSPORT.csv not found.")
 
 def interpolate_overrides(metric, year, scenario, overrides):
     """
@@ -258,7 +240,7 @@ def share_technology(country, year):
 
 # =============================================================================
 #  TECHNOLOGY DEFINITIONS
-#  (Used to populate the base dictionary keys in main_transport.py)
+#  (Used to populate the base dictionary keys in build_transport_config.py)
 # =============================================================================
 TECHNOLOGY_OVERRIDES = {
     # Keys only - Values are NOT used here.
