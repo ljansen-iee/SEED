@@ -6,7 +6,6 @@ import os
 import glob
 import csv
 from pathlib import Path
-# from helpers import load_expert_config
 
 try:
     from transport.helpers import DEFAULT_TARGET_YEARS
@@ -154,11 +153,11 @@ METRIC_NAME_MAP = {
     ("Cars", "Passenger", "Efficiency PHEV (BEV)"): "Final Energy Intensity - Gasoline Plugin Hybrid LDV",
 
     # === Passenger Bus ===
-    ("Bus", "Passenger", "Diesel"): "Final Energy Intensity - Diesel ICE Bus",
-    ("Bus", "Passenger", "BEV"): "Final Energy Intensity - BEV Bus",
-    ("Bus", "Passenger", "FCEV"): "Final Energy Intensity - FCEV Bus",
-    ("Bus", "Passenger", "Efficiency PHEV (ICE)"): "Final Energy Intensity - Diesel Plugin Hybrid Bus",
-    # ( No "Gasoline Plugin Hybrid Bus" in your final list → excluded)
+    ("BUS", "Passenger", "Diesel"): "Final Energy Intensity - Diesel ICE Bus",
+    ("BUS", "Passenger", "BEV"): "Final Energy Intensity - BEV Bus",
+    ("BUS", "Passenger", "FCEV"): "Final Energy Intensity - FCEV Bus",
+    ("BUS", "Passenger", "Efficiency PHEV (ICE)"): "Final Energy Intensity - Diesel Plugin Hybrid Bus",
+    # ( No "Gasoline Plugin Hybrid Bus" in your final list - excluded)
 
     # === Passenger 2&3 Wheelers ===
     ("Cars", "Passenger", "2&3W Gasoline"): "Final Energy Intensity - Gasoline ICE 2&3W",
@@ -237,7 +236,7 @@ def normalize_tuple(subsector, submode, drive):
     if "car" in s or "ldv" in s:
         subsector = "Cars"
     elif "bus" in s:
-        subsector = "Bus"
+        subsector = "BUS"
     elif "2" in s and "3" in s:
         subsector = "Cars"
         d = "2&3W " + d
@@ -317,7 +316,7 @@ def normalize_tuple(subsector, submode, drive):
     elif "ammonia" in d:
         drive = "Ammonia"
     else:
-        drive = d.drive.strip().capitalize()
+        drive = drive.strip().capitalize()
 
     return subsector, submode, drive
 
@@ -376,10 +375,363 @@ def build_cagr_values(result_df, base_values, base_year=2020):
 
 
 # try:
+#     from helpers import load_expert_config
 #     BASE_VALUES = load_expert_config()   # <-- NO ARGUMENTS NOW
 # except Exception as e:
 #     #print(f" Could not load base values from YAML: {e}")
 #     BASE_VALUES = {}
+
+
+# ==========================================================
+# NEW: ROLLING CAGR CALCULATION WITH IQR-BASED OUTLIER CAPPING
+# ==========================================================
+
+def discover_years_from_unsd(unsd_folder, country):
+    """Discover available years for a country from UNSD CSV files."""
+    import glob
+    from pathlib import Path
+    
+    try:
+        unsd_path = Path(unsd_folder)
+        country_files = sorted(glob.glob(str(unsd_path / f"{country}-*.csv")))
+        years = []
+        for file_path in country_files:
+            try:
+                year = int(file_path.split("-")[-1].replace(".csv", ""))
+                years.append(year)
+            except Exception:
+                pass
+        return sorted(set(years)) if years else []
+    except Exception:
+        return []
+
+
+def _clean_val(val):
+    """Convert messy numeric strings to float, handling UNSD special characters."""
+    if pd.isna(val):
+        return None
+    s = str(val).strip()
+    if s in ["---", "", "-", "None"]:
+        return None
+    try:
+        # Remove * and other UNSD special characters, then convert
+        cleaned = s.replace("*", "").replace(",", "")
+        return float(cleaned)
+    except (ValueError, TypeError):
+        return None
+
+
+def get_sector_total_from_unsd(unsd_folder, country, year, sector):
+    """
+    Retrieve total energy (in TJ) for a country-sector-year from UNSD CSV.
+    
+    Sector names can be:
+    - "International marine bunkers"
+    - "International aviation bunkers"
+    - "Road transport"
+    - "Rail transport"
+    - "Pipeline transport"
+    - "Domestic aviation"
+    - "Domestic navigation"
+    """
+    from pathlib import Path
+    
+    try:
+        file_path = Path(unsd_folder) / f"{country}-{year}.csv"
+        
+        if not file_path.exists():
+            return None
+        
+        # Read CSV with first row as header
+        df = pd.read_csv(file_path)
+        
+        # Column 1 (0-indexed) contains sector/transaction names
+        # It's named "Transactions(down)/Commodity(right)" in the header
+        sector_col = df.iloc[:, 1]
+        
+        # Find the row matching the sector
+        matching_rows = df[sector_col.str.contains(sector, case=False, na=False)]
+        
+        if matching_rows.empty:
+            return None
+        
+        # Get the "Total Energy" column value
+        if 'Total Energy' not in df.columns:
+            return None
+            
+        value = matching_rows['Total Energy'].iloc[0]
+        
+        # Clean and convert the value
+        cleaned_value = _clean_val(value)
+        return cleaned_value
+            
+    except Exception as e:
+        # Debug: uncomment to see errors
+        # print(f"Error reading {country}-{year}: {e}")
+        return None
+
+
+def build_energy_table_with_rolling_cagr(
+    unsd_folder=None,
+    countries=None, 
+    sectors=None, 
+    window=5,  # 5-year rolling window
+    base_year=2020
+):
+    """
+    Build energy table for specified countries & sectors from UNSD data.
+    Compute rolling CAGR over specified window.
+    Apply IQR-based outlier capping and calculate suggested CAGR.
+    
+    Parameters:
+    - unsd_folder: Path to UNSD CSV files (default: auto-detect)
+    - countries: List of country names (REQUIRED - only these countries will be processed)
+    - sectors: List of sectors to extract (default: only bunker sectors)
+    - window: Rolling window in years
+    - base_year: Reference year
+    
+    Returns: DataFrame with columns [country, sector, year, total_tj, total_twh, CAGR, CAGR_capped, suggested_cagr]
+    """
+    from pathlib import Path
+    import glob
+    
+    # Auto-detect UNSD folder
+    if unsd_folder is None:
+        possible_paths = [
+            Path("input_data/unsd_country_specific"),
+            Path("transport/input_data/unsd_country_specific"),
+            Path(__file__).resolve().parent / "input_data/unsd_country_specific",
+        ]
+        for path in possible_paths:
+            if path.exists():
+                unsd_folder = path
+                break
+        
+        if unsd_folder is None:
+            print("[!] UNSD folder not found. Checked:")
+            for p in possible_paths:
+                print(f"  - {p}")
+            return pd.DataFrame()
+    
+    unsd_path = Path(unsd_folder)
+    
+    if not unsd_path.exists():
+        print(f"[!] UNSD folder not found: {unsd_folder}")
+        return pd.DataFrame()
+    
+    print(f"[OK] Using UNSD folder: {unsd_path.resolve()}")
+    
+    # Countries MUST be provided - do not auto-discover
+    if countries is None or len(countries) == 0:
+        print("[!] Error: countries list must be provided (cannot auto-discover)")
+        return pd.DataFrame()
+    
+    # Only bunker sectors by default (not all transport sectors)
+    if sectors is None:
+        sectors = [
+            "International marine bunkers",
+            "International aviation bunkers",
+        ]
+    
+    # 5.1 BUILD ENERGY TABLE
+    rows = []
+    processed_countries = []
+    for country in countries:
+        years = discover_years_from_unsd(unsd_folder, country)
+        if not years:
+            continue
+            
+        processed_countries.append(country)
+        print(f"  {country}: {len(years)} years ({min(years)}-{max(years)})", end="")
+        country_records = 0
+        
+        for sector in sectors:
+            for year in years:
+                total_tj = get_sector_total_from_unsd(unsd_folder, country, year, sector)
+                
+                if total_tj is None:
+                    continue
+                
+                # Take absolute value (bunker fuels are negative in UNSD)
+                total_tj = abs(total_tj)
+                
+                if total_tj == 0:
+                    continue
+                    
+                total_twh = total_tj * 0.000277778  # TJ - TWh
+                
+                rows.append({
+                    "country": country,
+                    "sector": sector,
+                    "year": year,
+                    "total_tj": total_tj,
+                    "total_twh": total_twh,
+                })
+                country_records += 1
+        
+        print(f" - {country_records} records")
+    
+    if not rows:
+        print(f"\n[!] No energy data extracted! Processed {len(processed_countries)} countries but no sectors found.")
+        print(f"  Countries processed: {', '.join(processed_countries[:5])}...")
+        print(f"  Sectors searched: {sectors[:3]}...")
+        return pd.DataFrame()
+    
+    df = pd.DataFrame(rows).sort_values(["country", "sector", "year"])
+    print(f"\n[OK] Energy table built: {len(df)} records from {len(df['country'].unique())} countries")
+    
+    if df.empty:
+        print("[!] Warning: Energy table is empty!")
+        return df
+    
+    # 5.2 COMPUTE ROLLING CAGR
+    df["start_year"] = df["year"] - window
+    
+    # Build lookup for start values
+    start_lookup = df[["country", "sector", "year", "total_twh"]].copy()
+    start_lookup = start_lookup.rename(columns={
+        "year": "start_year",
+        "total_twh": "start_twh"
+    })
+    
+    # Merge to get start values
+    df = df.merge(start_lookup, on=["country", "sector", "start_year"], how="left")
+    
+    # Compute CAGR
+    valid = (df["start_twh"] > 0) & (df["total_twh"] > 0)
+    df["CAGR"] = pd.NA
+    df.loc[valid, "CAGR"] = (
+        (df.loc[valid, "total_twh"] / df.loc[valid, "start_twh"]) ** (1 / window) - 1
+    )
+    df["CAGR"] = pd.to_numeric(df["CAGR"], errors="coerce")
+    
+    print(f"[OK] CAGR computed for {valid.sum()} records")
+    
+    # 6.1 APPLY IQR-BASED OUTLIER CAPPING
+    def apply_iqr_capping(group):
+        """Apply IQR-based outlier detection and capping per group."""
+        group = group.copy()
+        
+        growth = pd.to_numeric(group["CAGR"], errors="coerce").replace([np.inf, -np.inf], np.nan).dropna()
+        
+        group["CAGR_capped"] = group["CAGR"]
+        group["IQR_lower"] = np.nan
+        group["IQR_upper"] = np.nan
+        
+        if len(growth) >= 4:
+            q1 = growth.quantile(0.25)
+            q3 = growth.quantile(0.75)
+            iqr = q3 - q1
+            
+            lower = q1 - 1.5 * iqr
+            upper = q3 + 1.5 * iqr
+            
+            group["IQR_lower"] = lower
+            group["IQR_upper"] = upper
+            
+            group["CAGR_capped"] = group["CAGR"].clip(lower=lower, upper=upper)
+        
+        return group
+    
+    # Apply per country & sector
+    df = df.groupby(["country", "sector"], group_keys=False).apply(apply_iqr_capping)
+    df["CAGR_capped"] = pd.to_numeric(df["CAGR_capped"], errors="coerce").round(6)
+    
+    # Hard bounds (±30%)
+    df["CAGR_capped"] = df["CAGR_capped"].clip(-0.30, 0.30)
+    
+    print(f"[OK] IQR capping applied")
+    
+    # 7. CALCULATE SUGGESTED CAGR FROM CAPPED VALUES
+    df["suggested_cagr"] = (
+        df.groupby(["country", "sector"])["CAGR_capped"]
+        .transform("mean")
+        .round(6)
+    )
+    
+    print(f"[OK] Suggested CAGR calculated")
+    
+    return df
+
+
+def get_bunker_cagr_for_countries(countries, unsd_folder=None, bunker_type="marine"):
+    """
+    Extract suggested CAGR values for international bunkers for SPECIFIC countries only.
+    
+    Args:
+        countries: list of country names (REQUIRED)
+        unsd_folder: path to UNSD folder (auto-detected if None)
+        bunker_type: "marine" or "aviation"
+    
+    Returns:
+        dict: {country: suggested_cagr_value}
+    
+    Example:
+        marine_cagr = get_bunker_cagr_for_countries(["Morocco", "Algeria"], bunker_type="marine")
+        aviation_cagr = get_bunker_cagr_for_countries(["Morocco", "Algeria"], bunker_type="aviation")
+    """
+    if not countries or len(countries) == 0:
+        print(f"[WARN] No countries provided, returning empty dict")
+        return {}
+    
+    try:
+        # Build rolling CAGR table ONLY for the specified countries (lazy initialization)
+        sectors = [
+            "International marine bunkers" if bunker_type.lower() == "marine" else "International aviation bunkers"
+        ]
+        
+        rolling_df = build_energy_table_with_rolling_cagr(
+            unsd_folder=unsd_folder, 
+            countries=countries,  # ONLY these countries
+            sectors=sectors,      # ONLY this bunker sector
+            window=5
+        )
+        
+        if rolling_df.empty:
+            print(f"[WARN] Rolling CAGR table is empty, returning zeros")
+            return {country: 0.0 for country in countries}
+        
+        # Map bunker_type to sector name in the UNSD data
+        if bunker_type.lower() == "marine":
+            sector_filter = "International marine bunkers"
+        elif bunker_type.lower() == "aviation":
+            sector_filter = "International aviation bunkers"
+        else:
+            raise ValueError(f"Unknown bunker_type: {bunker_type}")
+        
+        # Extract CAGR values for requested countries
+        result = {}
+        for country in countries:
+            country_bunker = rolling_df[
+                (rolling_df["country"] == country) & 
+                (rolling_df["sector"] == sector_filter)
+            ]
+            
+            if country_bunker.empty:
+                result[country] = 0.0  # Default to 0% if not found
+                print(f"  [WARN] {country} {bunker_type} bunkers: not found (using 0%)")
+            else:
+                # Get the unique suggested_cagr value (should be same for all years)
+                cagr_value = country_bunker["suggested_cagr"].iloc[0]
+                # Handle NaN values (convert to 0.0)
+                if pd.isna(cagr_value):
+                    cagr_value = 0.0
+                    print(f"  [WARN] {country} {bunker_type} bunkers: insufficient data (using 0%)")
+                else:
+                    cagr_value = float(cagr_value)
+                    print(f"  [OK] {country} {bunker_type} bunkers: {cagr_value:.6f} ({cagr_value*100:.4f}%)")
+                result[country] = cagr_value
+        
+        return result
+        
+    except Exception as e:
+        print(f"[!] Error extracting bunker CAGR: {e}")
+        return {country: 0.0 for country in countries}
+
+
+# Build the rolling CAGR table from UNSD data - ONLY when needed (lazy initialization)
+# Do NOT auto-compute at module load time - wait for countries list from build_config_transport.py
+ROLLING_CAGR_DF = pd.DataFrame()
 
 
 try:
@@ -914,26 +1266,14 @@ def export_final_energy_intensity_cagr_with_intermediate(
     # Scenario labels and country list come from transport config (no hardcoded defaults).
     # Ensure the transport folder is on sys.path so build_transport_config
     # can import its local helpers module correctly.
-    
-    # import sys
-    # transport_dir = os.path.dirname(__file__)
-    # if transport_dir not in sys.path:
-    #     sys.path.append(transport_dir)
+    import sys
+    transport_dir = os.path.dirname(__file__)
+    if transport_dir not in sys.path:
+        sys.path.append(transport_dir)
 
-    # # Use the actual config module name in this repository
-    # from transport.build_transport_config import SCENARIOS as TRANSPORT_SCENARIOS, countries_to_process
-    # from build_share_subsectors import get_final_df_with_mobility
-
-    try:
-        from transport.build_transport_config import SCENARIOS as TRANSPORT_SCENARIOS, countries_to_process
-    except Exception:
-        from build_transport_config import SCENARIOS as TRANSPORT_SCENARIOS, countries_to_process
-
-    try:
-        from transport.build_share_subsectors import get_final_df_with_mobility
-    except Exception:
-        from build_share_subsectors import get_final_df_with_mobility
-
+    # Use the actual config module name in this repository
+    from transport.build_transport_config import SCENARIOS as TRANSPORT_SCENARIOS, countries_to_process
+    from transport.build_share_subsectors import get_final_df_with_mobility
     scenario_names = list(TRANSPORT_SCENARIOS)
     country_names = list(countries_to_process)
 
@@ -950,12 +1290,8 @@ def export_final_energy_intensity_cagr_with_intermediate(
 
     # === Population rows (2020 base + blank CAGR placeholders) ===
     try:
-        try:
-            from transport.helpers import load_country_specific_data, find_input_folder, get_interpolated_value
-            from transport.build_macro_indicators import process_population_data
-        except Exception:
-            from helpers import load_country_specific_data, find_input_folder, get_interpolated_value
-            from build_macro_indicators import process_population_data
+        from helpers import load_country_specific_data, find_input_folder, get_interpolated_value
+        from build_macro_indicators import process_population_data
 
         dfs_country = load_country_specific_data(find_input_folder())
         df_population = process_population_data(dfs_country)
