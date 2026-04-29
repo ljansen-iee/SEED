@@ -54,7 +54,7 @@ def main():
     scenarios = SCENARIOS
 
     # ---- Countries ----
-    countries_to_process = ["Morocco", "Egypt", "South Africa"]
+    countries_to_process = ["Morocco", "Egypt", "South Africa", "Namibia"]
                           #"Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Nigeria",
                           #"Algeria","Argentina","Brazil","Chile","Colombia","Peru","Venezuela",
                           #"Morocco","Tunisia","Tanzania", "South Africa","Libya",
