@@ -1,0 +1,54 @@
+Country (2018),Transactions(down)/Commodity(right),Primary Coal and Peat,Coal and Peat Products,Primary Oil,Oil Products,Natural Gas,Biofuels and Waste,Nuclear,Electricity,Heat,Total Energy,memo: Of which Renewables
+Republic of Korea,Primary production,23301,---,34068,---,11510,284893,1441857,55864,12783,1864276,223147
+Republic of Korea,Imports,3661267,11119,6345924,1792574,2166066,---,---,---,---,13976950,---
+Republic of Korea,Exports,---,---,-1895,-2964842,---,---,---,---,---,-2966738,---
+Republic of Korea,International marine bunkers,---,---,---,-381782,---,---,---,---,---,-381782,---
+Republic of Korea,International aviation bunkers,---,---,---,-220324,---,---,---,---,---,-220324,---
+Republic of Korea,Stock changes,27639,-456,90131,-34080,-101702,74,---,---,---,-18395,74
+Republic of Korea,Total energy supply,3712207,10663,6468227,-1808455,2075875,284967,1441857,55864,12783,12253987,223221
+Republic of Korea,Statistical differences,-6979,2986,99140,33054,-10066,38,0,-9599,10470,119044,55902
+Republic of Korea,Transfers and recycled products,---,---,671840,-653681,---,---,---,---,---,18159,---
+Republic of Korea,Transformation,-3362038,285476,-7040926,6768510,-1085497,-110096,-1441857,2068337,264342,-3653748,*-76621
+Republic of Korea,Electricity  CHP & Heat Plants,-2491208,-197913,---,-132904,-1092522,-110096,-1441857,2068337,264342,-3133821,*-76621
+Republic of Korea,Electricity Plants,-2329017,-197913,---,-61581,-749989,*-63984,-1441857,1842772,-1304,-3002874,*-61067
+Republic of Korea,CHP plants,-162191,---,---,-67998,-336713,-22822,---,225566,238028,-126130,*-9320
+Republic of Korea,Heat plants,---,---,---,-3325,-5820,-23289,---,---,27617,-4817,-6234
+Republic of Korea,Coke ovens,-611305,654135,---,---,---,---,---,---,---,42830,---
+Republic of Korea,Briquetting plants,-22628,17702,---,---,---,---,---,---,---,-4926,---
+Republic of Korea,Liquefaction plants,---,---,---,---,---,---,---,---,---,---,---
+Republic of Korea,Gas works,---,---,---,---,---,---,---,---,---,---,---
+Republic of Korea,Blast furnaces,-232812,-232822,---,---,---,---,---,---,---,-465635,---
+Republic of Korea,NGL & gas blending,---,---,---,-8493,7025,---,---,---,---,-1468,---
+Republic of Korea,Oil refineries,---,---,-7040926,6884375,---,---,---,---,---,-156551,---
+Republic of Korea,Other transformation,-4084,44374,---,25533,---,---,---,---,---,65823,---
+Republic of Korea,Energy industries own use,---,-136779,---,-250997,-81696,---,---,-155396,-4637,-629506,---
+Republic of Korea,Losses,---,---,---,---,-254,---,---,-65459,-2524,-68237,---
+Republic of Korea,Final consumption,357148,156374,---,4022324,918494,174834,---,1912945,259493,7801611,90698
+Republic of Korea,Final Energy Consumption,357148,139882,---,1862413,910302,174834,---,1912945,259493,5617018,90698
+Republic of Korea,Manufacturing  const. and mining,357148,121953,---,150964,309176,109350,---,1003730,142153,2194475,*30085
+Republic of Korea,Iron and steel,69184,121889,---,2670,62496,362,---,199923,247,456771,---
+Republic of Korea,Chemical and petrochemical,30860,---,---,31863,66912,17631,---,190503,92766,430535,484
+Republic of Korea,Non-ferrous metals,15007,---,---,1498,14721,---,---,32547,2,63776,---
+Republic of Korea,Non-metallic minerals,89476,---,---,20604,20679,30787,---,46444,125,208114,*112
+Republic of Korea,Transport equipment,---,---,---,7483,29308,*121,---,94427,282,131622,*121
+Republic of Korea,Machinery,---,---,---,3058,45494,*5,---,290604,173,339334,*5
+Republic of Korea,Mining and quarrying,---,---,---,1679,---,*4,---,6365,---,8048,*4
+Republic of Korea,Food and tobacco,---,---,---,3757,29814,5397,---,41296,5754,86018,*1961
+Republic of Korea,Paper  pulp and printing,---,---,---,1497,9807,30724,---,37838,11624,91489,*11548
+Republic of Korea,Wood and wood products,---,---,---,124,1971,*4938,---,7135,461,14629,*4635
+Republic of Korea,Textile and leather,20978,---,---,2440,6959,5768,---,41806,19253,97204,*2785
+Republic of Korea,Construction,---,21,---,30138,5,1326,---,---,---,31490,360
+Republic of Korea,Industry n.e.s,131643,43,---,44154,21010,12288,---,14842,11467,235446,*8071
+Republic of Korea,Transport,---,---,---,1389566,46656,23552,---,10681,---,1470455,23552
+Republic of Korea,Road,---,---,---,1316333,46656,23552,---,163,---,1386704,23552
+Republic of Korea,Rail,---,---,---,4042,---,---,---,10518,---,14560,---
+Republic of Korea,Domestic aviation,---,---,---,55831,---,---,---,---,---,55831,---
+Republic of Korea,Domestic navigation,---,---,---,13277,---,---,---,---,---,13277,---
+Republic of Korea,Pipeline transport,---,---,---,83,---,---,---,---,---,83,---
+Republic of Korea,Transport n.e.s,---,---,---,---,---,---,---,---,---,---,---
+Republic of Korea,Other Consumption,---,17930,---,321883,554470,41931,---,898534,117340,1952087,37061
+Republic of Korea,Agriculture  forestry and fishing,---,2105,---,45067,135,*2949,---,60483,1219,111958,*4156
+Republic of Korea,Commerce and public services,---,4976,---,78036,143631,32361,---,594548,22025,875577,24087
+Republic of Korea,Households,---,10849,---,142967,410704,*6621,---,243503,94097,908741,*8818
+Republic of Korea,Other consumption n.e.s,---,---,---,55812,---,---,---,---,---,55812,---
+Republic of Korea,Non-energy use,---,16491,---,2159910,8192,---,---,---,---,2184593,---

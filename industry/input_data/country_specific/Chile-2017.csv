@@ -1,0 +1,54 @@
+Country (2017),Transactions(down)/Commodity(right),Primary Coal and Peat,Coal and Peat Products,Primary Oil,Oil Products,Natural Gas,Biofuels and Waste,Nuclear,Electricity,Heat,Total Energy,memo: Of which Renewables
+Chile,Primary production,41109,---,12510,---,43139,338531,---,103504,4379,543171,446414
+Chile,Imports,280139,0,373079,340759,146736,---,---,0,---,1140712,---
+Chile,Exports,-15492,-1491,---,-21014,-7413,---,---,-142,---,-45552,---
+Chile,International marine bunkers,---,---,---,-5728,---,---,---,---,---,-5728,---
+Chile,International aviation bunkers,---,---,---,-25531,---,---,---,---,---,-25531,---
+Chile,Stock changes,2216,97,-550,-6097,-549,*474,---,---,---,-4410,*474
+Chile,Total energy supply,307970,-1394,385039,282389,181913,339005,---,103362,4379,1602663,446888
+Chile,Statistical differences,8618,-361,-509,-7228,3528,*-245,---,8960,0,12762,103489
+Chile,Transfers and recycled products,---,---,36299,-35114,---,---,---,---,---,1185,---
+Chile,Transformation,-291891,10333,-421847,391352,-96870,*-184674,---,182492,-2297,-413403,*-186741
+Chile,Electricity  CHP & Heat Plants,-281026,---,---,-21647,-95251,*-179631,---,182492,-2297,-397361,*-181699
+Chile,Electricity Plants,-281026,---,---,-21647,-95251,---,---,160670,-2297,-239551,-2067
+Chile,CHP plants,---,---,---,---,---,*-179631,---,21822,---,*-157810,*-179631
+Chile,Heat plants,---,---,---,---,---,---,---,---,---,---,---
+Chile,Coke ovens,-10866,14475,---,---,0,---,---,---,---,3609,---
+Chile,Briquetting plants,---,---,---,---,---,---,---,---,---,---,---
+Chile,Liquefaction plants,---,---,1633,---,---,---,---,---,---,1633,---
+Chile,Gas works,---,---,---,---,-72,---,---,---,---,-72,---
+Chile,Blast furnaces,---,-4222,---,---,---,---,---,---,---,-4222,---
+Chile,NGL & gas blending,---,79,---,0,0,0,---,---,---,79,0
+Chile,Oil refineries,---,---,-423480,413000,---,---,---,---,---,-10481,---
+Chile,Other transformation,---,0,---,0,-1547,*-5042,---,---,---,*-6590,*-5042
+Chile,Energy industries own use,---,-5888,---,-12762,-7067,---,---,-11218,---,-36935,---
+Chile,Losses,0,-459,---,---,-3547,-572,---,-15031,---,-19609,-572
+Chile,Final consumption,7461,2953,---,633093,70901,*154004,---,250645,2082,1121140,*156086
+Chile,Final Energy Consumption,7461,2953,---,618779,61961,*154004,---,250645,2082,1097885,*156086
+Chile,Manufacturing  const. and mining,7403,2894,---,150506,33516,*78002,---,149154,---,421477,*78002
+Chile,Iron and steel,---,2505,---,361,224,---,---,2205,---,5295,---
+Chile,Chemical and petrochemical,0,---,---,0,3092,---,---,113,---,3205,---
+Chile,Non-ferrous metals,---,---,---,---,---,---,---,---,---,---,---
+Chile,Non-metallic minerals,158,0,---,9198,417,0,---,1743,---,11516,0
+Chile,Transport equipment,---,---,---,---,---,---,---,---,---,---,---
+Chile,Machinery,---,---,---,---,---,---,---,---,---,---,---
+Chile,Mining and quarrying,2788,189,---,90439,7364,*88,---,91874,---,192742,*88
+Chile,Food and tobacco,3008,164,---,42,43,*8,---,---,---,3266,*8
+Chile,Paper  pulp and printing,14,---,---,8791,6720,*60218,---,19674,---,*95417,*60218
+Chile,Wood and wood products,---,---,---,---,---,---,---,---,---,---,---
+Chile,Textile and leather,---,---,---,---,---,---,---,---,---,---,---
+Chile,Construction,---,---,---,7656,1722,---,---,291,---,9669,---
+Chile,Industry n.e.s,1435,36,---,34019,13935,*17688,---,33254,---,100368,*17688
+Chile,Transport,---,---,---,375926,691,---,---,3469,---,380086,---
+Chile,Road,---,---,---,336931,691,---,---,1750,---,339372,---
+Chile,Rail,---,---,---,1779,---,---,---,1646,---,3425,---
+Chile,Domestic aviation,---,---,---,21287,---,---,---,---,---,21287,---
+Chile,Domestic navigation,---,---,---,15927,---,---,---,---,---,15927,---
+Chile,Pipeline transport,---,---,---,2,---,---,---,0,---,2,---
+Chile,Transport n.e.s,---,---,---,1,0,---,---,73,---,74,---
+Chile,Other Consumption,58,59,---,92346,27753,*76002,---,98022,2082,296323,*78084
+Chile,Agriculture  forestry and fishing,58,---,---,18354,941,*233,---,6597,---,26184,*233
+Chile,Commerce and public services,0,0,---,29595,6767,896,---,46161,---,83419,896
+Chile,Households,---,59,---,44398,20046,*74663,---,45264,---,184429,*74663
+Chile,Other consumption n.e.s,---,---,---,---,---,209,---,---,2082,2291,2291
+Chile,Non-energy use,---,---,---,14314,8940,---,---,---,---,23255,---

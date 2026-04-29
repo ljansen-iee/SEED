@@ -1,0 +1,54 @@
+Country (2015),Transactions(down)/Commodity(right),Primary Coal and Peat,Coal and Peat Products,Primary Oil,Oil Products,Natural Gas,Biofuels and Waste,Nuclear,Electricity,Heat,Total Energy,memo: Of which Renewables
+United States of America,Primary production,18056994,---,24289070,---,26656035,*4081846,8967110,1713964,819567,84584586,6417549
+United States of America,Imports,249536,3666,15895198,4314940,2633342,81478,---,272772,---,23450931,81478
+United States of America,Exports,-1761424,-22428,-1412807,-7687183,-1704012,-77255,---,-32760,---,-12697871,-77255
+United States of America,International marine bunkers,---,---,---,-710511,---,-5998,---,---,---,-716509,-5998
+United States of America,International aviation bunkers,---,---,---,-981225,---,---,---,---,---,-981225,---
+United States of America,Stock changes,-757950,-15962,-473736,-305069,-517384,-18162,---,---,---,-2088263,-18162
+United States of America,Total energy supply,15787156,-34725,38297725,-5369048,27067981,*4061908,8967110,1953976,819567,91551649,6397611
+United States of America,Statistical differences,3185,0,-234050,-952851,296047,*-19,0,0,0,-887688,1794120
+United States of America,Transfers and recycled products,---,---,673654,-667863,---,---,---,---,---,5791,---
+United States of America,Transformation,-15133803,240963,-39026004,37936473,-10238946,-974534,-8967110,13755409,-294260,-22701813,-1437418
+United States of America,Electricity  CHP & Heat Plants,-14532126,-35902,---,-377640,-10123986,-931474,-8967110,13755409,-294260,-21507089,-1394359
+United States of America,Electricity Plants,-14140794,-3956,---,-261458,-8331587,-619239,-8967110,12606696,-712447,-20429896,-1113741
+United States of America,CHP plants,-391331,-31946,---,-116182,-1792399,*-312235,---,1148713,418187,-1077193,*-280617
+United States of America,Heat plants,---,---,---,---,---,---,---,---,---,---,---
+United States of America,Coke ovens,-481231,426604,---,---,---,---,---,---,---,-54627,---
+United States of America,Briquetting plants,---,---,---,---,---,---,---,---,---,---,---
+United States of America,Liquefaction plants,---,---,201415,---,---,---,---,---,---,201415,---
+United States of America,Gas works,-101417,50046,---,---,---,---,---,---,---,-51371,---
+United States of America,Blast furnaces,-19030,-149740,---,---,---,---,---,---,---,-168769,---
+United States of America,NGL & gas blending,---,-50046,-3235445,3247791,63229,-18187,---,---,---,7342,-18187
+United States of America,Oil refineries,---,---,-36087236,35066322,---,---,---,---,---,-1020914,---
+United States of America,Other transformation,---,---,95263,---,-178189,*-24873,---,---,---,-107799,*-24873
+United States of America,Energy industries own use,-1580,-56840,---,-1432755,-2419948,-5021,---,-1179216,-139494,-5234855,-5021
+United States of America,Losses,---,---,---,---,---,---,---,-919159,-50182,-969341,---
+United States of America,Final consumption,648587,149398,179425,31419657,14113040,*3082372,---,13611010,335631,63539120,*3161052
+United States of America,Final Energy Consumption,648587,149398,---,26698447,13469217,*3082372,---,13611010,335631,57994662,*3161052
+United States of America,Manufacturing  const. and mining,620526,149398,---,819830,5096813,*1247177,---,2902493,180558,11016795,*1228319
+United States of America,Iron and steel,4387,117292,---,8011,373040,74,---,173221,6628,682653,74
+United States of America,Chemical and petrochemical,130884,---,---,111709,2088215,9624,---,410501,110644,2861577,*3756
+United States of America,Non-ferrous metals,---,---,---,33736,140049,37,---,262958,3540,440321,37
+United States of America,Non-metallic minerals,232502,---,---,66382,249410,*18643,---,129128,135,696199,*18642
+United States of America,Transport equipment,511,---,---,7693,146684,137,---,175748,4366,335139,137
+United States of America,Machinery,3418,---,---,37641,303671,331,---,364367,3273,712701,331
+United States of America,Mining and quarrying,---,---,---,108872,102545,1987,---,140868,---,354273,1987
+United States of America,Food and tobacco,125280,---,---,19468,675482,*25510,---,278874,19948,1144563,*25254
+United States of America,Paper  pulp and printing,93002,---,---,10664,362273,*1121329,---,254426,16780,*1858474,*1110243
+United States of America,Wood and wood products,511,---,---,21390,47311,*55335,---,62302,9183,196033,*55335
+United States of America,Textile and leather,2638,---,---,0,48733,---,---,65437,5278,122086,---
+United States of America,Construction,---,---,---,307530,12811,5299,---,219107,---,544747,5299
+United States of America,Industry n.e.s,27392,32106,---,86734,546589,*8871,---,365555,783,1068030,*7225
+United States of America,Transport,---,---,---,24102273,694815,1269403,---,31939,---,26098430,1269403
+United States of America,Road,---,---,---,21061701,38777,1256633,---,7362,---,22364474,1256633
+United States of America,Rail,---,---,---,496371,---,10083,---,24577,---,531031,10083
+United States of America,Domestic aviation,---,---,---,2204520,---,---,---,---,---,2204520,---
+United States of America,Domestic navigation,---,---,---,339682,---,2686,---,---,---,342368,2686
+United States of America,Pipeline transport,---,---,---,---,656038,---,---,---,---,656038,---
+United States of America,Transport n.e.s,---,---,---,0,---,0,---,---,---,0,0
+United States of America,Other Consumption,28061,---,---,1776343,7677589,*565793,---,10676578,155073,20879437,*663330
+United States of America,Agriculture  forestry and fishing,---,---,---,623726,60682,*48071,---,137128,---,869606,*48071
+United States of America,Commerce and public services,28061,---,---,492132,3077651,*88864,---,4894128,134512,8715348,165840
+United States of America,Households,---,---,---,660485,4539256,*428858,---,5045818,20561,10694978,*449419
+United States of America,Other consumption n.e.s,---,---,---,---,---,---,---,599504,---,599504,---
+United States of America,Non-energy use,---,---,179425,4721210,643822,---,---,---,---,5544458,---

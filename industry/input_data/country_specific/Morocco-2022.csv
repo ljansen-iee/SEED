@@ -1,0 +1,54 @@
+Country (2022),Transactions(down)/Commodity(right),Primary Coal and Peat,Coal and Peat Products,Primary Oil,Oil Products,Natural Gas,Biofuels and Waste,Nuclear,Electricity,Heat,Total Energy,memo: Of which Renewables
+Morocco,Primary production,---,---,103,---,2452,63615,---,22645,*26531,115345,95901
+Morocco,Imports,297393,---,---,578357,5566,---,---,6723,---,888039,---
+Morocco,Exports,---,---,---,---,---,---,---,-1694,---,-1694,---
+Morocco,International marine bunkers,---,---,---,-5627,---,---,---,---,---,-5627,---
+Morocco,International aviation bunkers,---,---,---,-27772,---,---,---,---,---,-27772,---
+Morocco,Stock changes,160,---,---,-866,---,---,---,---,---,-706,---
+Morocco,Total energy supply,297553,---,103,544092,8017,63615,---,27674,*26531,967585,95901
+Morocco,Statistical differences,0,---,0,-408,54,0,---,0,*0,-354,25754
+Morocco,Transfers and recycled products,---,---,---,---,---,---,---,---,---,---,---
+Morocco,Transformation,-296899,---,---,-46613,-5566,-1947,---,129971,*-23389,-244443,-8164
+Morocco,Electricity  CHP & Heat Plants,-296899,---,---,-46613,-5566,---,---,129971,*-23389,-242496,-6217
+Morocco,Electricity Plants,-296899,---,---,-46613,-5566,---,---,129971,*-23389,-242496,-6217
+Morocco,CHP plants,---,---,---,---,---,---,---,---,---,---,---
+Morocco,Heat plants,---,---,---,---,---,---,---,---,---,---,---
+Morocco,Coke ovens,---,---,---,---,---,---,---,---,---,---,---
+Morocco,Briquetting plants,---,---,---,---,---,---,---,---,---,---,---
+Morocco,Liquefaction plants,---,---,---,---,---,---,---,---,---,---,---
+Morocco,Gas works,---,---,---,---,---,---,---,---,---,---,---
+Morocco,Blast furnaces,---,---,---,---,---,---,---,---,---,---,---
+Morocco,NGL & gas blending,---,---,---,---,---,---,---,---,---,---,---
+Morocco,Oil refineries,---,---,---,---,---,---,---,---,---,---,---
+Morocco,Other transformation,---,---,---,---,---,-1947,---,---,---,-1947,-1947
+Morocco,Energy industries own use,---,---,-103,---,---,---,---,-615,0,-718,---
+Morocco,Losses,---,---,---,---,---,---,---,-27364,---,-27364,---
+Morocco,Final consumption,653,---,---,497888,2397,61668,---,129666,3142,695414,61983
+Morocco,Final Energy Consumption,653,---,---,479507,2397,61668,---,129666,3142,677034,61983
+Morocco,Manufacturing  const. and mining,653,---,---,74575,2397,5828,---,47225,---,130679,3001
+Morocco,Iron and steel,---,---,---,---,---,---,---,---,---,---,---
+Morocco,Chemical and petrochemical,---,---,---,2893,---,544,---,4331,---,7767,*167
+Morocco,Non-ferrous metals,90,---,---,3087,---,0,---,5586,---,8764,0
+Morocco,Non-metallic minerals,---,---,---,41529,---,4944,---,9161,---,55634,2493
+Morocco,Transport equipment,---,---,---,202,652,---,---,785,---,1639,---
+Morocco,Machinery,---,---,---,55,---,---,---,2509,---,2564,---
+Morocco,Mining and quarrying,---,---,---,13600,790,---,---,11254,---,25644,---
+Morocco,Food and tobacco,563,---,---,7133,213,235,---,6958,---,15102,235
+Morocco,Paper  pulp and printing,---,---,---,790,743,---,---,1225,---,2758,---
+Morocco,Wood and wood products,---,---,---,16,---,13,---,131,---,160,13
+Morocco,Textile and leather,---,---,---,1879,---,56,---,3181,---,5116,56
+Morocco,Construction,---,---,---,2459,---,36,---,1189,---,3684,36
+Morocco,Industry n.e.s,0,---,---,931,0,0,---,915,---,1846,0
+Morocco,Transport,---,---,---,237072,---,---,---,1149,---,238221,---
+Morocco,Road,---,---,---,235382,---,---,---,---,---,235382,---
+Morocco,Rail,---,---,---,532,---,---,---,1149,---,1681,---
+Morocco,Domestic aviation,---,---,---,1157,---,---,---,---,---,1157,---
+Morocco,Domestic navigation,---,---,---,---,---,---,---,---,---,---,---
+Morocco,Pipeline transport,---,---,---,---,---,---,---,---,---,---,---
+Morocco,Transport n.e.s,---,---,---,---,---,---,---,---,---,---,---
+Morocco,Other Consumption,---,---,---,167861,---,55840,---,81292,3142,308135,58982
+Morocco,Agriculture  forestry and fishing,---,---,---,38360,---,---,---,14213,---,52574,---
+Morocco,Commerce and public services,---,---,---,7469,---,33175,---,22514,785,63944,33961
+Morocco,Households,---,---,---,121971,---,22665,---,44565,2356,191556,25021
+Morocco,Other consumption n.e.s,---,---,---,61,---,---,---,---,---,61,---
+Morocco,Non-energy use,---,---,---,18380,---,---,---,---,---,18380,---
