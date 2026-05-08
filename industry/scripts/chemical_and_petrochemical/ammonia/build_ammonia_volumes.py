@@ -81,8 +81,20 @@ OUTPUT_DIR = Path(__file__).resolve().parent
 # Projected years (5-year steps)
 PROJECTION_YEARS: List[int] = [2025, 2030, 2035, 2040, 2045, 2050]
 
-# Default CAGR annual rate (fraction) – same for all scenarios
-DEFAULT_CAGR_RATE: float = 0.07
+# Per-scenario, per-interval CAGR rates (annual fraction).
+# Each inner dict maps a projection year to the rate applied FROM the previous
+# projection year (or the country's last historical year) UP TO that year.
+#
+# Calibration reference: 40% total growth by 2050 from a ~2022 base ≈ 1.22%/yr flat.
+# mid_speed  chained → ~1.16^28 ≈ +38%  (≈ 40% target) base on : https://es.weforum.org/publications/the-net-zero-industry-tracker/in-full/ammonia-industry/
+# fast_track chained → ~1.18^28 ≈ +67%  (higher-demand optimistic path)
+# slow_mover chained → ~1.07^28 ≈ +21%  (conservative)
+CAGR_RATES: Dict[str, Dict[int, float]] = {
+    #              year: annual rate for the interval ending at that year
+    "mid_speed":  {2025: 0.015, 2030: 0.013, 2035: 0.012, 2040: 0.011, 2045: 0.010, 2050: 0.010},
+    "fast_track": {2025: 0.020, 2030: 0.018, 2035: 0.016, 2040: 0.014, 2045: 0.012, 2050: 0.012},
+    "slow_mover": {2025: 0.008, 2030: 0.008, 2035: 0.007, 2040: 0.007, 2045: 0.006, 2050: 0.005},
+}
 
 # ---------------------------------------------------------------------------
 # Scenario definitions
@@ -125,6 +137,34 @@ SCENARIO_MAPPING: Dict[str, str] = {
     "Progressive": "mid_speed",
     "Optimistic":  "fast_track",
 }
+
+
+def _compute_cagr_factor(
+    rates_by_year: Dict[int, float],
+    base_year: int,
+    target_year: int,
+    projection_years: List[int],
+) -> float:
+    """
+    Compute a cumulative growth factor by chaining per-interval CAGR rates.
+
+    Each interval runs from the previous projection year (or *base_year* for
+    the first interval) up to the current projection year, using the rate
+    stored for that year in *rates_by_year*.
+
+    Example for base_year=2022, target_year=2035, rates {2025:0.015, 2030:0.013, 2035:0.012}::
+
+        factor = 1.015**3  ×  1.013**5  ×  1.012**5
+    """
+    factor = 1.0
+    prev = base_year
+    for yr in sorted(projection_years):
+        if yr > target_year:
+            break
+        rate = rates_by_year[yr]
+        factor *= (1.0 + rate) ** (yr - prev)
+        prev = yr
+    return factor
 
 
 def _interpolate_indicator(
@@ -217,7 +257,6 @@ def build_scenario(
     hist: pd.DataFrame,
     scenario_name: str,
     projection_years: List[int] = PROJECTION_YEARS,
-    cagr_rate: float = DEFAULT_CAGR_RATE,
 ) -> pd.DataFrame:
     """
     Build a combined historical + projected DataFrame for one scenario.
@@ -246,6 +285,8 @@ def build_scenario(
             f"Choose from: {_SCENARIOS}"
         )
 
+    rates = CAGR_RATES[scenario_name]  # Dict[int, float] — one rate per projection year
+
     # --- Historical rows (no transformation) --------------------------------
     hist_out = hist.copy()
     hist_out["path"] = scenario_name
@@ -273,7 +314,8 @@ def build_scenario(
             base_local = float(base_row["local_production"])
             base_import = float(base_row["import_volumes"])
 
-            cagr_factor = (1.0 + cagr_rate) ** (yr - base_year)
+            cagr_factor = _compute_cagr_factor(rates, base_year, yr, projection_years)
+            interval_rate = rates[yr]  # rate applied in the interval ending at yr
 
             proj_local = base_local * cagr_factor
             proj_import = base_import * cagr_factor
@@ -291,7 +333,7 @@ def build_scenario(
                     "total_demand": round(proj_local + proj_import, 4),
                     "GALT": round(galt, 4),
                     "GAIR": round(gair, 4),
-                    "CAGR_rate": cagr_rate,
+                    "CAGR_rate": interval_rate,
                     "CAGR_factor": round(cagr_factor, 6),
                     "exog_ammonia_conv_path": round(exog, 4),
                     "endog_ammonia_green_path": round(endog, 4),
@@ -338,7 +380,6 @@ def build_all_scenarios(
     undata_path: Path = UNDATA_CSV,
     output_dir: Path = OUTPUT_DIR,
     projection_years: List[int] = PROJECTION_YEARS,
-    cagr_rate: float = DEFAULT_CAGR_RATE,
 ) -> pd.DataFrame:
     """
     Load historical data, build all scenarios, and write a single combined CSV.
@@ -357,7 +398,7 @@ def build_all_scenarios(
 
     frames = []
     for scenario in _SCENARIOS:
-        df = build_scenario(hist, scenario, projection_years, cagr_rate)
+        df = build_scenario(hist, scenario, projection_years)
         frames.append(df)
         print(f"  [{scenario}] built — {len(df):,} rows")
 
