@@ -1,10 +1,23 @@
 from pathlib import Path
 
 import pandas as pd
+import pycountry
 
 
 def _scenario_slug(value: str):
 	return "_".join(str(value).strip().lower().split())
+
+
+def get_iso_code(country_name: str) -> str:
+	"""Return the ISO 3166-1 alpha-2 code for a country name. Falls back to 'XX' if not found."""
+	try:
+		result = pycountry.countries.search_fuzzy(country_name)
+		if result:
+			return getattr(result[0], "alpha_2", "XX")
+	except (LookupError, AttributeError):
+		pass
+	print(f"Warning: Could not find ISO code for '{country_name}'. Defaulting to 'XX'.")
+	return "XX"
 
 
 def load_residential_data(residential_output_dir: Path):
@@ -32,7 +45,7 @@ def load_additional_sectors_data(additional_output_dir: Path):
 		"other_fuel_demand_history_future.csv",
 	]
 
-	merged_df = None
+	merged_df: pd.DataFrame = pd.DataFrame()
 	for file_name in sector_files:
 		file_path = Path(additional_output_dir) / file_name
 		if not file_path.exists():
@@ -46,7 +59,7 @@ def load_additional_sectors_data(additional_output_dir: Path):
 		if "unit" in sector_df.columns:
 			sector_df = sector_df.drop(columns=["unit"])
 
-		if merged_df is None:
+		if merged_df.empty:
 			merged_df = sector_df
 		else:
 			merged_df = merged_df.merge(sector_df, on=["country", "year"], how="outer")
@@ -85,6 +98,8 @@ def export_energy_totals_by_scenario_year(
 			on=["country", "year"],
 			how="left",
 		)
+
+		merged["country"] = merged["country"].map(get_iso_code)
 
 		scenario_slug = _scenario_slug(scenario_value)
 		output_path = output_dir / f"energy_total+{scenario_slug}+{int(year_value)}.csv"

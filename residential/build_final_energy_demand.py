@@ -543,9 +543,30 @@ def compute_appliances_demand(df: pd.DataFrame) -> pd.DataFrame:
 	return merged[["country", "scenario", "year", "end_use", "tech", "fuel", "final_energy_demand_kwh", "final_energy_demand_twh"]]
 
 
+COUNTRY_NAME_TO_ISO = {
+	"Algeria": "DZ",
+	"Egypt": "EG",
+	"Ethiopia": "ET",
+	"Ghana": "GH",
+	"Kenya": "KE",
+	"Morocco": "MA",
+	"Mozambique": "MZ",
+	"Namibia": "NA",
+	"Nigeria": "NG",
+	"Senegal": "SN",
+	"South Africa": "ZA",
+	"Tanzania": "TZ",
+	"Tunisia": "TN",
+	"Uganda": "UG",
+	"Zambia": "ZM",
+	"Zimbabwe": "ZW",
+}
+
+
 def build_residential_yearly_summary(final_df: pd.DataFrame, output_dir: Path) -> pd.DataFrame:
 	keys = ["country", "scenario", "year"]
 	df = final_df.copy()
+	df["country"] = df["country"].map(lambda c: COUNTRY_NAME_TO_ISO.get(c, c))
 	df["fuel_norm"] = df["fuel"].astype(str).str.strip().str.lower()
 	df["end_use_norm"] = df["end_use"].astype(str).str.strip().str.lower()
 
