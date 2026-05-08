@@ -14,6 +14,22 @@ unsd_path = _industry_root / "input_data" / "country_specific"
 
 _AMMONIA_FILENAME_STEM = "ammonia_all_countries_scenarios"
 
+# Path to the generated ammonia volumes CSV (same directory as this file).
+# Run build_ammonia_volumes.py to regenerate it.
+AMMONIA_VOLUMES_CSV = Path(__file__).resolve().parent / "ammonia_volumes.csv"
+
+# Maps pipeline scenario names used in build_config_industry.py
+# to the volume path names written by build_ammonia_volumes.py.
+# TODO: decide whether to (a) remove share_smrhb/share_renew rows from the
+#   *_Output.csv entirely once the volume-split approach is validated, or
+#   (b) add a USE_VOLUME_SPLIT boolean flag so users can toggle between
+#   share-based routing and volume-based routing without editing this file.
+_PIPELINE_TO_VOLUME_PATH: Dict[str, str] = {
+    "BAU":         "slow_mover",
+    "Progressive": "mid_speed",
+    "Optimistic":  "fast_track",
+}
+
 # ---------------------------------------------------------------------------
 # File + sheet detection
 # ---------------------------------------------------------------------------
@@ -437,37 +453,86 @@ def extract_for_countries_from_loader(
     scenarios: Sequence[str] = ("Baseline", "RF", "EL"),
 ) -> pd.DataFrame:
     """
-    path optional: if None, ammonia_production() will auto-discover file.
+    Reads exog_ammonia_conv_path [t/y] from ammonia_volumes.csv for each
+    country x scenario and returns a tidy DataFrame that is fully compatible
+    with the existing build_config_industry.py consumer.
 
-    Uses *_tons sheets if present and maps POSITIONALLY:
-      scenarios[0] -> Baseline_tons (or first tons-like sheet)
-      scenarios[1] -> Ambitious Policies_tons (or second tons-like sheet)
-      scenarios[2] -> Net Zero_tons (or third tons-like sheet)
+    Columns: country | scenario_label | year | value_type | value | note
+
+    value_type values emitted:
+      "local_production" – exog_ammonia_conv_path at base_year
+      "total_production" – exog_ammonia_conv_path at each target year (interpolated)
+      "share_smrhb"      – always 1.0  (conventional path = 100% SMR by definition)
+      "share_renew"      – always 0.0  (renewable is handled by endog path / Path 2)
+
+    TODO: share rows are hardcoded 1.0 / 0.0 because the conventional/green split
+    is now encoded in exog/endog volumes from build_ammonia_volumes.py rather than
+    in percentage shares. A future refactor should either:
+      (a) Remove "Share of SMR + Haber-Bosch" and "Share of renewable ammonia
+          synthesis" from the *_Output.csv entirely, or
+      (b) Add a USE_VOLUME_SPLIT boolean so users can choose between share-based
+          and volume-based routing without editing source files.
+
+    The `path` argument is ignored and kept only for backward compatibility.
     """
-    df_loaded = ammonia_production(path) if path else ammonia_production()
-
-    if path:
-        p = Path(path)
-    else:
-        p = _find_ammonia_file()
-    xls = pd.ExcelFile(p)
-
-    scenario_frames = _build_scenario_frames_tons_first(xls, scenarios)
-
-    if countries is None:
-        countries = df_loaded["country"].dropna().unique().tolist()
-
-    out_frames = []
-    for c in countries:
-        out_frames.append(
-            extract_ammonia_values_for_country(
-                df_loaded,
-                scenario_frames,
-                c,
-                base_year,
-                target_years,
-                scenarios,
-            )
+    csv_path = AMMONIA_VOLUMES_CSV
+    if not csv_path.exists():
+        raise FileNotFoundError(
+            f"ammonia_volumes.csv not found at {csv_path}. "
+            "Run build_ammonia_volumes.py first."
         )
 
-    return pd.concat(out_frames, ignore_index=True)
+    df_vol = pd.read_csv(csv_path)
+
+    if countries is None:
+        countries = df_vol["country"].dropna().unique().tolist()
+
+    all_years = [base_year] + list(target_years)
+    rows = []
+
+    for country in countries:
+        for sc_label in scenarios:
+            vol_path = _PIPELINE_TO_VOLUME_PATH.get(sc_label)
+            if vol_path is None:
+                # Unknown scenario — emit None so downstream fallback triggers
+                for y in all_years:
+                    vtype = "local_production" if y == base_year else "total_production"
+                    rows.append({"country": country, "scenario_label": sc_label,
+                                 "year": y, "value_type": vtype, "value": None,
+                                 "note": f"no path mapping for scenario '{sc_label}'"})
+                continue
+
+            sub = df_vol[
+                (df_vol["path"] == vol_path) &
+                (df_vol["country"].astype(str).str.strip() == str(country).strip())
+            ].copy()
+
+            if sub.empty:
+                for y in all_years:
+                    vtype = "local_production" if y == base_year else "total_production"
+                    rows.append({"country": country, "scenario_label": sc_label,
+                                 "year": y, "value_type": vtype, "value": None,
+                                 "note": "country not found in ammonia_volumes.csv"})
+                continue
+
+            sub = sub.sort_values("year")
+            years_arr = sub["year"].astype(int).to_numpy()
+            exog_arr = sub["exog_ammonia_conv_path"].astype(float).to_numpy()
+
+            for y in all_years:
+                vtype = "local_production" if y == base_year else "total_production"
+                val = float(np.interp(y, years_arr, exog_arr))
+                rows.append({"country": country, "scenario_label": sc_label,
+                             "year": y, "value_type": vtype, "value": val,
+                             "note": "from ammonia_volumes.csv (exog_ammonia_conv_path)"})
+
+            # share rows — fixed at 1.0 / 0.0 (see TODO in docstring)
+            for y in all_years:
+                rows.append({"country": country, "scenario_label": sc_label,
+                             "year": y, "value_type": "share_smrhb", "value": 1.0,
+                             "note": "conventional path = 100% SMR (volume-based split)"})
+                rows.append({"country": country, "scenario_label": sc_label,
+                             "year": y, "value_type": "share_renew", "value": 0.0,
+                             "note": "renewable handled by endog path (Path 2)"})
+
+    return pd.DataFrame(rows)

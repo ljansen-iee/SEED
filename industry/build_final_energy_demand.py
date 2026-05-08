@@ -5,12 +5,15 @@ from functools import reduce
 import pycountry
 import pandas as pd
 from industry.helpers import get_historical_sector_data
+import numpy as _np
 from industry.scripts.chemical_and_petrochemical.ammonia.build_ammonia import (
     AMMONIA_SCENARIO_XLSX,
     AMMONIA_SCENARIO_SHEET,
     AMMONIA_MWH_PER_TON,
     BASE_YEAR,
     unsd_path,
+    AMMONIA_VOLUMES_CSV,
+    _PIPELINE_TO_VOLUME_PATH,
 )
 
 # Single source of truth for scenario names
@@ -24,7 +27,7 @@ industry_config_path = Path(__file__).resolve().parent / "industry_config.csv"
 choose_folder = "country_parameters"
 
 # Countries to run – you just edit this list
-available_countries = ["Morocco", "Egypt","South Africa"]
+available_countries = ["Morocco", "Egypt","South Africa","Namibia"]
                         #"Republic of the Congo", "Egypt", "Ethiopia", "Ghana","Kenya","Namibia","Niger",
                         # "Algeria","Argentina","Brazil","Chile","Colombia","Mexico","Peru","Venezuela",
                         #"Morocco","Tunisia","Tanzania", "South Africa","Libya",
@@ -369,7 +372,7 @@ def get_iso_code(country_name: str) -> str:
         # search_fuzzy is robust; handles "South Korea", "Republic of the Congo", etc.
         result = pycountry.countries.search_fuzzy(country_name)
         if result:
-            return result[0].alpha_2
+            return getattr(result[0], "alpha_2", "XX")
     except (LookupError, AttributeError):
         pass
     
@@ -772,36 +775,39 @@ def _scenario_to_ammonia_column(scenario_label: str) -> Optional[str]:
 
 
 def _load_external_ammonia_mwh(country_name: str, year: int, scenario_label: str) -> float:
-    scenario_col = _scenario_to_ammonia_column(scenario_label)
-    if scenario_col is None or not AMMONIA_SCENARIO_XLSX.exists():
+    """Return green-path ammonia energy [MWh] from endog_ammonia_green_path in ammonia_volumes.csv.
+
+    Reads endog_ammonia_green_path [kt] for the given country/year/scenario and
+    converts to MWh via AMMONIA_MWH_PER_TON.  Falls back to 0.0 if the CSV is
+    missing or the country is not found.
+    """
+    if not AMMONIA_VOLUMES_CSV.exists():
+        return 0.0
+
+    vol_path = _PIPELINE_TO_VOLUME_PATH.get(scenario_label)
+    if vol_path is None:
         return 0.0
 
     try:
-        df = pd.read_excel(AMMONIA_SCENARIO_XLSX, sheet_name=AMMONIA_SCENARIO_SHEET)
+        df = pd.read_csv(AMMONIA_VOLUMES_CSV)
     except Exception:
         return 0.0
 
-    if "country" not in df.columns or "year" not in df.columns or scenario_col not in df.columns:
-        return 0.0
-
-    sub = df[df["country"].astype(str).str.strip().str.lower() == str(country_name).strip().lower()].copy()
+    sub = df[
+        (df["path"] == vol_path) &
+        (df["country"].astype(str).str.strip().str.lower() == str(country_name).strip().lower())
+    ].copy()
     if sub.empty:
         return 0.0
 
     sub["year"] = pd.to_numeric(sub["year"], errors="coerce")
-    sub[scenario_col] = pd.to_numeric(sub[scenario_col], errors="coerce")
-    sub = sub.dropna(subset=["year", scenario_col])
+    sub["endog_ammonia_green_path"] = pd.to_numeric(sub["endog_ammonia_green_path"], errors="coerce")
+    sub = sub.dropna(subset=["year", "endog_ammonia_green_path"]).sort_values("year")
     if sub.empty:
         return 0.0
 
-    years = sub["year"].astype(int).to_numpy()
-    vals_tons = sub[scenario_col].astype(float).to_numpy()
-    try:
-        import numpy as np
-        tons_val = float(np.interp(int(year), years, vals_tons))
-    except Exception:
-        return 0.0
-
+    tons_val = float(_np.interp(int(year), sub["year"].astype(int).to_numpy(),
+                                sub["endog_ammonia_green_path"].astype(float).to_numpy()))
     return tons_val * AMMONIA_MWH_PER_TON
 
 
@@ -2530,7 +2536,7 @@ def build_sec_ammonia_from_tidy(df: pd.DataFrame, country_name: Optional[str] = 
     out = piv[["Year", "Scenario", "SEC_Fuel"] + AMMONIA_SEC_COLS].copy()
 
     if country_name:
-        ammonia_target_col = "Industry Chemical Ammonia Other conventional"
+        ammonia_target_col = "Industry Chemical Ammonia Renewable"
         methanol_target_col = "Industry Chemical HVC Methanol"
         combos = out[["Year", "Scenario"]].drop_duplicates()
 
