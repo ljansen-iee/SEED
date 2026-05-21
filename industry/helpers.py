@@ -1,6 +1,7 @@
 # helpers.py
 import ast
 from pathlib import Path
+from typing import Callable, Dict, List
 import numpy as np
 import pandas as pd
 
@@ -1320,3 +1321,270 @@ def get_scenarios_from_main_industry() -> list[str]:
 
 
 METRIC_ORDER = _load_metric_order_from_main_industry(METRIC_ORDER)
+
+
+# ============================================================================
+# CONFIGURATION BUILDERS
+# ============================================================================
+# Functions below generate standardized configuration DataFrames for
+# INDUSTRY_CONFIG.csv. These are high-level builders that take sector-specific
+# data and convert it into the long-format configuration structure.
+#
+# Use these when building config rows for any sector (steel, ammonia, cement, etc.).
+# ============================================================================
+
+
+def build_fuel_share_rows(
+    industry_sector: str,
+    fuel_shares_dict: Dict,
+    metric_label: str,
+    countries: List[str],
+    base_year: int,
+    target_years: List[int],
+    scenarios: List[str],
+) -> pd.DataFrame:
+    """
+    Generate fuel share rows for any sector/process.
+    
+    Generic pattern that works for steel, ammonia, cement, etc.
+    
+    Args:
+        industry_sector: Sector name (e.g., "iron and steel", "ammonia")
+        fuel_shares_dict: Dictionary with fuel shares {fuel: {year: {scenario: value}}}
+        metric_label: Human-readable metric name (e.g., "BF+BOF fuel share")
+        countries: List of country names
+        base_year: Base year
+        target_years: List of target years
+        scenarios: List of scenario names
+    
+    Returns:
+        pd.DataFrame: Fuel share rows in long format
+    """
+    rows = []
+    all_years = [base_year] + target_years
+    
+    for year in all_years:
+        for scenario in scenarios:
+            # Create one row per fuel type
+            for fuel, year_data in fuel_shares_dict.items():
+                if year not in year_data:
+                    continue
+                
+                scenario_values = year_data[year]
+                
+                if scenario not in scenario_values:
+                    continue
+                
+                value = scenario_values[scenario]
+                
+                row = {
+                    'industry_sector': industry_sector,
+                    'type': 'fuel_share',
+                    'metric name': f'{metric_label} - {fuel}',
+                    'year': year,
+                    'scenario': scenario,
+                    'units': 'share',
+                }
+                
+                # Apply same share to all countries (technology-level data)
+                for country in countries:
+                    row[country] = value / 100.0  # Convert from percentage to fraction
+                
+                rows.append(row)
+    
+    return pd.DataFrame(rows)
+
+
+def build_intensity_base_rows(
+    industry_sector: str,
+    intensity_function: Callable,
+    metric_label: str,
+    countries: List[str],
+    base_year: int,
+    scenarios: List[str],
+) -> pd.DataFrame:
+    """
+    Generate BASE YEAR energy intensity rows for any sector/process.
+    
+    Generic pattern that works for steel, ammonia, cement, etc.
+    Creates aggregated intensity values per route for base year only.
+    Future projections are calculated separately using CAGR values from config.
+    
+    Args:
+        industry_sector: Sector name (e.g., "iron and steel", "ammonia")
+        intensity_function: Function that returns intensities (e.g., intensity_bf_bof)
+        metric_label: Human-readable metric name
+        countries: List of country names
+        base_year: Base year (e.g., 2020)
+        scenarios: List of scenario names
+    
+    Returns:
+        pd.DataFrame: Base intensity rows (2020 only) in long format
+    """
+    rows = []
+    
+    # Get base year intensities from function
+    intensities = intensity_function([base_year], scenarios)
+    
+    # Calculate base intensity (aggregated across all fuels)
+    base_intensity = 0.0
+    for fuel, year_data in intensities.items():
+        if base_year in year_data:
+            # Use first scenario value (base year same across scenarios)
+            scenario_values = year_data[base_year]
+            if scenario_values:
+                first_scenario = list(scenario_values.values())[0]
+                base_intensity += first_scenario
+    
+    # Generate row for BASE YEAR only (same for all scenarios)
+    for scenario in scenarios:
+        row = {
+            'industry_sector': industry_sector,
+            'type': 'intensity_base',
+            'metric name': metric_label,
+            'year': base_year,
+            'scenario': scenario,
+            'units': 'MWh/t',
+        }
+        
+        # Apply same base intensity to all countries (technology-level constant)
+        for country in countries:
+            row[country] = base_intensity
+        
+        rows.append(row)
+    
+    return pd.DataFrame(rows)
+
+
+def build_production_rows_with_cagr(
+    industry_sector: str,
+    metric_name: str,
+    base_values: Dict[str, float],
+    cagr_dict: Dict[str, Dict[str, float]],
+    countries: List[str],
+    base_year: int,
+    target_years: List[int],
+    scenarios: List[str],
+    units: str = 't/year',
+) -> pd.DataFrame:
+    """
+    Generate production rows using CAGR projection (generic pattern).
+    
+    Can be used for steel, ammonia, cement, etc.
+    
+    Args:
+        industry_sector: Sector name
+        metric_name: Metric name (e.g., "Steel production per year")
+        base_values: Dict of {country: base_year_value}
+        cagr_dict: Dict of {country: {scenario: cagr_rate}}
+        countries: List of country names
+        base_year: Base year
+        target_years: List of target years
+        scenarios: List of scenarios
+        units: Units (default: 't/year')
+    
+    Returns:
+        pd.DataFrame: Production rows
+    """
+    rows = []
+    
+    for country in countries:
+        base_value = base_values.get(country, 0.0)
+        country_cagr = cagr_dict.get(country, {})
+        
+        # Build production values
+        production_dict = {}
+        
+        # Base year: same for all scenarios
+        for scenario in scenarios:
+            production_dict[(base_year, scenario)] = base_value
+        
+        # Future years: project using CAGR
+        if base_value > 0 and country_cagr:
+            for scenario in scenarios:
+                cagr_rate = country_cagr.get(scenario, 0.0)
+                for year in target_years:
+                    years_elapsed = year - base_year
+                    projected_value = base_value * ((1 + cagr_rate) ** years_elapsed)
+                    production_dict[(year, scenario)] = projected_value
+        else:
+            for year in target_years:
+                for scenario in scenarios:
+                    production_dict[(year, scenario)] = 0.0
+        
+        # Create rows
+        all_years = [base_year] + target_years
+        for year in all_years:
+            for scenario in scenarios:
+                existing_row = None
+                for r in rows:
+                    if r['year'] == year and r['scenario'] == scenario:
+                        existing_row = r
+                        break
+                
+                if existing_row is None:
+                    existing_row = {
+                        'industry_sector': industry_sector,
+                        'type': 'production',
+                        'metric name': metric_name,
+                        'year': year,
+                        'scenario': scenario,
+                        'units': units,
+                    }
+                    rows.append(existing_row)
+                
+                existing_row[country] = production_dict.get((year, scenario), 0.0)
+    
+    return pd.DataFrame(rows)
+
+
+def build_cagr_rows(
+    industry_sector: str,
+    metric_name: str,
+    cagr_dict: Dict[str, Dict[str, float]],
+    countries: List[str],
+    base_year: int,
+    target_years: List[int],
+    scenarios: List[str],
+) -> pd.DataFrame:
+    """
+    Generate CAGR rows (generic pattern for any sector).
+    
+    Args:
+        industry_sector: Sector name
+        metric_name: Metric name
+        cagr_dict: Dict of {country: {scenario: cagr_rate}}
+        countries: List of country names
+        base_year: Base year
+        target_years: List of target years
+        scenarios: List of scenarios
+    
+    Returns:
+        pd.DataFrame: CAGR rows
+    """
+    rows = []
+    
+    # Define CAGR periods
+    periods = []
+    all_years = [base_year] + target_years
+    for i in range(len(all_years) - 1):
+        periods.append(f"{all_years[i]}-{all_years[i+1]}")
+    
+    for period in periods:
+        for scenario in scenarios:
+            row = {
+                'industry_sector': industry_sector,
+                'type': 'cagr',
+                'metric name': metric_name,
+                'year': period,
+                'scenario': scenario,
+                'units': 'share',
+            }
+            
+            for country in countries:
+                country_cagr = cagr_dict.get(country, {})
+                row[country] = country_cagr.get(scenario, 0.0)
+            
+            rows.append(row)
+    
+    return pd.DataFrame(rows)

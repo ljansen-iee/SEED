@@ -60,6 +60,18 @@ Reads the country parameter files, applies `SHARE` overrides and chain-linked
 `CAGR` projections from `industry_config.csv`, and writes final energy demand
 outputs to `industry/output_data/`.
 
+## CAGR Calculation Methodology
+
+The module uses a **data-driven approach** to calculate Compound Annual Growth Rates (CAGR) for production projections. Instead of hardcoded values, CAGRs are derived from historical UNSD energy consumption data (2011-2023) with scenario-specific multipliers:
+
+- **BAU**: Historical CAGR × 1.0 (continuation of current trends)
+- **Progressive**: Historical CAGR × 1.2 (20% growth acceleration)
+- **Optimistic**: Historical CAGR × 1.5 (50% growth acceleration)
+
+This methodology ensures transparency, reproducibility, and country-specific projections based on actual historical patterns.
+
+> **📖 For detailed methodology**: See [CAGR Methodology](cagr_methodology.md)
+
 ## Scenarios
 
 | Scenario | Description |
