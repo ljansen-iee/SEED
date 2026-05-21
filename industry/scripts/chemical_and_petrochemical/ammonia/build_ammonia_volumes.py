@@ -23,7 +23,11 @@ A single CSV written to the same folder as this script:
 Columns:
     path | country | year | local_production | import_volumes | total_demand |
     GALT | GAIR | CAGR_rate | CAGR_factor |
-    exog_ammonia_conv_path | endog_ammonia_green_path
+    exog_ammonia_conv_path | exog_ammonia_conv_path_MWh_nh3 |
+    endog_ammonia_green_path | endog_ammonia_green_path_MWh_nh3
+
+Note: Energy columns (*_MWh_nh3) are calculated using conversion factor:
+    AMMONIA_MWH_PER_TON = 5.166 MWh/tonne
 
 The ``path`` column contains the volume-scenario name (``mid_speed``,
 ``fast_track``, ``slow_mover``).  Use ``SCENARIO_MAPPING`` to translate the
@@ -61,6 +65,9 @@ from typing import Dict, List
 
 import numpy as np
 import pandas as pd
+
+# Import energy conversion factor (MWh per tonne of ammonia)
+from industry.scripts.chemical_and_petrochemical.ammonia.build_ammonia import AMMONIA_MWH_PER_TON
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -295,7 +302,9 @@ def build_scenario(
     hist_out["CAGR_rate"] = 0.0
     hist_out["CAGR_factor"] = 1.0
     hist_out["exog_ammonia_conv_path"] = hist_out["local_production"]
+    hist_out["exog_ammonia_conv_path_MWh_nh3"] = hist_out["local_production"] * AMMONIA_MWH_PER_TON
     hist_out["endog_ammonia_green_path"] = 0.0
+    hist_out["endog_ammonia_green_path_MWh_nh3"] = 0.0
 
     # --- Projected rows  ---------------------------------------------------
     galt_values = _interpolate_indicator(GALT_ANCHORS[scenario_name], projection_years)
@@ -336,7 +345,9 @@ def build_scenario(
                     "CAGR_rate": interval_rate,
                     "CAGR_factor": round(cagr_factor, 6),
                     "exog_ammonia_conv_path": round(exog, 4),
+                    "exog_ammonia_conv_path_MWh_nh3": round(exog * AMMONIA_MWH_PER_TON, 4),
                     "endog_ammonia_green_path": round(endog, 4),
+                    "endog_ammonia_green_path_MWh_nh3": round(endog * AMMONIA_MWH_PER_TON, 4),
                 }
             )
 
@@ -366,7 +377,9 @@ def build_scenario(
         "CAGR_rate",
         "CAGR_factor",
         "exog_ammonia_conv_path",
+        "exog_ammonia_conv_path_MWh_nh3",
         "endog_ammonia_green_path",
+        "endog_ammonia_green_path_MWh_nh3",
     ]
     return combined[col_order]
 
