@@ -6,9 +6,9 @@ import pycountry
 import pandas as pd
 from industry.helpers import get_historical_sector_data
 import numpy as _np
-from industry.scripts.chemical_and_petrochemical.ammonia.build_ammonia import (
-    AMMONIA_SCENARIO_XLSX,
-    AMMONIA_SCENARIO_SHEET,
+
+# Import ammonia constants from the new data-driven workflow
+from industry.scripts.chemical_and_petrochemical.ammonia.build_ammonia_volumes import (
     AMMONIA_MWH_PER_TON,
     BASE_YEAR,
     unsd_path,

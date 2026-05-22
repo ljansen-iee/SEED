@@ -66,8 +66,15 @@ from typing import Dict, List
 import numpy as np
 import pandas as pd
 
-# Import energy conversion factor (MWh per tonne of ammonia)
-from industry.scripts.chemical_and_petrochemical.ammonia.build_ammonia import AMMONIA_MWH_PER_TON
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
+# Energy conversion factor (MWh per tonne of ammonia)
+AMMONIA_MWH_PER_TON = 5.166
+
+# Base year for projections
+BASE_YEAR = 2020
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -76,6 +83,7 @@ from industry.scripts.chemical_and_petrochemical.ammonia.build_ammonia import AM
 _SCRIPT_DIR = Path(__file__).resolve()
 _INDUSTRY_ROOT = _SCRIPT_DIR.parents[3]
 
+# Path to UNSD ammonia data
 UNDATA_CSV = (
     _INDUSTRY_ROOT
     / "input_data"
@@ -83,7 +91,18 @@ UNDATA_CSV = (
     / "UNdata_Export_20250709_101100979.csv"
 )
 
-OUTPUT_DIR = Path(__file__).resolve().parent
+# Path to country-specific UNSD data
+unsd_path = _INDUSTRY_ROOT / "input_data" / "country_specific"
+
+# Legacy Excel file path (for backwards compatibility)
+AMMONIA_SCENARIO_XLSX = _INDUSTRY_ROOT / "input_data" / "petrochemicals" / "ammonia_all_countries_scenarios.xlsx"
+AMMONIA_SCENARIO_SHEET = "combined_wide"
+
+# Path to generated volumes CSV (output)
+AMMONIA_VOLUMES_CSV = _INDUSTRY_ROOT / "output_data" / "ammonia_volumes.csv"
+
+# Default output directory (can be overridden)
+OUTPUT_DIR = _INDUSTRY_ROOT / "output_data"
 
 # Projected years (5-year steps)
 PROJECTION_YEARS: List[int] = [2025, 2030, 2035, 2040, 2045, 2050]
@@ -144,6 +163,9 @@ SCENARIO_MAPPING: Dict[str, str] = {
     "Progressive": "mid_speed",
     "Optimistic":  "fast_track",
 }
+
+# Also export as _PIPELINE_TO_VOLUME_PATH for backwards compatibility
+_PIPELINE_TO_VOLUME_PATH = SCENARIO_MAPPING
 
 
 def _compute_cagr_factor(

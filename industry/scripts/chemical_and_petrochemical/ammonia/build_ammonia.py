@@ -1,4 +1,30 @@
 # scripts/ammonia/ammonia.py
+"""
+=============================================================================
+⚠️  LEGACY MODULE - For backwards compatibility only
+=============================================================================
+
+This module contains the OLD ammonia data loader that reads from Excel files
+with pre-calculated scenario sheets (ammonia_all_countries_scenarios.xlsx).
+
+🔴 DEPRECATED - Use the new data-driven workflow instead:
+   - build_config_rows_ammonia.py (generates config from UNSD data)
+   - build_ammonia_volumes.py (generates volumes from UNSD data)
+
+📍 Currently used by:
+   - build_config_industry.py (old config generator)
+   - build_final_energy_demand.py (imports constants - will be updated)
+
+📝 For new code, import constants from build_ammonia_volumes.py:
+   from build_ammonia_volumes import (
+       AMMONIA_MWH_PER_TON,
+       BASE_YEAR,
+       AMMONIA_VOLUMES_CSV,
+       _PIPELINE_TO_VOLUME_PATH,
+   )
+
+=============================================================================
+"""
 
 from pathlib import Path
 from typing import Optional, Union, Sequence, Dict, Any
@@ -14,16 +40,12 @@ unsd_path = _industry_root / "input_data" / "country_specific"
 
 _AMMONIA_FILENAME_STEM = "ammonia_all_countries_scenarios"
 
-# Path to the generated ammonia volumes CSV (same directory as this file).
-# Run build_ammonia_volumes.py to regenerate it.
-AMMONIA_VOLUMES_CSV = Path(__file__).resolve().parent / "ammonia_volumes.csv"
+# Path to the generated ammonia volumes CSV
+# NOTE: This now points to output_data/ (not same directory as this file)
+AMMONIA_VOLUMES_CSV = _industry_root / "output_data" / "ammonia_volumes.csv"
 
 # Maps pipeline scenario names used in build_config_industry.py
 # to the volume path names written by build_ammonia_volumes.py.
-# TODO: decide whether to (a) remove share_smrhb/share_renew rows from the
-#   *_Output.csv entirely once the volume-split approach is validated, or
-#   (b) add a USE_VOLUME_SPLIT boolean flag so users can toggle between
-#   share-based routing and volume-based routing without editing this file.
 _PIPELINE_TO_VOLUME_PATH: Dict[str, str] = {
     "BAU":         "slow_mover",
     "Progressive": "mid_speed",

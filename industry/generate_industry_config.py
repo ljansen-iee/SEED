@@ -7,7 +7,7 @@ Each sector has its own module in scripts/<sector>/ for maintainability.
 Architecture:
     - This file: Orchestration, CSV writing, auto-generation of derivative files
     - scripts/iron_and_steel/build_config_rows_steel.py: All steel logic
-    - scripts/chemical_and_petrochemical/ammonia/build_config_rows_ammonia.py: Ammonia logic (TODO)
+    - scripts/chemical_and_petrochemical/ammonia/build_config_rows_ammonia.py: Ammonia logic
     - helpers.py: Generic row builders and utilities (see "CONFIGURATION BUILDERS" section)
 
 Structure:
@@ -23,8 +23,10 @@ Structure:
         - intensity_base: Base energy intensities (MWh/ton, 2020 only)
 
 Separate Output Files (Auto-Generated):
-    - steel_intensity_projections.csv: Projected intensities for all years
+    - steel_intensity_projections.csv: Projected steel intensities for all years
+    - ammonia_intensity_projections.csv: Projected ammonia intensities for all years
     - steel_volumes.csv: Production volumes by technology pathway
+    - ammonia_volumes.csv: Production volumes by pathway (conventional/green) with GALT/GAIR indicators
 """
 
 from pathlib import Path
@@ -34,6 +36,7 @@ from datetime import datetime
 
 # === Import sector-specific configuration builders ===
 from scripts.iron_and_steel.build_config_rows_steel import generate_steel_config_rows
+from scripts.chemical_and_petrochemical.ammonia.build_config_rows_ammonia import generate_ammonia_config_rows
 
 # === Import helpers ===
 from helpers import DEFAULT_TARGET_YEARS
@@ -101,8 +104,16 @@ def generate_industry_config_csv(
     )
     print(f"✓ Steel configuration complete: {len(df_steel)} rows")
     
+    # Ammonia (Chemical and Petrochemical)
+    print("\n" + "="*60)
+    print("GENERATING AMMONIA CONFIGURATION")
+    print("="*60)
+    df_ammonia = generate_ammonia_config_rows(
+        countries, base_year, target_years, scenarios
+    )
+    print(f"✓ Ammonia configuration complete: {len(df_ammonia)} rows")
+    
     # TODO: Add other sectors
-    # df_ammonia = generate_ammonia_config_rows(countries, base_year, target_years, scenarios)
     # df_cement = generate_cement_config_rows(countries, base_year, target_years, scenarios)
     
     # === Concatenate all sectors ===
@@ -110,7 +121,7 @@ def generate_industry_config_csv(
     df_all = pd.concat(
         [
             df_steel,
-            # df_ammonia,  # TODO
+            df_ammonia,
             # df_cement,   # TODO
         ],
         ignore_index=True,
@@ -130,11 +141,19 @@ def generate_industry_config_csv(
     
     # === Auto-generate derivative files ===
     print(f"\n{'='*60}")
-    print(f"AUTO-GENERATING INTENSITY PROJECTIONS")
+    print(f"AUTO-GENERATING STEEL INTENSITY PROJECTIONS")
     print(f"{'='*60}")
-    intensity_proj_path = BASE_DIR / "output_data" / "steel_intensity_projections.csv"
+    steel_intensity_proj_path = BASE_DIR / "output_data" / "steel_intensity_projections.csv"
     build_steel_intensity_projections(
-        df_all, countries, base_year, target_years, scenarios, intensity_proj_path
+        df_all, countries, base_year, target_years, scenarios, steel_intensity_proj_path
+    )
+    
+    print(f"\n{'='*60}")
+    print(f"AUTO-GENERATING AMMONIA INTENSITY PROJECTIONS")
+    print(f"{'='*60}")
+    ammonia_intensity_proj_path = BASE_DIR / "output_data" / "ammonia_intensity_projections.csv"
+    build_ammonia_intensity_projections(
+        df_all, countries, base_year, target_years, scenarios, ammonia_intensity_proj_path
     )
     
     print(f"\n{'='*60}")
@@ -263,6 +282,107 @@ def build_steel_intensity_projections(
     ]
     for _, row in sample.iterrows():
         print(f"  {row['year']} | {row['route'][:30]:30s} | {row[countries[0]]:6.2f} MWh/t")
+
+
+def build_ammonia_intensity_projections(
+    df_config,
+    countries,
+    base_year,
+    target_years,
+    scenarios,
+    output_path,
+):
+    """
+    Generate ammonia_intensity_projections.csv from INDUSTRY_CONFIG.csv.
+    
+    Extracts intensity values for ammonia production routes across all years
+    and scenarios. Unlike steel (which uses base + CAGR), ammonia intensities
+    are pre-calculated per year in the intensity functions.
+    
+    Args:
+        df_config: Generated config DataFrame
+        countries: List of country names
+        base_year: Base year
+        target_years: List of target years
+        scenarios: List of scenarios
+        output_path: Path to write projections CSV
+    """
+    print(f"\nGenerating ammonia intensity projections...")
+    
+    # Get base intensities from config (these are per fuel, so we need to aggregate)
+    intensity_base = df_config[
+        (df_config['industry_sector'] == 'ammonia') & 
+        (df_config['type'] == 'intensity_base')
+    ].copy()
+    
+    # Routes to process (these are the metric labels from build_config_rows_ammonia.py)
+    routes = {
+        "intensity_ammonia_smr_hb": "Ammonia SMR + Haber-Bosch",
+        "intensity_ammonia_renewable": "Ammonia renewable synthesis",
+    }
+    
+    all_years = [base_year] + target_years
+    rows = []
+    
+    for metric_label, route_name in routes.items():
+        # Get all intensity rows for this route
+        route_rows = intensity_base[intensity_base['metric name'] == metric_label]
+        
+        if route_rows.empty:
+            continue
+        
+        # For each scenario and year combination
+        for scenario in scenarios:
+            for year in all_years:
+                # Get the intensity value for this year and scenario
+                year_rows = route_rows[
+                    (route_rows['year'] == year) &
+                    (route_rows['scenario'] == scenario)
+                ]
+                
+                if year_rows.empty:
+                    continue
+                
+                # Extract first row (should be unique per year/scenario)
+                intensity_row = year_rows.iloc[0]
+                
+                row = {
+                    'route': route_name,
+                    'scenario': scenario,
+                    'year': year,
+                    'units': 'MWh/t',
+                }
+                
+                # Extract intensity values for each country
+                for country in countries:
+                    if country in intensity_row:
+                        row[country] = round(float(intensity_row[country]), 4)
+                    else:
+                        row[country] = 0.0
+                
+                rows.append(row)
+    
+    df_projections = pd.DataFrame(rows)
+    df_projections = df_projections.sort_values(['route', 'scenario', 'year']).reset_index(drop=True)
+    
+    # Write to CSV
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    df_projections.to_csv(output_path, index=False)
+    
+    print(f"✓ Written → {output_path}")
+    print(f"  Total rows: {len(df_projections)}")
+    print(f"  Structure: route | scenario | year | units | {' | '.join(countries)}")
+    
+    # Display preview
+    if len(df_projections) > 0:
+        print(f"\nSample ({countries[0]}, BAU):")
+        sample = df_projections[
+            (df_projections['scenario'] == 'BAU') &
+            (df_projections['year'].isin([2020, 2030, 2050]))
+        ]
+        for _, row in sample.iterrows():
+            print(f"  {row['year']} | {row['route']:35s} | {row[countries[0]]:6.2f} MWh/t")
 
 
 def extract_metric(
