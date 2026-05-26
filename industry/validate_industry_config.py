@@ -71,16 +71,24 @@ def validate_industry_config(df: pd.DataFrame) -> Dict[str, bool]:
     print(f"  ✅ Total rows: {len(df)}")
     results['row_count'] = len(df) > 1000
     
-    # Check for NaN values in data columns (excluding CAGR rows which have period labels)
-    # CAGR rows have year strings like "2020-2030" and intentionally have NaN for periods
-    non_cagr_df = df[df['type'] != 'cagr']
+    # Check for NaN values in data columns (excluding CAGR rows and share rows)
+    # - CAGR rows have year strings like "2020-2030" and intentionally have NaN for periods
+    # - Share rows may have NaN for fuels not used by that route (e.g., hydrogen share for conventional routes)
+    critical_rows = df[(df['type'] != 'cagr') & (df['type'] != 'share')]
     data_cols = COUNTRIES
-    nan_counts = non_cagr_df[data_cols].isna().sum().sum()
+    nan_counts = critical_rows[data_cols].isna().sum().sum()
+    
+    # Also show share NaN counts separately for info
+    share_rows = df[df['type'] == 'share']
+    share_nan_counts = share_rows[data_cols].isna().sum().sum()
+    
     if nan_counts == 0:
-        print(f"  ✅ No NaN values in non-CAGR data columns")
+        print(f"  ✅ No NaN values in critical data columns")
+        print(f"  ℹ️  Share rows have {share_nan_counts} NaN values (expected for unused fuels)")
         results['no_nan'] = True
     else:
-        print(f"  ⚠️  {nan_counts} NaN values found in non-CAGR rows")
+        print(f"  ⚠️  {nan_counts} NaN values found in critical rows")
+        print(f"  ℹ️  Share rows have {share_nan_counts} additional NaN values")
         results['no_nan'] = False
     
     # Check year coverage (excluding CAGR period rows)

@@ -11,7 +11,11 @@ Architecture:
     - helpers.py: Generic row builders and utilities (see "CONFIGURATION BUILDERS" section)
 
 Structure:
-    - Columns: ['industry_sector', 'type', 'metric name', 'year', 'scenario', 'units'] + country_list
+    - Columns: ['metric_1', 'metric_2', 'metric_3', 'metric_4', 'year', 'scenario', 'units'] + country_list
+      * metric_1: Industry sector (e.g., 'iron and steel', 'ammonia')
+      * metric_2: Type (e.g., 'production', 'cagr', 'technology_route', 'fuel_share', 'intensity_base')
+      * metric_3: Technology route or metric name (e.g., 'BF+BOF', 'SMR+HB', 'Steel production per year')
+      * metric_4: Sub-metric (e.g., fuel type for fuel_share rows, empty for others)
     - Years: 2020 (base), 2030, 2035, 2040, 2045, 2050
     - Scenarios: BAU, Progressive, Optimistic
     - Sectors: iron and steel, ammonia, cement, etc.
@@ -202,16 +206,18 @@ def build_steel_intensity_projections(
     print(f"\nGenerating steel intensity projections...")
     
     # Get base intensities and CAGR from config
-    intensity_base = df_config[df_config['type'] == 'intensity_base'].copy()
-    intensity_cagr = df_config[df_config['type'] == 'cagr'].copy()
-    intensity_cagr = intensity_cagr[intensity_cagr['metric name'].str.contains('Energy intensity', na=False)]
+    intensity_base = df_config[df_config['metric_2'] == 'intensity_base'].copy()
+    intensity_cagr = df_config[df_config['metric_2'] == 'cagr'].copy()
+    # Filter for intensity CAGR rows (not production CAGR)
+    intensity_routes = ["BF+BOF", "DR+EAF", "Scrap EAF", "Casting, rolling & finishing"]
+    intensity_cagr = intensity_cagr[intensity_cagr['metric_3'].isin(intensity_routes)]
     
     # Routes to process
     routes = [
-        "Energy intensity of blast furnaces + basic oxygen furnaces",
-        "Energy intensity of direct reduction + electric arc furnaces",
-        "Energy intensity of scrap electric arc furnaces",
-        "Energy intensity of casting, rolling & finishing",
+        "BF+BOF",
+        "DR+EAF",
+        "Scrap EAF",
+        "Casting, rolling & finishing",
     ]
     
     all_years = [base_year] + target_years
@@ -219,7 +225,7 @@ def build_steel_intensity_projections(
     
     for route in routes:
         # Get base intensity for this route
-        base_rows = intensity_base[intensity_base['metric name'] == route]
+        base_rows = intensity_base[intensity_base['metric_3'] == route]
         if base_rows.empty:
             continue
         
@@ -229,7 +235,7 @@ def build_steel_intensity_projections(
             
             # Get CAGR for this route and scenario
             cagr_rows = intensity_cagr[
-                (intensity_cagr['metric name'] == route) &
+                (intensity_cagr['metric_3'] == route) &
                 (intensity_cagr['scenario'] == scenario)
             ]
             
@@ -244,7 +250,7 @@ def build_steel_intensity_projections(
                 years_elapsed = year - base_year
                 
                 row = {
-                    'route': route,
+                    'route': f'Energy intensity of {route}',  # Make it clear this is intensity
                     'scenario': scenario,
                     'year': year,
                     'units': 'MWh/t',
@@ -293,14 +299,17 @@ def build_ammonia_intensity_projections(
     output_path,
 ):
     """
-    Generate ammonia_intensity_projections.csv from INDUSTRY_CONFIG.csv.
+    Generate ammonia_intensity_projections.csv with year-by-year intensity projections.
     
-    Extracts intensity values for ammonia production routes across all years
-    and scenarios. Unlike steel (which uses base + CAGR), ammonia intensities
-    are pre-calculated per year in the intensity functions.
+    Unlike steel (base + CAGR), ammonia intensities are pre-calculated per year
+    in the intensity functions. We generate projections directly from those functions
+    since INDUSTRY_CONFIG.csv only stores the base year.
+    
+    NOTE: Intensities aggregate all fuel types. Future enhancement should add
+    fuel-specific intensities for better modeling flexibility.
     
     Args:
-        df_config: Generated config DataFrame
+        df_config: Generated config DataFrame (used to validate base year values)
         countries: List of country names
         base_year: Base year
         target_years: List of target years
@@ -309,42 +318,32 @@ def build_ammonia_intensity_projections(
     """
     print(f"\nGenerating ammonia intensity projections...")
     
-    # Get base intensities from config (these are per fuel, so we need to aggregate)
-    intensity_base = df_config[
-        (df_config['industry_sector'] == 'ammonia') & 
-        (df_config['type'] == 'intensity_base')
-    ].copy()
+    # Import intensity functions
+    from industry.scripts.chemical_and_petrochemical.ammonia.build_intensities_ammonia import (
+        intensity_ammonia_smr_hb,
+        intensity_ammonia_renewable,
+    )
     
-    # Routes to process (these are the metric labels from build_config_rows_ammonia.py)
-    routes = {
-        "intensity_ammonia_smr_hb": "Ammonia SMR + Haber-Bosch",
-        "intensity_ammonia_renewable": "Ammonia renewable synthesis",
-    }
+    # Get intensity data directly from functions (all years)
+    intensity_smr = intensity_ammonia_smr_hb(target_years=target_years, scenarios=scenarios)
+    intensity_renewable = intensity_ammonia_renewable(target_years=target_years, scenarios=scenarios)
+    
+    pathways = [
+        ("Energy intensity of SMR+HB", intensity_smr),
+        ("Energy intensity of Renewable synthesis", intensity_renewable),
+    ]
     
     all_years = [base_year] + target_years
     rows = []
     
-    for metric_label, route_name in routes.items():
-        # Get all intensity rows for this route
-        route_rows = intensity_base[intensity_base['metric name'] == metric_label]
-        
-        if route_rows.empty:
-            continue
-        
-        # For each scenario and year combination
-        for scenario in scenarios:
-            for year in all_years:
-                # Get the intensity value for this year and scenario
-                year_rows = route_rows[
-                    (route_rows['year'] == year) &
-                    (route_rows['scenario'] == scenario)
-                ]
-                
-                if year_rows.empty:
-                    continue
-                
-                # Extract first row (should be unique per year/scenario)
-                intensity_row = year_rows.iloc[0]
+    for route_name, intensity_data in pathways:
+        for year in all_years:
+            for scenario in scenarios:
+                # Sum intensities across all fuels for this year/scenario
+                total_intensity = 0.0
+                for fuel, year_data in intensity_data.items():
+                    if year in year_data and scenario in year_data[year]:
+                        total_intensity += year_data[year][scenario]
                 
                 row = {
                     'route': route_name,
@@ -353,12 +352,9 @@ def build_ammonia_intensity_projections(
                     'units': 'MWh/t',
                 }
                 
-                # Extract intensity values for each country
+                # Same intensity for all countries (not country-specific)
                 for country in countries:
-                    if country in intensity_row:
-                        row[country] = round(float(intensity_row[country]), 4)
-                    else:
-                        row[country] = 0.0
+                    row[country] = round(total_intensity, 4)
                 
                 rows.append(row)
     
@@ -393,6 +389,7 @@ def extract_metric(
     scenario: str,
     year: int,
     countries: list,
+    metric_4: str = '',
 ) -> pd.Series:
     """
     Extract a single metric row for specified countries.
@@ -400,9 +397,10 @@ def extract_metric(
     Returns a Series with country names as index and values.
     """
     mask = (
-        (df["industry_sector"] == industry_sector) &
-        (df["type"] == metric_type) &
-        (df["metric name"] == metric_name) &
+        (df["metric_1"] == industry_sector) &
+        (df["metric_2"] == metric_type) &
+        (df["metric_3"] == metric_name) &
+        (df["metric_4"] == metric_4) &
         (df["scenario"] == scenario) &
         (df["year"] == year)
     )
@@ -411,12 +409,12 @@ def extract_metric(
     if len(rows) == 0:
         raise ValueError(
             f"No data found for: {industry_sector} / {metric_type} / {metric_name} / "
-            f"{scenario} / {year}"
+            f"{metric_4} / {scenario} / {year}"
         )
     if len(rows) > 1:
         raise ValueError(
             f"Multiple rows found for: {industry_sector} / {metric_type} / {metric_name} / "
-            f"{scenario} / {year}"
+            f"{metric_4} / {scenario} / {year}"
         )
     
     # Get the row and extract country columns
@@ -461,24 +459,24 @@ def build_steel_volumes(
             )
             
             primary_share = extract_metric(
-                df_config, "iron and steel", "technology_route", "Share of primary steel", 
+                df_config, "iron and steel", "technology_route", "Primary steel production", 
                 scenario, year, countries
             )
             
             secondary_share = extract_metric(
-                df_config, "iron and steel", "technology_route", "Share of secondary steel", 
+                df_config, "iron and steel", "technology_route", "Secondary steel production", 
                 scenario, year, countries
             )
             
             bf_bof_share = extract_metric(
                 df_config, "iron and steel", "technology_route",
-                "Share of blast furnace + basic oxygen furnace for steel making",
+                "BF+BOF",
                 scenario, year, countries
             )
             
             dr_eaf_share = extract_metric(
                 df_config, "iron and steel", "technology_route",
-                "Share of direct reduction + electric arc furnace for steel making",
+                "DR+EAF",
                 scenario, year, countries
             )
             

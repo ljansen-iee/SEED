@@ -13,6 +13,42 @@ for INDUSTRY_CONFIG.csv. This includes:
 
 This modular structure allows easy maintenance and testing of steel logic
 independently from other sectors (ammonia, cement, etc.).
+
+CAGR METHODOLOGY:
+=================
+
+1. PRODUCTION CAGR:
+   - Source: UNSD historical energy consumption data (2011-2023)
+   - Calculation: Rolling 5-year mean CAGR from historical trends
+   - Sector: "Iron and steel" from UNSD energy database
+   - Scenario adjustment: BAU (1.0×), Progressive (1.2×), Optimistic (1.5×)
+   - Country-specific: Yes - each country has its own historical growth rate
+   - Fallback: 1.5% if no UNSD data available
+   - Examples:
+     * Egypt: 27.4% BAU (rapid industrialization)
+     * Morocco: 1.5% BAU (no data, using default)
+     * South Africa: 0.79% BAU (mature market)
+     * Namibia: 1.5% BAU (no data, using default)
+
+2. INTENSITY CAGR:
+   - Source: Fixed engineering assumptions (defined in config builder)
+   - Method: Predefined constant CAGR per route and scenario
+   - BAU: 0% (no improvement assumed)
+   - Progressive: 0% (technology switch, not efficiency)
+   - Optimistic: -0.1% to -0.107% (efficiency gains)
+   - Country-specific: No - technology improvements are global
+   - Routes:
+     * BF+BOF: 0% all scenarios (mature technology)
+     * DR+EAF: -0.1% Optimistic (process optimization)
+     * Scrap EAF: -0.1% Optimistic (heat recovery)
+     * Casting/Rolling: -0.107% Optimistic (waste heat recovery)
+
+3. ACTIVITY FACTOR CAGR (Unspecified Steel):
+   - Source: Uses the same CAGR as steel production (UNSD-based)
+   - Rationale: Unspecified processes (specialty steel, finishing, etc.)
+     scale proportionally with total steel production
+   - This is why it varies by country - it reflects local production trends
+   - Same as production CAGR values (see #1 above)
 """
 
 import pandas as pd
@@ -182,9 +218,10 @@ def build_steel_production_rows(
                 
                 if existing_row is None:
                     existing_row = {
-                        'industry_sector': 'iron and steel',
-                        'type': 'production',
-                        'metric name': 'Steel production per year',
+                        'metric_1': 'iron and steel',  # Industry sector
+                        'metric_2': 'production',  # Type
+                        'metric_3': 'Steel production per year',  # Metric name
+                        'metric_4': '',  # Not applicable
                         'year': year,
                         'scenario': scenario,
                         'units': 't/year',
@@ -215,9 +252,10 @@ def build_steel_cagr_rows(
     for period in periods:
         for scenario in scenarios:
             row = {
-                'industry_sector': 'iron and steel',
-                'type': 'cagr',
-                'metric name': 'Steel production per year',
+                'metric_1': 'iron and steel',  # Industry sector
+                'metric_2': 'cagr',  # Type
+                'metric_3': 'Steel production per year',  # Metric name
+                'metric_4': '',  # Not applicable
                 'year': period,
                 'scenario': scenario,
                 'units': 'share',
@@ -288,17 +326,18 @@ def build_steel_route_share_rows(
     years_to_target = target_year - base_year
     
     route_configs = [
-        {'name': 'Share of blast furnace + basic oxygen furnace for steel making', 'route_type': 'bf_bof'},
-        {'name': 'Share of direct reduction + electric arc furnace for steel making', 'route_type': 'dr_eaf'},
+        {'name': 'BF+BOF', 'route_type': 'bf_bof'},
+        {'name': 'DR+EAF', 'route_type': 'dr_eaf'},
     ]
     
     for route_cfg in route_configs:
         for year in all_years:
             for scenario in scenarios:
                 row = {
-                    'industry_sector': 'iron and steel',
-                    'type': 'technology_route',
-                    'metric name': route_cfg['name'],
+                    'metric_1': 'iron and steel',  # Industry sector
+                    'metric_2': 'technology_route',  # Type
+                    'metric_3': route_cfg['name'],  # Technology route
+                    'metric_4': '',  # Not applicable
                     'year': year,
                     'scenario': scenario,
                     'units': 'share',
@@ -334,16 +373,17 @@ def build_steel_primary_secondary_share_rows(
     shares_dict = share_steel_primary_secondary(all_years, scenarios)
     
     for share_type in ['primary', 'secondary']:
-        metric_name = f"Share of {share_type} steel"
+        metric_name = f"{share_type.capitalize()} steel production"
         
         for year in all_years:
             for scenario in scenarios:
                 value = shares_dict[share_type][year][scenario]
                 
                 row = {
-                    'industry_sector': 'iron and steel',
-                    'type': 'technology_route',
-                    'metric name': metric_name,
+                    'metric_1': 'iron and steel',  # Industry sector
+                    'metric_2': 'technology_route',  # Type
+                    'metric_3': metric_name,  # Primary steel production or Secondary steel production
+                    'metric_4': '',  # Not applicable
                     'year': year,
                     'scenario': scenario,
                     'units': 'share',
@@ -432,23 +472,23 @@ def generate_steel_config_rows(
     
     print("Building fuel share rows...")
     df_fuel_bf_bof = build_fuel_share_rows(
-        'iron and steel', fuel_shares_bf_bof, "BF+BOF fuel share",
+        'iron and steel', fuel_shares_bf_bof, "BF+BOF",
         countries, base_year, target_years, scenarios
     )
     df_fuel_dr_eaf = build_fuel_share_rows(
-        'iron and steel', fuel_shares_dr_eaf, "DR+EAF fuel share",
+        'iron and steel', fuel_shares_dr_eaf, "DR+EAF",
         countries, base_year, target_years, scenarios
     )
     df_fuel_scrap_eaf = build_fuel_share_rows(
-        'iron and steel', fuel_shares_scrap_eaf, "Scrap EAF fuel share",
+        'iron and steel', fuel_shares_scrap_eaf, "Scrap EAF",
         countries, base_year, target_years, scenarios
     )
     df_fuel_casting_rolling = build_fuel_share_rows(
-        'iron and steel', fuel_shares_casting_rolling, "Casting, rolling & finishing fuel share",
+        'iron and steel', fuel_shares_casting_rolling, "Casting, rolling & finishing",
         countries, base_year, target_years, scenarios
     )
     df_fuel_unspecified = build_fuel_share_rows(
-        'iron and steel', fuel_shares_unspecified, "Unspecified iron and steel fuel share",
+        'iron and steel', fuel_shares_unspecified, "Unspecified",
         countries, base_year, target_years, scenarios
     )
     
@@ -456,32 +496,32 @@ def generate_steel_config_rows(
     print("Building base year intensity rows...")
     df_intensity_bf_bof = build_intensity_base_rows(
         'iron and steel', intensity_bf_bof,
-        "Energy intensity of blast furnaces + basic oxygen furnaces",
+        "BF+BOF",
         countries, base_year, scenarios
     )
     df_intensity_dr_eaf = build_intensity_base_rows(
         'iron and steel', intensity_dr_eaf,
-        "Energy intensity of direct reduction + electric arc furnaces",
+        "DR+EAF",
         countries, base_year, scenarios
     )
     df_intensity_scrap_eaf = build_intensity_base_rows(
         'iron and steel', intensity_scrap_eaf,
-        "Energy intensity of scrap electric arc furnaces",
+        "Scrap EAF",
         countries, base_year, scenarios
     )
     df_intensity_casting_rolling = build_intensity_base_rows(
         'iron and steel', intensity_casting_rolling,
-        "Energy intensity of casting, rolling & finishing",
+        "Casting, rolling & finishing",
         countries, base_year, scenarios
     )
     
     # Intensity CAGR
     print("Building energy intensity CAGR rows...")
     intensity_cagr_config = {
-        "Energy intensity of blast furnaces + basic oxygen furnaces": [0.0, 0.0, 0.0],
-        "Energy intensity of direct reduction + electric arc furnaces": [0.0, 0.0, -0.001],
-        "Energy intensity of scrap electric arc furnaces": [0.0, 0.0, -0.001],
-        "Energy intensity of casting, rolling & finishing": [0.0, 0.0, -0.00107],
+        "BF+BOF": [0.0, 0.0, 0.0],
+        "DR+EAF": [0.0, 0.0, -0.001],
+        "Scrap EAF": [0.0, 0.0, -0.001],
+        "Casting, rolling & finishing": [0.0, 0.0, -0.00107],
     }
     
     df_intensity_cagr_rows = []
@@ -492,9 +532,10 @@ def generate_steel_config_rows(
         for period in periods:
             for scenario_idx, scenario in enumerate(scenarios):
                 row = {
-                    'industry_sector': 'iron and steel',
-                    'type': 'cagr',
-                    'metric name': metric_name,
+                    'metric_1': 'iron and steel',  # Industry sector
+                    'metric_2': 'cagr',  # Type
+                    'metric_3': metric_name,  # Technology route
+                    'metric_4': '',  # Not applicable
                     'year': period,
                     'scenario': scenario,
                     'units': 'share',
@@ -507,16 +548,26 @@ def generate_steel_config_rows(
     df_intensity_cagr = pd.DataFrame(df_intensity_cagr_rows)
     
     # Unspecified iron and steel
+    # NOTE: "Unspecified" captures all steel processes not explicitly modeled
+    # (e.g., specialty steel production, surface finishing, heat treatment)
+    # These grow at the same rate as total steel production (UNSD-based CAGR)
     print("Building unspecified iron and steel rows...")
     df_unspecified_prod = build_steel_production_rows(
         df_steel_production, steel_cagr_dict, countries, base_year, target_years, scenarios
     )
-    df_unspecified_prod['metric name'] = 'Activity factor of unspecified iron and steel'
+    df_unspecified_prod['metric_3'] = 'Unspecified'
     
+    # Activity factor CAGR = Steel production CAGR (from UNSD)
+    # Rationale: Unspecified processes scale proportionally with total production
+    # This is why values differ by country (reflecting local historical trends):
+    #   - Egypt: 27.4% (rapid industrialization)
+    #   - Morocco: 1.5% (default, no UNSD data)
+    #   - South Africa: 0.79% (mature market, low growth)
+    #   - Namibia: 1.5% (default, no UNSD data)
     df_unspecified_cagr = build_steel_cagr_rows(
         steel_cagr_dict, countries, base_year, target_years, scenarios
     )
-    df_unspecified_cagr['metric name'] = 'Activity factor of unspecified iron and steel'
+    df_unspecified_cagr['metric_3'] = 'Unspecified'
     
     # Concatenate all steel rows
     print("Concatenating all steel metrics...")
@@ -541,6 +592,9 @@ def generate_steel_config_rows(
         ],
         ignore_index=True,
     )
+    
+    # Fill NaN values with 0 (for unused fuel shares, etc.)
+    df_steel_all = df_steel_all.fillna(0)
     
     print(f"✓ Steel configuration complete: {len(df_steel_all)} rows")
     

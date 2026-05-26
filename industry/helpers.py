@@ -1351,14 +1351,14 @@ def build_fuel_share_rows(
     Args:
         industry_sector: Sector name (e.g., "iron and steel", "ammonia")
         fuel_shares_dict: Dictionary with fuel shares {fuel: {year: {scenario: value}}}
-        metric_label: Human-readable metric name (e.g., "BF+BOF fuel share")
+        metric_label: Technology route name (e.g., "BF+BOF", "Ammonia SMR+HB")
         countries: List of country names
         base_year: Base year
         target_years: List of target years
         scenarios: List of scenario names
     
     Returns:
-        pd.DataFrame: Fuel share rows in long format
+        pd.DataFrame: Fuel share rows in long format with hierarchical structure
     """
     rows = []
     all_years = [base_year] + target_years
@@ -1378,9 +1378,10 @@ def build_fuel_share_rows(
                 value = scenario_values[scenario]
                 
                 row = {
-                    'industry_sector': industry_sector,
-                    'type': 'fuel_share',
-                    'metric name': f'{metric_label} - {fuel}',
+                    'metric_1': industry_sector,  # Industry sector
+                    'metric_2': 'fuel_share',  # Type
+                    'metric_3': metric_label,  # Technology route
+                    'metric_4': fuel,  # Fuel type
                     'year': year,
                     'scenario': scenario,
                     'units': 'share',
@@ -1439,9 +1440,10 @@ def build_intensity_base_rows(
     # Generate row for BASE YEAR only (same for all scenarios)
     for scenario in scenarios:
         row = {
-            'industry_sector': industry_sector,
-            'type': 'intensity_base',
-            'metric name': metric_label,
+            'metric_1': industry_sector,  # Industry sector
+            'metric_2': 'intensity_base',  # Type
+            'metric_3': metric_label,  # Technology route
+            'metric_4': '',  # Not applicable for intensity rows
             'year': base_year,
             'scenario': scenario,
             'units': 'MWh/t',
@@ -1524,9 +1526,10 @@ def build_production_rows_with_cagr(
                 
                 if existing_row is None:
                     existing_row = {
-                        'industry_sector': industry_sector,
-                        'type': 'production',
-                        'metric name': metric_name,
+                        'metric_1': industry_sector,  # Industry sector
+                        'metric_2': 'production',  # Type
+                        'metric_3': metric_name,  # Metric name
+                        'metric_4': '',  # Not applicable for production rows
                         'year': year,
                         'scenario': scenario,
                         'units': units,
@@ -1573,9 +1576,10 @@ def build_cagr_rows(
     for period in periods:
         for scenario in scenarios:
             row = {
-                'industry_sector': industry_sector,
-                'type': 'cagr',
-                'metric name': metric_name,
+                'metric_1': industry_sector,  # Industry sector
+                'metric_2': 'cagr',  # Type
+                'metric_3': metric_name,  # Metric name
+                'metric_4': '',  # Not applicable for CAGR rows
                 'year': period,
                 'scenario': scenario,
                 'units': 'share',

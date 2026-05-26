@@ -18,6 +18,30 @@ and testing of ammonia logic independently from other sectors.
 Key indicators:
 - GALT (Green Ammonia Local Transformation): share of local production using green synthesis
 - GAIR (Green Ammonia Import Reallocation): share of imports reallocated to local green production
+
+CAGR METHODOLOGY:
+=================
+
+1. PRODUCTION CAGR (same as steel):
+   - Source: UNSD historical energy consumption data (2011-2023)
+   - Calculation: Rolling 5-year mean CAGR from historical trends
+   - Scenario adjustment: BAU (1.0×), Progressive (1.2×), Optimistic (1.5×)
+   - Country-specific: Yes - each country has its own historical growth rate
+   - Fallback: 1.5% if no UNSD data available
+
+2. INTENSITY CAGR (different from steel):
+   - Source: Year-specific values from intensity functions (build_intensities_ammonia.py)
+   - Calculation: (end_intensity / start_intensity)^(1/years) - 1
+   - Steel comparison: Steel uses fixed CAGR values; ammonia calculates from functions
+   - Scenario variation: BAU/Progressive (~0%), Optimistic (~-0.1% annual)
+   - Country-specific: No - technology improvements are global
+   - Efficiency gains:
+     * SMR pathway: Process optimization, heat recovery
+     * Renewable pathway: Electrolyzer efficiency improvements
+
+WHY DIFFERENT APPROACHES?
+- Production: Historical data reflects policy, economic, market trends → use UNSD
+- Intensity: Technology efficiency gains are predictable → use engineering projections
 """
 
 import pandas as pd
@@ -80,10 +104,22 @@ def calculate_ammonia_cagr_from_unsd(
     """
     Calculate data-driven CAGR for ammonia production from historical UNSD data.
     
-    This follows the same methodology as steel:
-    1. Loads historical energy consumption from UNSD (2011-2023)
-    2. Calculates rolling 5-year mean CAGR
-    3. Applies scenario-specific multipliers
+    METHODOLOGY (SAME AS STEEL):
+    Both steel and ammonia use UNSD historical energy consumption data to calculate
+    realistic growth rates. This ensures projections are grounded in actual trends.
+    
+    Process:
+    1. Load historical energy consumption from UNSD database (2011-2023)
+    2. Calculate rolling 5-year mean CAGR from historical data
+    3. Apply scenario-specific multipliers to adjust for future expectations
+    
+    Scenario multipliers:
+    - BAU (1.0): Business as usual - historical trend continues unchanged
+    - Progressive (1.2): 20% growth acceleration - moderate policy push
+    - Optimistic (1.5): 50% growth acceleration - strong decarbonization push
+    
+    Fallback: If no UNSD data available for a country, uses 1.5% default
+    (average industrial growth rate from IEA/World Bank estimates)
     
     Args:
         countries: List of country names
@@ -96,7 +132,7 @@ def calculate_ammonia_cagr_from_unsd(
     
     Example:
         >>> calculate_ammonia_cagr_from_unsd(["Morocco"], ["BAU", "Progressive", "Optimistic"])
-        {'Morocco': {'BAU': 0.015, 'Progressive': 0.018, 'Optimistic': 0.0225}}
+        {'Morocco': {'BAU': 0.032685, 'Progressive': 0.039222, 'Optimistic': 0.049028}}
     """
     if scenario_multipliers is None:
         scenario_multipliers = {
@@ -256,10 +292,15 @@ def build_ammonia_cagr_rows(
     scenarios: List[str],
     cagr_dict: Dict[str, Dict[str, float]],
 ) -> pd.DataFrame:
-    """Build CAGR metric rows for ammonia production."""
+    """
+    Build CAGR metric rows for ammonia production.
+    
+    Note: Metric name is just 'ammonia production' since the 'type' column
+    already indicates this is a CAGR value.
+    """
     return build_cagr_rows(
         industry_sector="ammonia",
-        metric_name="CAGR ammonia production",
+        metric_name="ammonia production",
         cagr_dict=cagr_dict,
         countries=countries,
         base_year=base_year,
@@ -306,28 +347,33 @@ def build_ammonia_pathway_share_rows(
             # SMR + Haber-Bosch share = 1 - GALT
             smr_share = 1.0 - galt
             
+            # Create ONE row for SMR+HB with all countries
+            row_smr = {
+                "metric_1": "ammonia",  # Industry sector
+                "metric_2": "technology_route",  # Type
+                "metric_3": "SMR+HB",  # Technology route
+                "metric_4": "",  # Not applicable
+                "year": year,
+                "scenario": scenario,
+                "units": "share",
+            }
             for country in countries:
-                # SMR + Haber-Bosch pathway
-                all_rows.append({
-                    "industry_sector": "ammonia",
-                    "type": "share",
-                    "metric name": "Share of SMR + Haber-Bosch",
-                    "year": year,
-                    "scenario": scenario,
-                    country: smr_share,
-                    "units": "fraction",
-                })
-                
-                # Renewable synthesis pathway
-                all_rows.append({
-                    "industry_sector": "ammonia",
-                    "type": "share",
-                    "metric name": "Share of renewable ammonia synthesis",
-                    "year": year,
-                    "scenario": scenario,
-                    country: galt,
-                    "units": "fraction",
-                })
+                row_smr[country] = smr_share
+            all_rows.append(row_smr)
+            
+            # Create ONE row for Renewable synthesis with all countries
+            row_renewable = {
+                "metric_1": "ammonia",  # Industry sector
+                "metric_2": "technology_route",  # Type
+                "metric_3": "Renewable synthesis",  # Technology route
+                "metric_4": "",  # Not applicable
+                "year": year,
+                "scenario": scenario,
+                "units": "share",
+            }
+            for country in countries:
+                row_renewable[country] = galt
+            all_rows.append(row_renewable)
     
     return pd.DataFrame(all_rows)
 
@@ -364,16 +410,19 @@ def build_ammonia_reallocation_share_rows(
             anchor_vals = [anchors[y] for y in anchor_years]
             gair = float(np.interp(year, anchor_years, anchor_vals))
             
+            # Create ONE row for import reallocation with all countries
+            row = {
+                "metric_1": "ammonia",  # Industry sector
+                "metric_2": "technology_route",  # Type
+                "metric_3": "Import reallocation",  # Metric
+                "metric_4": "",  # Not applicable
+                "year": year,
+                "scenario": scenario,
+                "units": "share",
+            }
             for country in countries:
-                all_rows.append({
-                    "industry_sector": "ammonia",
-                    "type": "share",
-                    "metric name": "Share of imports reallocation",
-                    "year": year,
-                    "scenario": scenario,
-                    country: gair,
-                    "units": "fraction",
-                })
+                row[country] = gair
+            all_rows.append(row)
     
     return pd.DataFrame(all_rows)
 
@@ -403,7 +452,7 @@ def build_ammonia_fuel_share_rows(
     df_smr = build_fuel_share_rows(
         industry_sector="ammonia",
         fuel_shares_dict=smr_shares,
-        metric_label="fuel_ammonia_smr_hb",
+        metric_label="SMR+HB",
         countries=countries,
         base_year=base_year,
         target_years=target_years,
@@ -413,7 +462,7 @@ def build_ammonia_fuel_share_rows(
     df_renewable = build_fuel_share_rows(
         industry_sector="ammonia",
         fuel_shares_dict=renewable_shares,
-        metric_label="fuel_ammonia_renewable",
+        metric_label="Renewable synthesis",
         countries=countries,
         base_year=base_year,
         target_years=target_years,
@@ -434,50 +483,149 @@ def build_ammonia_intensity_rows(
     scenarios: List[str],
 ) -> pd.DataFrame:
     """
-    Build energy intensity rows for ammonia pathways.
+    Build energy intensity rows for ammonia pathways (BASE YEAR ONLY).
     
-    Unlike steel (which uses base + CAGR), ammonia intensities are pre-calculated
-    for each year in the intensity functions. We store values for ALL years.
+    Similar to steel, we only store base year intensities in INDUSTRY_CONFIG.csv.
+    Full year-by-year projections are auto-generated in ammonia_intensity_projections.csv.
     
     Two pathways:
-    1. SMR + Haber-Bosch: uses intensity_ammonia_smr_hb()
-    2. Renewable synthesis: uses intensity_ammonia_renewable()
+    1. SMR + Haber-Bosch: Conventional ammonia production using steam methane reforming
+    2. Renewable synthesis: Green ammonia using renewable electricity + electrolysis
+    
+    ASSUMPTION: We aggregate all fuel intensities into a single total intensity value.
+    This assumes the same energy intensity applies regardless of fuel type used.
+    
+    TODO (Future Enhancement): Add fuel-specific intensities to differentiate between:
+    - Natural gas vs coal vs biomass for SMR pathway
+    - Different electricity sources for renewable pathway
+    - Allow model to optimize fuel mix based on cost and availability
     """
-    all_years = [base_year] + target_years
     rows = []
     
     # Get intensity data for both pathways
     intensity_smr = intensity_ammonia_smr_hb(target_years=target_years, scenarios=scenarios)
     intensity_renewable = intensity_ammonia_renewable(target_years=target_years, scenarios=scenarios)
     
+    # Map to human-readable metric names (matches steel pattern)
     pathways = [
-        ("intensity_ammonia_smr_hb", intensity_smr),
-        ("intensity_ammonia_renewable", intensity_renewable),
+        ("SMR+HB", intensity_smr),
+        ("Renewable synthesis", intensity_renewable),
     ]
     
-    for metric_label, intensity_data in pathways:
-        # Sum all fuels to get total intensity per year/scenario
-        for year in all_years:
+    for metric_name, intensity_data in pathways:
+        # Only store BASE YEAR in config (projections go to separate CSV)
+        for scenario in scenarios:
+            # Sum intensities across all fuels for base year
+            total_intensity = 0.0
+            for fuel, year_data in intensity_data.items():
+                if base_year in year_data and scenario in year_data[base_year]:
+                    total_intensity += year_data[base_year][scenario]
+            
+            # Create row for base year only
+            row = {
+                "metric_1": "ammonia",  # Industry sector
+                "metric_2": "intensity_base",  # Type
+                "metric_3": metric_name,  # Technology route
+                "metric_4": "",  # Not applicable
+                "year": base_year,
+                "scenario": scenario,
+                "units": "MWh/t",
+            }
+            
+            # Same intensity for all countries (not country-specific)
+            for country in countries:
+                row[country] = round(total_intensity, 2)
+            
+            rows.append(row)
+    
+    return pd.DataFrame(rows)
+
+
+def build_ammonia_intensity_cagr_rows(
+    countries: List[str],
+    base_year: int,
+    target_years: List[int],
+    scenarios: List[str],
+) -> pd.DataFrame:
+    """
+    Build CAGR rows for ammonia energy intensities.
+    
+    METHODOLOGY (DIFFERENT FROM STEEL):
+    Steel uses fixed CAGR values defined in the config builder (e.g., 0.0, -0.001).
+    Ammonia calculates CAGR from the intensity functions which contain year-specific
+    technology assumptions. This allows for more granular intensity projections.
+    
+    Process:
+    1. Get intensity values from intensity functions for start/end year
+    2. Calculate CAGR: (end_intensity / start_intensity)^(1/years) - 1
+    3. Generate CAGR rows for each period (2020-2030, 2030-2035, etc.)
+    
+    Intensity improvements by scenario:
+    - BAU: No improvement (0% CAGR) - assumes current technology persists
+    - Progressive: No improvement (0% CAGR) - technology adoption, not efficiency
+    - Optimistic: ~-0.1% annual - efficiency gains from:
+      * SMR pathway: Process optimization, heat recovery improvements
+      * Renewable pathway: Electrolyzer efficiency gains, better integration
+    
+    NOTE: These CAGRs are technology-driven (same for all countries).
+    Country-specific variations would require different technology adoption rates.
+    
+    Returns:
+        DataFrame with CAGR values for each period, pathway, and scenario
+    """
+    # Get intensity data
+    intensity_smr = intensity_ammonia_smr_hb(target_years=target_years, scenarios=scenarios)
+    intensity_renewable = intensity_ammonia_renewable(target_years=target_years, scenarios=scenarios)
+    
+    pathways = [
+        ("SMR+HB", intensity_smr),
+        ("Renewable synthesis", intensity_renewable),
+    ]
+    
+    all_years = [base_year] + target_years
+    periods = [f"{all_years[i]}-{all_years[i+1]}" for i in range(len(all_years) - 1)]
+    
+    rows = []
+    
+    for metric_name, intensity_data in pathways:
+        for period in periods:
+            # Parse period years
+            start_year, end_year = map(int, period.split('-'))
+            years_elapsed = end_year - start_year
+            
             for scenario in scenarios:
-                # Sum intensities across all fuels for this year/scenario
-                total_intensity = 0.0
-                for fuel, year_data in intensity_data.items():
-                    if year in year_data and scenario in year_data[year]:
-                        total_intensity += year_data[year][scenario]
+                # Calculate total intensity for start and end years
+                start_intensity = sum(
+                    intensity_data[fuel][start_year][scenario]
+                    for fuel in intensity_data
+                    if start_year in intensity_data[fuel] and scenario in intensity_data[fuel][start_year]
+                )
                 
-                # Create row for this year/scenario
+                end_intensity = sum(
+                    intensity_data[fuel][end_year][scenario]
+                    for fuel in intensity_data
+                    if end_year in intensity_data[fuel] and scenario in intensity_data[fuel][end_year]
+                )
+                
+                # Calculate CAGR: (end/start)^(1/years) - 1
+                if start_intensity > 0:
+                    cagr_value = (end_intensity / start_intensity) ** (1 / years_elapsed) - 1
+                else:
+                    cagr_value = 0.0
+                
                 row = {
-                    "industry_sector": "ammonia",
-                    "type": "intensity_base",  # Keep this name for compatibility
-                    "metric name": metric_label,
-                    "year": year,
-                    "scenario": scenario,
-                    "units": "MWh/t",
+                    'metric_1': 'ammonia',  # Industry sector
+                    'metric_2': 'cagr',  # Type
+                    'metric_3': metric_name,  # Technology route
+                    'metric_4': '',  # Not applicable
+                    'year': period,
+                    'scenario': scenario,
+                    'units': 'share',
                 }
                 
-                # Same intensity for all countries (not country-specific)
+                # Same CAGR for all countries (intensity improvements are technology-driven)
                 for country in countries:
-                    row[country] = round(total_intensity, 2)
+                    row[country] = round(cagr_value, 6)
                 
                 rows.append(row)
     
@@ -611,8 +759,15 @@ def generate_ammonia_config_rows(
     )
     print(f"  ✓ Generated {len(df_intensities)} intensity rows")
     
-    # Step 9: Generate ammonia_volumes.csv
-    print("\n9. Generating ammonia_volumes.csv...")
+    # Step 9: Build intensity CAGR rows
+    print("\n9. Building intensity CAGR rows...")
+    df_intensity_cagr = build_ammonia_intensity_cagr_rows(
+        countries, base_year, target_years, scenarios
+    )
+    print(f"  ✓ Generated {len(df_intensity_cagr)} intensity CAGR rows")
+    
+    # Step 10: Generate ammonia_volumes.csv
+    print("\n10. Generating ammonia_volumes.csv...")
     build_ammonia_volumes_csv()
     
     # Concatenate all rows
@@ -625,9 +780,13 @@ def generate_ammonia_config_rows(
             df_reallocation_shares,
             df_fuel_shares,
             df_intensities,
+            df_intensity_cagr,
         ],
         ignore_index=True,
     )
+    
+    # Fill NaN values with 0 (matching iron and steel nomenclature)
+    df_all = df_all.fillna(0)
     
     print("\n" + "="*70)
     print(f"✓ AMMONIA CONFIG COMPLETE: {len(df_all)} total rows")
