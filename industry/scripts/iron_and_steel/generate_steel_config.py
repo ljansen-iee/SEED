@@ -79,16 +79,16 @@ from scripts.iron_and_steel.build_energy_intensities_steel import (
 # Import helpers
 try:
     # When running from root (e.g., via imported by another script)
-    from industry.build_CAGR import get_final_energy_cagr_from_unsd
-    from industry.helpers import extract_all_fuels, extract_capacity_shares
+    from industry.core.cagr_calculator import calculate_production_cagr_from_unsd
+    from industry.core.helpers import extract_all_fuels, extract_capacity_shares
 except ImportError:
     # When running from industry folder directly
-    from build_CAGR import get_final_energy_cagr_from_unsd
-    from helpers import extract_all_fuels, extract_capacity_shares
+    from core.cagr_calculator import calculate_production_cagr_from_unsd
+    from core.helpers import extract_all_fuels, extract_capacity_shares
 
 
 # ============================================================================
-# CAGR CALCULATION
+# CAGR CALCULATION (Now uses centralized core.cagr_calculator)
 # ============================================================================
 
 def calculate_steel_cagr_from_unsd(
@@ -99,10 +99,9 @@ def calculate_steel_cagr_from_unsd(
     """
     Calculate data-driven CAGR for steel production from historical UNSD data.
     
-    This replaces hardcoded CAGR values with methodology-based calculations:
-    1. Loads historical energy consumption from UNSD (2011-2023)
-    2. Calculates rolling 5-year mean CAGR
-    3. Applies scenario-specific multipliers
+    This is now a thin wrapper around the centralized calculate_production_cagr_from_unsd()
+    function in industry.core.cagr_calculator. The centralized version ensures consistent
+    methodology across all sectors (steel, ammonia, cement, etc.).
     
     Args:
         countries: List of country names
@@ -117,40 +116,13 @@ def calculate_steel_cagr_from_unsd(
         >>> calculate_steel_cagr_from_unsd(["Morocco"], ["BAU", "Progressive", "Optimistic"])
         {'Morocco': {'BAU': 0.025, 'Progressive': 0.030, 'Optimistic': 0.0375}}
     """
-    if scenario_multipliers is None:
-        scenario_multipliers = {
-            "BAU": 1.0,          # Business as usual: use historical trend
-            "Progressive": 1.2,  # 20% growth acceleration
-            "Optimistic": 1.5,   # 50% growth acceleration
-        }
-    
-    steel_cagr = {}
-    
-    for country in countries:
-        print(f"  Calculating CAGR for {country} from UNSD historical data...")
-        
-        # Get historical CAGR from UNSD data (iron and steel sector)
-        try:
-            historical_cagr = get_final_energy_cagr_from_unsd(country, "Iron and steel")
-            
-            if historical_cagr is None or historical_cagr == 0.0:
-                print(f"    ⚠️  No historical data for {country}, using default 1.5% CAGR")
-                historical_cagr = 0.015  # Default 1.5% if no data
-            else:
-                print(f"    ✓ Historical CAGR: {historical_cagr:.3%}")
-        
-        except Exception as e:
-            print(f"    ⚠️  Error calculating CAGR for {country}: {e}")
-            historical_cagr = 0.015  # Default 1.5%
-        
-        # Apply scenario multipliers
-        steel_cagr[country] = {}
-        for scenario in scenarios:
-            multiplier = scenario_multipliers.get(scenario, 1.0)
-            steel_cagr[country][scenario] = historical_cagr * multiplier
-            print(f"    {scenario}: {steel_cagr[country][scenario]:.3%} (×{multiplier})")
-    
-    return steel_cagr
+    return calculate_production_cagr_from_unsd(
+        countries=countries,
+        unsd_sector_name="Iron and steel",
+        scenarios=scenarios,
+        scenario_multipliers=scenario_multipliers,
+        fallback_cagr=0.015,  # 1.5% default for steel
+    )
 
 
 # ============================================================================
@@ -458,9 +430,9 @@ def generate_steel_config_rows(
     
     # Import generic builders
     try:
-        from industry.helpers import build_fuel_share_rows, build_intensity_base_rows
+        from industry.core.helpers import build_fuel_share_rows, build_intensity_base_rows
     except ImportError:
-        from ...helpers import build_fuel_share_rows, build_intensity_base_rows
+        from core.helpers import build_fuel_share_rows, build_intensity_base_rows
     
     # Fuel shares
     print("Loading fuel shares...")
@@ -518,10 +490,10 @@ def generate_steel_config_rows(
     # Intensity CAGR
     print("Building energy intensity CAGR rows...")
     intensity_cagr_config = {
-        "BF+BOF": [0.0, 0.0, 0.0],
-        "DR+EAF": [0.0, 0.0, -0.001],
-        "Scrap EAF": [0.0, 0.0, -0.001],
-        "Casting, rolling & finishing": [0.0, 0.0, -0.00107],
+        "Energy intensity of BF+BOF": [0.0, 0.0, 0.0],
+        "Energy intensity of DR+EAF": [0.0, 0.0, -0.001],
+        "Energy intensity of Scrap EAF": [0.0, 0.0, -0.001],
+        "Energy intensity of Casting, rolling & finishing": [0.0, 0.0, -0.00107],
     }
     
     df_intensity_cagr_rows = []

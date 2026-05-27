@@ -7,10 +7,10 @@ for INDUSTRY_CONFIG.csv. This includes:
 - Local production projections
 - Import volume tracking
 - Technology pathway shares (SMR+Haber-Bosch vs renewable synthesis)
-- Import reallocation shares (GAIR indicator)
+- Import reallocation shares
 - Fuel shares per pathway
 - Energy intensities per pathway
-- Ammonia volumes (pathway splits with GALT/GAIR indicators)
+- Ammonia volumes (pathway splits with renewable/SMR+HB)
 
 This modular structure follows the steel sector pattern, allowing easy maintenance
 and testing of ammonia logic independently from other sectors.
@@ -72,8 +72,8 @@ from industry.scripts.chemical_and_petrochemical.ammonia.build_intensities_ammon
 # Import helpers
 try:
     # When running from root
-    from industry.build_CAGR import get_final_energy_cagr_from_unsd
-    from industry.helpers import (
+    from industry.core.cagr_calculator import calculate_production_cagr_from_unsd
+    from industry.core.helpers import (
         extract_all_fuels,
         build_fuel_share_rows,
         build_intensity_base_rows,
@@ -82,8 +82,8 @@ try:
     )
 except ImportError:
     # When running from industry folder directly
-    from build_CAGR import get_final_energy_cagr_from_unsd
-    from helpers import (
+    from core.cagr_calculator import calculate_production_cagr_from_unsd
+    from core.helpers import (
         extract_all_fuels,
         build_fuel_share_rows,
         build_intensity_base_rows,
@@ -93,7 +93,7 @@ except ImportError:
 
 
 # ============================================================================
-# CAGR CALCULATION
+# CAGR CALCULATION (Now uses centralized core.cagr_calculator)
 # ============================================================================
 
 def calculate_ammonia_cagr_from_unsd(
@@ -103,6 +103,10 @@ def calculate_ammonia_cagr_from_unsd(
 ) -> Dict[str, Dict[str, float]]:
     """
     Calculate data-driven CAGR for ammonia production from historical UNSD data.
+    
+    This is now a thin wrapper around the centralized calculate_production_cagr_from_unsd()
+    function in industry.core.cagr_calculator. The centralized version ensures consistent
+    methodology across all sectors (steel, ammonia, cement, etc.).
     
     METHODOLOGY (SAME AS STEEL):
     Both steel and ammonia use UNSD historical energy consumption data to calculate
@@ -134,39 +138,13 @@ def calculate_ammonia_cagr_from_unsd(
         >>> calculate_ammonia_cagr_from_unsd(["Morocco"], ["BAU", "Progressive", "Optimistic"])
         {'Morocco': {'BAU': 0.032685, 'Progressive': 0.039222, 'Optimistic': 0.049028}}
     """
-    if scenario_multipliers is None:
-        scenario_multipliers = {
-            "BAU": 1.0,          # Business as usual: use historical trend
-            "Progressive": 1.2,  # 20% growth acceleration
-            "Optimistic": 1.5,   # 50% growth acceleration
-        }
-    
-    ammonia_cagr = {}
-    
-    for country in countries:
-        print(f"  Calculating CAGR for {country} from UNSD historical data...")
-        
-        # Get historical CAGR from UNSD data (chemical and petrochemical sector)
-        try:
-            historical_cagr = get_final_energy_cagr_from_unsd(country, "Chemical and petrochemical")
-            
-            if historical_cagr is None or historical_cagr == 0.0:
-                print(f"    ⚠ No UNSD data for {country}, using fallback default: 1.5%")
-                historical_cagr = 0.015  # Fallback to industry average
-        except Exception as e:
-            print(f"    ⚠ Error loading UNSD data for {country}: {e}")
-            print(f"    Using fallback default: 1.5%")
-            historical_cagr = 0.015
-        
-        # Apply scenario multipliers
-        ammonia_cagr[country] = {}
-        for scenario in scenarios:
-            multiplier = scenario_multipliers.get(scenario, 1.0)
-            cagr_value = historical_cagr * multiplier
-            ammonia_cagr[country][scenario] = round(cagr_value, 6)
-            print(f"    {scenario}: {cagr_value:.4%} (historical: {historical_cagr:.4%} × {multiplier})")
-    
-    return ammonia_cagr
+    return calculate_production_cagr_from_unsd(
+        countries=countries,
+        unsd_sector_name="Chemical and petrochemical",
+        scenarios=scenarios,
+        scenario_multipliers=scenario_multipliers,
+        fallback_cagr=0.015,  # 1.5% default for ammonia
+    )
 
 
 # ============================================================================
@@ -578,8 +556,8 @@ def build_ammonia_intensity_cagr_rows(
     intensity_renewable = intensity_ammonia_renewable(target_years=target_years, scenarios=scenarios)
     
     pathways = [
-        ("SMR+HB", intensity_smr),
-        ("Renewable synthesis", intensity_renewable),
+        ("Energy intensity of SMR+HB", intensity_smr),
+        ("Energy intensity of Renewable synthesis", intensity_renewable),
     ]
     
     all_years = [base_year] + target_years
@@ -663,8 +641,8 @@ def build_ammonia_volumes_csv(output_dir: Optional[Path] = None) -> pd.DataFrame
     print("="*70)
     
     if output_dir is None:
-        # Write to industry/output_data/ like steel_volumes.csv
-        output_dir = Path(__file__).resolve().parents[3] / "output_data"
+        # Write to industry/output_data/interim_data/ to match steel_volumes.csv location
+        output_dir = Path(__file__).resolve().parents[3] / "output_data" / "interim_data"
     
     # Use existing build_all_scenarios function
     df = build_all_scenarios(output_dir=output_dir)
@@ -815,5 +793,5 @@ if __name__ == "__main__":
     
     print("\nSample rows:")
     print(df.head(20))
-    print("\nRow counts by type:")
-    print(df.groupby("type")["metric name"].value_counts())
+    print("\nRow counts by metric type:")
+    print(df.groupby("metric_2")["metric_3"].value_counts())

@@ -243,7 +243,7 @@ def get_final_energy_cagr_from_unsd(country: str, sector_keyword: str) -> float:
     Returns:
         CAGR as decimal (e.g., 0.02 for 2%)
     """
-    from industry.helpers import get_historical_sector_data
+    from industry.core.helpers import get_historical_sector_data
     
     folder_path = Path(__file__).parent / "input_data" / "country_specific"
     

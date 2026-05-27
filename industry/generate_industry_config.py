@@ -30,7 +30,15 @@ Separate Output Files (Auto-Generated):
     - steel_intensity_projections.csv: Projected steel intensities for all years
     - ammonia_intensity_projections.csv: Projected ammonia intensities for all years
     - steel_volumes.csv: Production volumes by technology pathway
-    - ammonia_volumes.csv: Production volumes by pathway (conventional/green) with GALT/GAIR indicators
+    - ammonia_volumes.csv: Production volumes by pathway (conventional/green)
+
+TODO - CLEANUP AFTER WORKFLOW COMPLETE:
+    Once all sectors are integrated and final energy demand calculation is working,
+    DELETE these deprecated scripts:
+    1. industry/build_config_industry.py (OLD workflow - replaced by this file)
+    2. industry/scripts/chemical_and_petrochemical/ammonia/build_ammonia.py (OLD - replaced by build_config_rows_ammonia.py)
+    
+    These files are no longer needed with the new consolidated workflow.
 """
 
 from pathlib import Path
@@ -39,11 +47,11 @@ import numpy as np
 from datetime import datetime
 
 # === Import sector-specific configuration builders ===
-from scripts.iron_and_steel.build_config_rows_steel import generate_steel_config_rows
-from scripts.chemical_and_petrochemical.ammonia.build_config_rows_ammonia import generate_ammonia_config_rows
+from scripts.iron_and_steel.generate_steel_config import generate_steel_config_rows
+from scripts.chemical_and_petrochemical.ammonia.generate_ammonia_config import generate_ammonia_config_rows
 
 # === Import helpers ===
-from helpers import DEFAULT_TARGET_YEARS
+from industry.core.helpers import DEFAULT_TARGET_YEARS
 
 # === Module-level constants ===
 BASE_YEAR = 2020
@@ -144,10 +152,14 @@ def generate_industry_config_csv(
     print(f"  Countries: {countries}")
     
     # === Auto-generate derivative files ===
+    # Create interim_data folder for auto-generated files
+    interim_dir = BASE_DIR / "output_data" / "interim_data"
+    interim_dir.mkdir(parents=True, exist_ok=True)
+    
     print(f"\n{'='*60}")
     print(f"AUTO-GENERATING STEEL INTENSITY PROJECTIONS")
     print(f"{'='*60}")
-    steel_intensity_proj_path = BASE_DIR / "output_data" / "steel_intensity_projections.csv"
+    steel_intensity_proj_path = interim_dir / "steel_intensity_projections.csv"
     build_steel_intensity_projections(
         df_all, countries, base_year, target_years, scenarios, steel_intensity_proj_path
     )
@@ -155,7 +167,7 @@ def generate_industry_config_csv(
     print(f"\n{'='*60}")
     print(f"AUTO-GENERATING AMMONIA INTENSITY PROJECTIONS")
     print(f"{'='*60}")
-    ammonia_intensity_proj_path = BASE_DIR / "output_data" / "ammonia_intensity_projections.csv"
+    ammonia_intensity_proj_path = interim_dir / "ammonia_intensity_projections.csv"
     build_ammonia_intensity_projections(
         df_all, countries, base_year, target_years, scenarios, ammonia_intensity_proj_path
     )
@@ -163,7 +175,7 @@ def generate_industry_config_csv(
     print(f"\n{'='*60}")
     print(f"AUTO-GENERATING STEEL VOLUMES")
     print(f"{'='*60}")
-    volumes_path = BASE_DIR / "output_data" / "steel_volumes.csv"
+    volumes_path = interim_dir / "steel_volumes.csv"
     build_steel_volumes(
         df_all, countries, base_year, target_years, scenarios, volumes_path
     )
@@ -209,23 +221,28 @@ def build_steel_intensity_projections(
     intensity_base = df_config[df_config['metric_2'] == 'intensity_base'].copy()
     intensity_cagr = df_config[df_config['metric_2'] == 'cagr'].copy()
     # Filter for intensity CAGR rows (not production CAGR)
-    intensity_routes = ["BF+BOF", "DR+EAF", "Scrap EAF", "Casting, rolling & finishing"]
+    intensity_routes = [
+        "Energy intensity of BF+BOF",
+        "Energy intensity of DR+EAF",
+        "Energy intensity of Scrap EAF",
+        "Energy intensity of Casting, rolling & finishing"
+    ]
     intensity_cagr = intensity_cagr[intensity_cagr['metric_3'].isin(intensity_routes)]
     
     # Routes to process
     routes = [
-        "BF+BOF",
-        "DR+EAF",
-        "Scrap EAF",
-        "Casting, rolling & finishing",
+        ("Energy intensity of BF+BOF", "BF+BOF"),
+        ("Energy intensity of DR+EAF", "DR+EAF"),
+        ("Energy intensity of Scrap EAF", "Scrap EAF"),
+        ("Energy intensity of Casting, rolling & finishing", "Casting, rolling & finishing"),
     ]
     
     all_years = [base_year] + target_years
     rows = []
     
-    for route in routes:
-        # Get base intensity for this route
-        base_rows = intensity_base[intensity_base['metric_3'] == route]
+    for cagr_route_name, base_route_name in routes:
+        # Get base intensity for this route (using base route name)
+        base_rows = intensity_base[intensity_base['metric_3'] == base_route_name]
         if base_rows.empty:
             continue
         
@@ -233,9 +250,9 @@ def build_steel_intensity_projections(
             # Get base value (same for all scenarios at base year)
             base_row = base_rows[base_rows['year'] == base_year].iloc[0]
             
-            # Get CAGR for this route and scenario
+            # Get CAGR for this route and scenario (using CAGR route name)
             cagr_rows = intensity_cagr[
-                (intensity_cagr['metric_3'] == route) &
+                (intensity_cagr['metric_3'] == cagr_route_name) &
                 (intensity_cagr['scenario'] == scenario)
             ]
             
@@ -250,7 +267,7 @@ def build_steel_intensity_projections(
                 years_elapsed = year - base_year
                 
                 row = {
-                    'route': f'Energy intensity of {route}',  # Make it clear this is intensity
+                    'route': cagr_route_name,  # Use full CAGR route name (includes "Energy intensity of")
                     'scenario': scenario,
                     'year': year,
                     'units': 'MWh/t',

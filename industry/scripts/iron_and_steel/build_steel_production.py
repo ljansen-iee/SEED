@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from industry.build_CAGR import interpolate_or_extrapolate
-from industry.helpers import get_scenarios_from_build_config_industry
+from industry.core.helpers import get_scenarios_from_build_config_industry
 
 SCENARIOS = get_scenarios_from_build_config_industry()
 

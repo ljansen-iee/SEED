@@ -11,7 +11,8 @@ DEFAULT_TARGET_YEARS = [2030, 2035, 2040, 2045, 2050]
 def _resolve_industry_dir():
     """Resolve the industry directory path for both script and interactive use."""
     try:
-        return Path(__file__).resolve().parent
+        # Since this file is now in core/, go up one level to get industry/
+        return Path(__file__).resolve().parent.parent
     except NameError:
         cwd = Path.cwd().resolve()
         if (cwd / "industry").exists():
@@ -24,7 +25,8 @@ INDUSTRY_DIR = _resolve_industry_dir()
 
 def get_scenarios_from_build_config_industry() -> list[str]:
     """Read SCENARIOS directly from build_config_industry.py so all scripts follow that single source."""
-    main_industry_path = Path(__file__).resolve().parent / "build_config_industry.py"
+    # Since this file is now in core/, go up one level to find build_config_industry.py
+    main_industry_path = Path(__file__).resolve().parent.parent / "build_config_industry.py"
 
     with main_industry_path.open("r", encoding="utf-8") as handle:
         tree = ast.parse(handle.read(), filename=str(main_industry_path))
@@ -1284,7 +1286,8 @@ def _load_metric_order_from_main_industry(default_order):
     from pathlib import Path
 
     try:
-        main_path = Path(__file__).resolve().parent / "build_config_industry.py"
+        # Since this file is now in core/, go up one level to find build_config_industry.py
+        main_path = Path(__file__).resolve().parent.parent / "build_config_industry.py"
         source = main_path.read_text(encoding="utf-8")
         tree = ast.parse(source)
 

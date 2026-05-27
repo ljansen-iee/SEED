@@ -202,7 +202,7 @@ def load_cement_value(file_path, year: int) -> float:
 # cement_production.py (or wherever your original lived)
 from typing import Dict, List, Optional
 from industry.build_CAGR import interpolate_or_extrapolate, load_yaml_config
-from industry.helpers import get_scenarios_from_build_config_industry
+from industry.core.helpers import get_scenarios_from_build_config_industry
 
 SCENARIOS = get_scenarios_from_build_config_industry()
 
@@ -263,7 +263,7 @@ def get_cement_and_clinker(
     cement_path: Dict[int, Dict[str, float]] = {}
     try:
         # Optional imports kept inside the try so this function remains drop-in.
-        from helpers import (
+        from industry.core.helpers import (
             _build_rate_anchors_indexed,
             _forecast_from_history_and_sparse_cagr,
             get_metric_cagr_cfg_layered,

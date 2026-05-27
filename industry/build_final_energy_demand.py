@@ -4,7 +4,7 @@ from typing import List, Optional
 from functools import reduce
 import pycountry
 import pandas as pd
-from industry.helpers import get_historical_sector_data
+from industry.core.helpers import get_historical_sector_data
 import numpy as _np
 
 # Import ammonia constants from the new data-driven workflow

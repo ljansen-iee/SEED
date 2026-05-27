@@ -2,7 +2,7 @@
 from pathlib import Path
 
 # Core imports
-from industry.helpers import (
+from industry.core.helpers import (
     _resolve_industry_dir,
     INDUSTRY_DIR,
     get_scenarios_from_build_config_industry,
