@@ -498,9 +498,9 @@ def build_energy_table_with_rolling_cagr(
     # Auto-detect UNSD folder
     if unsd_folder is None:
         possible_paths = [
-            Path("input_data/unsd_country_specific"),
-            Path("transport/input_data/unsd_country_specific"),
-            Path(__file__).resolve().parent / "input_data/unsd_country_specific",
+            Path("input_data/unsd_unsdata_historical"),
+            Path("transport/input_data/unsd_unsdata_historical"),
+            Path(__file__).resolve().parent / "input_data/unsd_unsdata_historical",
         ]
         for path in possible_paths:
             if path.exists():
@@ -1290,10 +1290,10 @@ def export_final_energy_intensity_cagr_with_intermediate(
 
     # === Population rows (2020 base + blank CAGR placeholders) ===
     try:
-        from helpers import load_country_specific_data, find_input_folder, get_interpolated_value
+        from helpers import load_unsdata_historical_data, find_input_folder, get_interpolated_value
         from build_macro_indicators import process_population_data
 
-        dfs_country = load_country_specific_data(find_input_folder())
+        dfs_country = load_unsdata_historical_data(find_input_folder())
         df_population = process_population_data(dfs_country)
 
         population_base_values = []

@@ -53,6 +53,16 @@ from scripts.chemical_and_petrochemical.HVC.generate_hvc_config import generate_
 from scripts.non_metallic_minerals.generate_cement_config import generate_cement_config_rows
 from scripts.paper_and_pulp.generate_paper_pulp_config import generate_paper_pulp_config_rows
 
+# === Import simple sector configuration builders ===
+from scripts.food_and_tobacco.generate_food_tobacco_config import generate_food_tobacco_config_rows
+from scripts.construction.generate_construction_config import generate_construction_config_rows
+from scripts.machinery.generate_machinery_config import generate_machinery_config_rows
+from scripts.mining_and_quarrying.generate_mining_quarrying_config import generate_mining_quarrying_config_rows
+from scripts.non_ferrous_metals.generate_non_ferrous_metals_config import generate_non_ferrous_metals_config_rows
+from scripts.textile_and_leather.generate_textile_leather_config import generate_textile_leather_config_rows
+from scripts.transport_equipment.generate_transport_equipment_config import generate_transport_equipment_config_rows
+from scripts.wood_and_wood_products.generate_wood_products_config import generate_wood_products_config_rows
+
 # === Import helpers ===
 from industry.core.helpers import DEFAULT_TARGET_YEARS
 
@@ -143,6 +153,51 @@ def generate_industry_config_csv(
         countries, base_year, target_years, scenarios
     )
     
+    # === Simple sectors (fuel shares only) ===
+    print("\n" + "="*60)
+    print("GENERATING SIMPLE SECTOR CONFIGURATIONS")
+    print("="*60)
+    
+    df_food_tobacco = generate_food_tobacco_config_rows(
+        countries, base_year, target_years, scenarios
+    )
+    print(f"✓ Food and tobacco: {len(df_food_tobacco)} rows")
+    
+    df_construction = generate_construction_config_rows(
+        countries, base_year, target_years, scenarios
+    )
+    print(f"✓ Construction: {len(df_construction)} rows")
+    
+    df_machinery = generate_machinery_config_rows(
+        countries, base_year, target_years, scenarios
+    )
+    print(f"✓ Machinery: {len(df_machinery)} rows")
+    
+    df_mining = generate_mining_quarrying_config_rows(
+        countries, base_year, target_years, scenarios
+    )
+    print(f"✓ Mining and quarrying: {len(df_mining)} rows")
+    
+    df_non_ferrous = generate_non_ferrous_metals_config_rows(
+        countries, base_year, target_years, scenarios
+    )
+    print(f"✓ Non-ferrous metals: {len(df_non_ferrous)} rows")
+    
+    df_textile = generate_textile_leather_config_rows(
+        countries, base_year, target_years, scenarios
+    )
+    print(f"✓ Textile and leather: {len(df_textile)} rows")
+    
+    df_transport_eq = generate_transport_equipment_config_rows(
+        countries, base_year, target_years, scenarios
+    )
+    print(f"✓ Transport equipment: {len(df_transport_eq)} rows")
+    
+    df_wood = generate_wood_products_config_rows(
+        countries, base_year, target_years, scenarios
+    )
+    print(f"✓ Wood and wood products: {len(df_wood)} rows")
+    
     # === Concatenate all sectors ===
     print("\nConcatenating all sectors...")
     df_all = pd.concat(
@@ -152,6 +207,14 @@ def generate_industry_config_csv(
             df_hvc,
             df_cement,
             df_paper_pulp,
+            df_food_tobacco,
+            df_construction,
+            df_machinery,
+            df_mining,
+            df_non_ferrous,
+            df_textile,
+            df_transport_eq,
+            df_wood,
         ],
         ignore_index=True,
     )

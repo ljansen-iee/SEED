@@ -13,6 +13,24 @@ for INDUSTRY_CONFIG.csv. This includes:
 This modular structure follows the steel/ammonia/cement/HVC pattern, allowing easy
 maintenance and testing of paper & pulp logic independently from other sectors.
 
+STANDALONE USAGE:
+=================
+To run this script independently and see intensity trajectories:
+    
+    # From industry folder (recommended):
+    cd industry/
+    $env:PYTHONPATH="$(pwd)"; python scripts/paper_and_pulp/generate_paper_pulp_config.py
+    
+    # Or on Linux/Mac:
+    cd industry/
+    PYTHONPATH=$(pwd) python scripts/paper_and_pulp/generate_paper_pulp_config.py
+
+This will:
+- Generate configuration rows for 4 test countries
+- Show CAGR values and 2050 reduction targets
+- Display 5-year intensity trajectories
+- Verify alignment with China Energy Partnership (2021) targets
+
 CAGR METHODOLOGY:
 =================
 
@@ -579,3 +597,99 @@ def generate_paper_pulp_config_rows(
     print(f"{'='*60}")
     
     return df_paper_pulp_all
+
+
+# ============================================================================
+# STANDALONE TESTING AND VERIFICATION
+# ============================================================================
+
+if __name__ == "__main__":
+    """
+    Test script independently with sample countries and show intensity trajectories.
+    Requires PYTHONPATH to be set to industry folder (see module docstring).
+    """
+    print("\n" + "="*100)
+    print("TESTING PAPER & PULP CONFIG GENERATOR")
+    print("="*100)
+    
+    # Test parameters
+    test_countries = ['Morocco', 'Egypt', 'South Africa', 'Namibia']
+    test_scenarios = ['BAU', 'Progressive', 'Optimistic']
+    test_base_year = 2020
+    test_target_years = [2030, 2035, 2040, 2045, 2050]
+    
+    # Generate config
+    df_result = generate_paper_pulp_config_rows(
+        countries=test_countries,
+        base_year=test_base_year,
+        target_years=test_target_years,
+        scenarios=test_scenarios
+    )
+    
+    print(f"\n{'='*100}")
+    print("INTENSITY CAGR VERIFICATION")
+    print(f"{'='*100}")
+    
+    # Extract and show CAGR values with reduction calculations
+    pp_cagr = df_result[
+        (df_result['metric_2'] == 'cagr') & 
+        (df_result['metric_3'].str.contains('Energy intensity'))
+    ]
+    
+    print("\nIntensity CAGR Values and 2050 Reductions:")
+    for metric in pp_cagr['metric_3'].unique():
+        scenarios_df = pp_cagr[pp_cagr['metric_3']==metric][['scenario','Morocco']].drop_duplicates()
+        print(f"\n{metric}:")
+        for _, row in scenarios_df.iterrows():
+            cagr_pct = row['Morocco'] * 100
+            reduction_2050 = (1 - (1 + row['Morocco'])**30) * 100
+            print(f"  {row['scenario']:12s}: {cagr_pct:+6.2f}%/year → {reduction_2050:5.1f}% reduction by 2050")
+    
+    print(f"\n{'='*100}")
+    print("5-YEAR INTENSITY TRAJECTORY (Morocco)")
+    print(f"{'='*100}")
+    
+    # Base intensities from config
+    pp_int = df_result[
+        (df_result['metric_2'] == 'intensity_base') &
+        (df_result['year'] == test_base_year)
+    ]
+    
+    # CAGR config
+    intensity_cagr_config = {
+        'Energy intensity of Primary pulp': [0.0, -0.006, -0.008],
+        'Energy intensity of Secondary pulp': [0.0, -0.005, -0.007],
+        'Energy intensity of Paper production': [0.0, -0.0055, -0.0075],
+    }
+    
+    all_years = [test_base_year] + test_target_years
+    
+    for metric_name in intensity_cagr_config.keys():
+        # Get base value
+        base_row = pp_int[pp_int['metric_3'] == metric_name]
+        if base_row.empty:
+            continue
+        base_value = base_row['Morocco'].values[0]
+        
+        print(f"\n{metric_name.upper().replace('ENERGY INTENSITY OF ', '')}:")
+        print(f"Base intensity ({test_base_year}): {base_value:.2f} MWh/t")
+        print("-" * 100)
+        
+        for i, scenario in enumerate(test_scenarios):
+            cagr = intensity_cagr_config[metric_name][i]
+            print(f"\n{scenario:12s} (CAGR: {cagr*100:+.2f}%/year):")
+            print(f"{'Year':<10} {'Intensity':<20} {'Reduction'}")
+            
+            for year in all_years:
+                years_elapsed = year - test_base_year
+                intensity = base_value * (1 + cagr) ** years_elapsed
+                reduction_pct = (1 - intensity / base_value) * 100
+                print(f"{year:<10} {intensity:>6.2f} MWh/t          {reduction_pct:>5.1f}%")
+    
+    print("\n" + "="*100)
+    print("\nSOURCE:")
+    print("China Energy Partnership (2021) - Technical Guideline Energy Efficiency")
+    print("https://energypartnership.cn/fileadmin/china/media_elements/publications/2021/")
+    print("Technical_Guideline_Energy_Efficiency_Pulp_and_Paper_EN.pdf")
+    print("\nTARGET: 19-20% energy demand reduction by 2050 (Optimistic scenario)")
+    print("="*100)

@@ -245,7 +245,7 @@ def get_final_energy_cagr_from_unsd(country: str, sector_keyword: str) -> float:
     """
     from industry.core.helpers import get_historical_sector_data
     
-    folder_path = Path(__file__).parent / "input_data" / "country_specific"
+    folder_path = Path(__file__).parent / "input_data" / "unsdata_historical"
     
     historical_data = get_historical_sector_data(folder_path, country, sector_keyword)
     

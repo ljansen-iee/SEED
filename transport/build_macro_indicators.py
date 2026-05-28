@@ -126,7 +126,7 @@ def load_data(input_path=None):
     
     for folder_name in os.listdir(input_path):
         folder_path = os.path.join(input_path, folder_name)
-        if folder_name == "country_specific":
+        if folder_name == "unsdata_historical":
             for file_doc in os.listdir(folder_path):
                 file_path = os.path.join(folder_path, file_doc)
                 df = read_file(file_path)

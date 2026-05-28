@@ -334,7 +334,7 @@ def build_fuel_demand_for_multiple_sectors(
 
 
 if __name__ == "__main__":
-    base_path = Path(__file__).resolve().parents[1] / "data" / "country_specific"
+    base_path = Path(__file__).resolve().parents[1] / "data" / "unsdata_historical"
     output_dir = Path(__file__).resolve().parent / "output_data"
 
     demand_files = build_fuel_demand_for_multiple_sectors(

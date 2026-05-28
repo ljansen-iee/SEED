@@ -1595,3 +1595,79 @@ def build_cagr_rows(
             rows.append(row)
     
     return pd.DataFrame(rows)
+
+
+def build_simple_sector_fuel_share_rows(
+    sector_display_name: str,
+    unsd_sector_name: str,
+    get_fuel_shares_func: Callable,
+    countries: list[str],
+    base_year: int,
+    target_years: list[int],
+    scenarios: list[str],
+) -> pd.DataFrame:
+    """
+    Build fuel share rows for "simple" sectors (no production/intensity detail).
+    
+    Args:
+        sector_display_name: Display name for metric_3 (e.g., "food and tobacco")
+        unsd_sector_name: Exact UNSD sector name for data lookup (e.g., "Food and tobacco")
+        get_fuel_shares_func: Function(base_path, country, year, sector_name) -> dict[fuel: share]
+        countries: List of country codes
+        base_year: Base year for historical data (e.g., 2020)
+        target_years: Future years to project
+        scenarios: List of scenario names
+    
+    Returns:
+        DataFrame with fuel share rows in standardized format
+    """
+    # UNSD data is in industry/input_data/unsdata_historical/
+    unsd_data_dir = INDUSTRY_DIR / "input_data" / "unsdata_historical"
+    
+    # Define fuel types for simple sectors (matching final energy demand output)
+    fuels = ['oil', 'gas', 'electricity', 'coal', 'biomass', 'hydrogen', 'ammonia', 'methanol']
+    
+    # Map country codes to full names (matching file naming convention)
+    country_map = {
+        'MA': 'Morocco',
+        'EG': 'Egypt',
+        'ZA': 'South Africa',
+        'NA': 'Namibia',
+    }
+    
+    rows = []
+    
+    for country_code in countries:
+        country_name = country_map.get(country_code, country_code)
+        
+        # Get base year fuel shares from UNSD
+        base_shares = get_fuel_shares_func(unsd_data_dir, country_name, base_year, unsd_sector_name)
+        
+        # If no data found, use zeros
+        if not base_shares:
+            base_shares = {fuel: 0.0 for fuel in fuels}
+        
+        # For simple sectors, replicate base year shares across all scenarios and years
+        # (no complex decarbonization pathways defined yet)
+        for fuel in fuels:
+            share_value = base_shares.get(fuel, 0.0) / 100.0  # Convert from percentage to fraction
+            
+            for year in target_years:
+                for scenario in scenarios:
+                    row = {
+                        'metric_1': unsd_sector_name,  # UNSD sector name
+                        'metric_2': 'fuel_share',  # Type
+                        'metric_3': f'unspecified {sector_display_name}',  # Specific metric
+                        'metric_4': fuel,  # Fuel type
+                        'year': year,
+                        'scenario': scenario,
+                        'units': 'share',
+                    }
+                    
+                    # Set value for this country
+                    for c in countries:
+                        row[c] = share_value if c == country_code else 0.0
+                    
+                    rows.append(row)
+    
+    return pd.DataFrame(rows)

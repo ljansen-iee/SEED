@@ -1,6 +1,6 @@
 # build_share_subsectors.py
 
-from transport.helpers import clean_column_headers, clean_missing_countries, load_country_specific_data, find_input_folder
+from transport.helpers import clean_column_headers, clean_missing_countries, load_unsdata_historical_data, find_input_folder
 import pandas as pd
 import transport.build_macro_indicators as build_mac
 from transport.build_macro_indicators import process_population_data
@@ -55,10 +55,10 @@ def load_all_files(energy_sector):
     if not os.path.exists(path):
         # Print the path it TRIED to look for, to help debugging
         raise FileNotFoundError(f"The path {path} does not exist. Please ensure 'input_data' is inside the 'transport' folder.")
-    for folder_name in ['country_specific', 'global']:
+    for folder_name in ['unsdata_historical', 'global']:
         folder_path = os.path.join(path, folder_name)
         if os.path.exists(folder_path):
-            if folder_name == "country_specific":
+            if folder_name == "unsdata_historical":
                 dfs_country_spe = load_files_from_folder(folder_path)
             elif folder_name == 'global':
                 dfs_global = load_files_from_folder(folder_path)
@@ -539,7 +539,7 @@ def export_final_df_with_mobility(population_scenario="SSP1", population_year="2
 
     If save_csv is True (default), writes to disk; always returns the augmented DataFrame.
     """
-    dfs_country_spe = load_country_specific_data(find_input_folder())
+    dfs_country_spe = load_unsdata_historical_data(find_input_folder())
     df_population = process_population_data(dfs_country_spe)
     df_population = df_population.drop(columns=[c for c in df_population.columns if c.lower() == "unit"], errors="ignore")
 

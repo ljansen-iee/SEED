@@ -781,16 +781,29 @@ def generate_ammonia_config_rows(
 
 
 # ============================================================================
-# CLI ENTRY POINT (for testing)
+# STANDALONE TESTING AND VERIFICATION
 # ============================================================================
 
 if __name__ == "__main__":
-    # Test with a small set of countries
-    test_countries = ["Morocco", "Egypt", "South Africa"]
+    """
+    Test script independently with sample countries and show key metrics.
+    Requires PYTHONPATH to be set to industry folder.
+    
+    Usage:
+        cd industry/
+        $env:PYTHONPATH="$(pwd)"; python scripts/chemical_and_petrochemical/ammonia/generate_ammonia_config.py
+    """
+    print("\n" + "="*100)
+    print("TESTING AMMONIA CONFIG GENERATOR")
+    print("="*100)
+    
+    # Test parameters
+    test_countries = ["Morocco", "Egypt", "South Africa", "Namibia"]
     test_scenarios = ["BAU", "Progressive", "Optimistic"]
     test_base_year = 2020
     test_target_years = [2030, 2035, 2040, 2045, 2050]
     
+    # Generate config
     df = generate_ammonia_config_rows(
         countries=test_countries,
         base_year=test_base_year,
@@ -798,7 +811,51 @@ if __name__ == "__main__":
         scenarios=test_scenarios,
     )
     
-    print("\nSample rows:")
-    print(df.head(20))
-    print("\nRow counts by metric type:")
-    print(df.groupby("metric_2")["metric_3"].value_counts())
+    print(f"\n{'='*100}")
+    print("CONFIGURATION SUMMARY")
+    print(f"{'='*100}")
+    print(f"\nTotal rows generated: {len(df)}")
+    print(f"\nRow distribution by metric type:")
+    metric_counts = df.groupby('metric_2')['metric_3'].value_counts()
+    for (metric_2, metric_3), count in metric_counts.items():
+        print(f"  {metric_2:20s} | {metric_3:40s} | {count:3d} rows")
+    
+    # Show CAGR values
+    print(f"\n{'='*100}")
+    print("INTENSITY CAGR VALUES")
+    print(f"{'='*100}")
+    
+    ammonia_cagr = df[
+        (df['metric_2'] == 'cagr') & 
+        (df['metric_3'].str.contains('Energy intensity'))
+    ]
+    
+    if not ammonia_cagr.empty:
+        print("\nIntensity CAGR Values and 2050 Reductions:")
+        for metric in ammonia_cagr['metric_3'].unique():
+            scenarios_df = ammonia_cagr[ammonia_cagr['metric_3']==metric][['scenario','Morocco']].drop_duplicates()
+            print(f"\n{metric}:")
+            for _, row in scenarios_df.iterrows():
+                cagr_pct = row['Morocco'] * 100
+                reduction_2050 = (1 - (1 + row['Morocco'])**30) * 100
+                print(f"  {row['scenario']:12s}: {cagr_pct:+6.2f}%/year → {reduction_2050:5.1f}% reduction by 2050")
+    
+    # Show technology route transitions
+    print(f"\n{'='*100}")
+    print("TECHNOLOGY ROUTE TRANSITIONS (Morocco, Optimistic)")
+    print(f"{'='*100}")
+    
+    route_shares = df[
+        (df['metric_2'] == 'technology_route') &
+        (df['metric_3'].isin(['SMR+HB', 'Renewable synthesis', 'Import reallocation'])) &
+        (df['scenario'] == 'Optimistic') &
+        (df['year'].isin([2020, 2030, 2050]))
+    ][['metric_3', 'year', 'Morocco']].pivot(index='metric_3', columns='year', values='Morocco')
+    
+    if not route_shares.empty:
+        print("\n" + route_shares.to_string())
+        print("\nTransition: Fossil SMR → Renewable synthesis + strategic imports")
+    
+    print("\n" + "="*100)
+    print("\nAMMONIA CONFIG TEST COMPLETE")
+    print("="*100)

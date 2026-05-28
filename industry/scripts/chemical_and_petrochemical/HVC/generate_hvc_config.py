@@ -488,3 +488,83 @@ def generate_hvc_config_rows(
     print(f"✓ HVC configuration complete: {len(df_hvc_all)} rows")
     
     return df_hvc_all
+
+
+# ============================================================================
+# STANDALONE TESTING AND VERIFICATION
+# ============================================================================
+
+if __name__ == "__main__":
+    """
+    Test script independently with sample countries and show key metrics.
+    Requires PYTHONPATH to be set to industry folder.
+    
+    Usage:
+        cd industry/
+        $env:PYTHONPATH="$(pwd)"; python scripts/chemical_and_petrochemical/HVC/generate_hvc_config.py
+    """
+    print("\n" + "="*100)
+    print("TESTING HVC CONFIG GENERATOR")
+    print("="*100)
+    
+    # Test parameters
+    test_countries = ['Morocco', 'Egypt', 'South Africa', 'Namibia']
+    test_scenarios = ['BAU', 'Progressive', 'Optimistic']
+    test_base_year = 2020
+    test_target_years = [2030, 2035, 2040, 2045, 2050]
+    
+    # Generate config
+    df_result = generate_hvc_config_rows(
+        countries=test_countries,
+        base_year=test_base_year,
+        target_years=test_target_years,
+        scenarios=test_scenarios
+    )
+    
+    print(f"\n{'='*100}")
+    print("INTENSITY CAGR VERIFICATION")
+    print(f"{'='*100}")
+    
+    # Extract and show CAGR values with reduction calculations
+    hvc_cagr = df_result[
+        (df_result['metric_2'] == 'cagr') & 
+        (df_result['metric_3'].str.contains('Energy intensity'))
+    ]
+    
+    print("\nIntensity CAGR Values and 2050 Reductions:")
+    for metric in hvc_cagr['metric_3'].unique():
+        scenarios_df = hvc_cagr[hvc_cagr['metric_3']==metric][['scenario','Morocco']].drop_duplicates()
+        print(f"\n{metric}:")
+        for _, row in scenarios_df.iterrows():
+            cagr_pct = row['Morocco'] * 100
+            reduction_2050 = (1 - (1 + row['Morocco'])**30) * 100
+            print(f"  {row['scenario']:12s}: {cagr_pct:+6.2f}%/year → {reduction_2050:5.1f}% reduction by 2050")
+    
+    # Show technology route transitions
+    print(f"\n{'='*100}")
+    print("TECHNOLOGY ROUTE TRANSITIONS (Morocco, Optimistic)")
+    print(f"{'='*100}")
+    
+    route_shares = df_result[
+        (df_result['metric_2'] == 'technology_route') &
+        (df_result['metric_3'].isin(['Naphtha cracking', 'LPG cracking', 'MTO'])) &
+        (df_result['scenario'] == 'Optimistic') &
+        (df_result['year'].isin([2020, 2030, 2050]))
+    ][['metric_3', 'year', 'Morocco']].pivot(index='metric_3', columns='year', values='Morocco')
+    
+    if not route_shares.empty:
+        print("\n" + route_shares.to_string())
+        print("\nTransition: Naphtha dominance → Increased MTO (methanol-to-olefins)")
+    
+    print(f"\n{'='*100}")
+    print("DATA QUALITY NOTE")
+    print(f"{'='*100}")
+    print("\n⚠ Production data uses refinery capacities with correction factors.")
+    print("   See build_hvc_production.py for detailed explanation.")
+    print("\nCorrection factors (petrochemical integration ratios):")
+    print("  - Egypt: 6.13%")
+    print("  - South Africa: 21.18%")
+    print("  - Morocco: 8.04%")
+    print("  - Global default: 8.00%")
+    print("\nFallback CAGR: 2.0% (used when no UNSD data available)")
+    print("="*100)

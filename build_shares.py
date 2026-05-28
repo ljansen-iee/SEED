@@ -106,7 +106,7 @@ def _sector_output_file_prefix(sector_label: str):
 def _get_candidate_dirs(base_path: Path):
     return [
         Path(base_path),
-        Path(__file__).resolve().parent / "data" / "country_specific",
+        Path(__file__).resolve().parent / "data" / "unsdata_historical",
     ]
 
 
@@ -375,7 +375,7 @@ def export_shares_for_multiple_sectors(
 
 
 if __name__ == "__main__":
-    base_path = Path(__file__).resolve().parent / "data" / "country_specific"
+    base_path = Path(__file__).resolve().parent / "data" / "unsdata_historical"
     output_dir = Path(__file__).resolve().parent / "output_data" / "interim" / "shares"
 
     shares_files = export_shares_for_multiple_sectors(

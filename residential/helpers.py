@@ -71,7 +71,7 @@ def load_all_files(energy_sector="residential", base_dir=None):
     """Load country-specific and global input data for a sector.
 
     Scans ``{base_dir}/{energy_sector}/input_data/`` for the
-    ``country_specific`` and ``global`` sub-folders and reads every
+    ``unsdata_historical`` and ``global`` sub-folders and reads every
     file therein.
 
     Args:
@@ -79,7 +79,7 @@ def load_all_files(energy_sector="residential", base_dir=None):
         base_dir: Repository root; auto-detected if ``None``.
 
     Returns:
-        tuple[dict, dict]: ``(country_specific_dfs, global_dfs)``.
+        tuple[dict, dict]: ``(unsdata_historical_dfs, global_dfs)``.
 
     Raises:
         FileNotFoundError: If the resolved path does not exist.
@@ -101,10 +101,10 @@ def load_all_files(energy_sector="residential", base_dir=None):
     if not os.path.exists(path):
         raise FileNotFoundError(f"The path {path} does not exist.")
     
-    for folder_name in ['country_specific', 'global']:
+    for folder_name in ['unsdata_historical', 'global']:
         folder_path = os.path.join(path, folder_name)
         if os.path.exists(folder_path):
-            if folder_name == "country_specific":
+            if folder_name == "unsdata_historical":
                 dfs_country_spe = load_files_from_folder(folder_path)
             elif folder_name == 'global':
                 dfs_global = load_files_from_folder(folder_path)

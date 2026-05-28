@@ -959,7 +959,7 @@ def run(country: str, base_dir: str = "output_data") -> None:
         df.to_csv(file_path, index=False)
 
         # SAVE THE REFRESHED DATA FOR VERIFICATION
-        debug_dir = os.path.join(results_dir, "country_specific", country)
+        debug_dir = os.path.join(results_dir, "unsdata_historical", country)
         os.makedirs(debug_dir, exist_ok=True)
         debug_path = os.path.join(debug_dir, f"output_{country}_updated.csv")
         df.to_csv(debug_path, index=False)
@@ -983,8 +983,8 @@ def run(country: str, base_dir: str = "output_data") -> None:
     final_df = pd.concat(all_results, ignore_index=True)
     fuel_summary, mode_summary, subsector_summary, enduse_summary = build_summary(final_df, metrics_raw)
 
-    # Save results in output_data/country_specific
-    country_results_dir = os.path.join(results_dir, "country_specific", country)
+    # Save results in output_data/unsdata_historical
+    country_results_dir = os.path.join(results_dir, "unsdata_historical", country)
     os.makedirs(country_results_dir, exist_ok=True)
 
     # Save detailed Energy Demand (GWh) as parameters_{country}.csv

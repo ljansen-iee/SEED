@@ -454,11 +454,11 @@ def find_country_file(run_folder: Path, country: str) -> Path:
 
 def get_results_folder(country: str) -> Path:
     """
-    Create (if needed) .../industry/output_data/country_specific/<Country> and return it.
+    Create (if needed) .../industry/output_data/unsdata_historical/<Country> and return it.
     Aligned with transport folder structure.
     """
     root = get_industry_root()
-    results_root = root / "output_data" / "country_specific"
+    results_root = root / "output_data" / "unsdata_historical"
     results_root.mkdir(parents=True, exist_ok=True)
 
     country_folder = results_root / country.replace(" ", "_")
@@ -2844,7 +2844,7 @@ def run_industry_pipeline_for_country(country: str):
     1. Find latest run folder in output_data
     2. Find that country's metrics .xlsx file
     3. Get ISO2 code dynamically
-    4. Create output_data/country_specific/<Country> folder
+    4. Create output_data/unsdata_historical/<Country> folder
     5. Run pipeline with ISO2 code in filenames
     """
     latest_folder = find_latest_run_folder()

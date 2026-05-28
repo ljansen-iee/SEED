@@ -160,7 +160,7 @@ def export_all_sectors_cagr_csv(base_path: Path, output_dir: Path, sectors: list
 
 
 if __name__ == "__main__":
-    base_path = Path(__file__).resolve().parent / "data" / "country_specific"
+    base_path = Path(__file__).resolve().parent / "data" / "unsdata_historical"
     output_dir = Path(__file__).resolve().parent / "output_data" / "interim" / "cagr"
 
     output_file = export_all_sectors_cagr_csv(

@@ -91,7 +91,7 @@ UNDATA_CSV = (
 )
 
 # Path to country-specific UNSD data
-unsd_path = _INDUSTRY_ROOT / "input_data" / "country_specific"
+unsd_path = _INDUSTRY_ROOT / "input_data" / "unsdata_historical"
 
 # Path to generated volumes CSV (output)
 AMMONIA_VOLUMES_CSV = _INDUSTRY_ROOT / "output_data" / "interim_data" / "ammonia_volumes.csv"

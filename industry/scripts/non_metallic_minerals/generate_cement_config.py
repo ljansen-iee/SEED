@@ -476,3 +476,69 @@ def generate_cement_config_rows(
     print(f"{'='*70}")
     
     return df_all
+
+
+# ============================================================================
+# STANDALONE TESTING AND VERIFICATION
+# ============================================================================
+
+if __name__ == "__main__":
+    """
+    Test script independently with sample countries and show intensity trajectories.
+    Requires PYTHONPATH to be set to industry folder.
+    
+    Usage:
+        cd industry/
+        $env:PYTHONPATH="$(pwd)"; python scripts/non_metallic_minerals/generate_cement_config.py
+    """
+    print("\n" + "="*100)
+    print("TESTING CEMENT CONFIG GENERATOR")
+    print("="*100)
+    
+    # Test parameters
+    test_countries = ['Morocco', 'Egypt', 'South Africa', 'Namibia']
+    test_scenarios = ['BAU', 'Progressive', 'Optimistic']
+    test_base_year = 2020
+    test_target_years = [2030, 2035, 2040, 2045, 2050]
+    
+    # Generate config
+    df_result = generate_cement_config_rows(
+        countries=test_countries,
+        base_year=test_base_year,
+        target_years=test_target_years,
+        scenarios=test_scenarios
+    )
+    
+    print(f"\n{'='*100}")
+    print("INTENSITY CAGR VERIFICATION")
+    print(f"{'='*100}")
+    
+    # Extract and show CAGR values with reduction calculations
+    cement_cagr = df_result[
+        (df_result['metric_2'] == 'cagr') & 
+        (df_result['metric_3'].str.contains('Energy intensity'))
+    ]
+    
+    print("\nIntensity CAGR Values and 2050 Reductions:")
+    for metric in cement_cagr['metric_3'].unique():
+        scenarios_df = cement_cagr[cement_cagr['metric_3']==metric][['scenario','Morocco']].drop_duplicates()
+        print(f"\n{metric}:")
+        for _, row in scenarios_df.iterrows():
+            cagr_pct = row['Morocco'] * 100
+            reduction_2050 = (1 - (1 + row['Morocco'])**30) * 100
+            print(f"  {row['scenario']:12s}: {cagr_pct:+6.2f}%/year → {reduction_2050:5.1f}% reduction by 2050")
+    
+    print(f"\n{'='*100}")
+    print("STATUS: Engineering Estimates - Needs Validation")
+    print(f"{'='*100}")
+    print("\n⚠ WARNING: Current values are engineering estimates, not from specific literature.")
+    print("\nREQUIRED VALIDATION SOURCES:")
+    print("  - IEA Technology Roadmap - Cement (2018 or latest)")
+    print("  - GCCA (Global Cement and Concrete Association) Climate Ambition reports")
+    print("  - Academic studies on cement energy efficiency trends")
+    print("\nPLACEHOLDER ASSUMPTIONS:")
+    print("  - BAU: 0% (no improvement)")
+    print("  - Progressive: -0.8%/year → 21.4% reduction (clinker substitution, waste heat recovery)")
+    print("  - Optimistic: -1.5%/year → 36.5% reduction (alternative fuels, advanced kilns)")
+    print("\nTODO: Replace with validated IEA/GCCA values.")
+    print("="*100)

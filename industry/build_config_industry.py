@@ -41,7 +41,7 @@ INDUSTRY_CONFIG_FILE = "industry_config.csv"
 
 # === Project imports ===
 BASE_DIR = Path(__file__).resolve().parent
-UNSD_PATH = BASE_DIR / "input_data" / "country_specific"
+UNSD_PATH = BASE_DIR / "input_data" / "unsdata_historical"
 
 # === Module-level constants (from config.py) ===
 INDUSTRY_CONFIG_PATH = BASE_DIR / INDUSTRY_CONFIG_FILE

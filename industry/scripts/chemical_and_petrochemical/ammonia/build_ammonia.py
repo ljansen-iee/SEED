@@ -36,7 +36,7 @@ AMMONIA_SCENARIO_XLSX = _industry_root / "input_data" / "petrochemicals" / "ammo
 AMMONIA_SCENARIO_SHEET = "combined_wide"
 AMMONIA_MWH_PER_TON = 5.166
 BASE_YEAR = 2020
-unsd_path = _industry_root / "input_data" / "country_specific"
+unsd_path = _industry_root / "input_data" / "unsdata_historical"
 
 _AMMONIA_FILENAME_STEM = "ammonia_all_countries_scenarios"
 

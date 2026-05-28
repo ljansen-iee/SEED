@@ -85,7 +85,7 @@ The model supports three scenarios:
        ┌─────────────────────────────────────────────────────────────────┐
        │                    OUTPUTS GENERATED                             │
        ├─────────────────────────────────────────────────────────────────┤
-       │  country_specific/{Country}/                                     │
+       │  unsdata_historical/{Country}/                                     │
        │    ├── {ISO}_final_energy_demand.csv  (detailed demand by fuel) │
        │    ├── {ISO}_summary.xlsx             (summary tables)          │
        │    ├── output_{Country}_updated.csv   (updated parameters)      │
@@ -271,7 +271,7 @@ The model will warn you if shares don't sum to 100%.
 
 ## Output Files
 
-### Per-Country Outputs (`output_data/country_specific/{Country}/`)
+### Per-Country Outputs (`output_data/unsdata_historical/{Country}/`)
 
 | File | Description |
 |------|-------------|
@@ -324,7 +324,7 @@ transport/
     │   ├── output_Argentina.csv
     │   └── ...
     │
-    ├── country_specific/          # Per-country detailed outputs
+    ├── unsdata_historical/          # Per-country detailed outputs
     │   ├── Algeria/
     │   │   ├── DZ_final_energy_demand.csv
     │   │   └── DZ_summary.xlsx
