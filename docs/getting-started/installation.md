@@ -38,7 +38,7 @@ python -c "import pandas; print(pandas.__version__)"  # Should print 2.x
 
 ## Input data
 
-The `data/country_specific/` directory must contain UNSD energy-balance CSVs.
+The `data/unsdata_historical/` directory must contain UNSD energy-balance CSVs.
 See [Input Data](../data/input-data.md) for download instructions.
 
 ## Building the documentation locally

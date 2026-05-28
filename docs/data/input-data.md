@@ -5,8 +5,8 @@
 The primary base-year data source is the
 [UN Statistics Division Energy Statistics Data Portal](https://unstats.un.org/unsd/energystats/dataPortal/).
 
-- **Location in repo:** `data/country_specific/` (root) and
-  `transport/input_data/country_specific/`, `residential/input_data/country_specific/`
+- **Location in repo:** `data/unsdata_historical/` (root) and
+  `transport/input_data/unsdata_historical/`, `residential/input_data/unsdata_historical/`
 - **File pattern:** `UNSD_{Country}-{Year}.csv` (e.g. `UNSD_Morocco-2020.csv`)
 - **Coverage:** ~34 countries, years 2011–2023
 - **Structure:** Rows = sector/transaction labels; columns = commodity groups
@@ -17,7 +17,7 @@ The primary base-year data source is the
 
 Used by both Transport and Residential modules.
 
-- **Location:** `{sector}/input_data/country_specific/`
+- **Location:** `{sector}/input_data/unsdata_historical/`
 - **Files:** `chart-data_pop_{Country}.csv`, `chart-data_gdp_{Country}.csv`
 - **Source:** [Climate Solutions Explorer](https://climate-solutions-explorer.pik-potsdam.de/)
   — PIK Potsdam, SSP1–SSP5

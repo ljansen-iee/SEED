@@ -115,7 +115,7 @@ The model covers the following industrial subsectors:
        ┌─────────────────────────────────────────────────────────────────┐
        │                    OUTPUTS GENERATED                             │
        ├─────────────────────────────────────────────────────────────────┤
-       │  country_specific/{Country}/                                     │
+       │  unsdata_historical/{Country}/                                     │
        │    ├── {ISO}_final_energy_demand.xlsx  (detailed demand)        │
        │    ├── {ISO}_energy_demand_summary.xlsx (summary by carrier)    │
        │    └── output_{Country}_updated.csv    (updated parameters)     │
@@ -230,7 +230,7 @@ available_countries = [
 
 The model requires input data for each country:
 
-1. **UNSD Energy Data** (`input_data/country_specific/{Country}/`)
+1. **UNSD Energy Data** (`input_data/unsdata_historical/{Country}/`)
    - Historical energy consumption by subsector
    - Fuel shares for each sector
 
@@ -315,7 +315,7 @@ The model will use your specified values directly without normalization, so ensu
 
 ## Output Files
 
-### Per-Country Outputs (`output_data/country_specific/{Country}/`)
+### Per-Country Outputs (`output_data/unsdata_historical/{Country}/`)
 
 | File | Description |
 |------|-------------|
@@ -384,7 +384,7 @@ industry/
 │   └── other_industries/
 │
 ├── input_data/                    # Input data files
-│   ├── country_specific/          # UNSD data per country
+│   ├── unsdata_historical/          # UNSD data per country
 │   │   ├── Morocco/
 │   │   ├── Egypt/
 │   │   └── ...
@@ -399,7 +399,7 @@ industry/
     │   ├── Egypt_Output_.csv
     │   └── South Africa_Output_.csv
     │
-    ├── country_specific/          # Per-country detailed outputs
+    ├── unsdata_historical/          # Per-country detailed outputs
     │   ├── Morocco/
     │   │   ├── MA_final_energy_demand.xlsx
     │   │   └── MA_energy_demand_summary.xlsx
@@ -426,7 +426,7 @@ python -m industry.build_config_industry
 ```
 
 **2. Missing UNSD data for country**
-- **Cause:** The country doesn't have historical energy data in `input_data/country_specific/`
+- **Cause:** The country doesn't have historical energy data in `input_data/unsdata_historical/`
 - **Solution:** Add UNSD energy balance data for the country, or the model will use defaults/zeros
 
 **3. Steel capacity data not found**

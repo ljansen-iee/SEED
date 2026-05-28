@@ -10,15 +10,15 @@ Adding a country requires providing data for each sector you want to model.
 
 1. Go to <https://unstats.un.org/unsd/energystats/dataPortal/>
 2. Select your country and download the energy balance CSV for all available years.
-3. Place it in `data/country_specific/` with the filename `UNSD_{Country}-{Year}.csv`.
+3. Place it in `data/unsdata_historical/` with the filename `UNSD_{Country}-{Year}.csv`.
 
 ### 2 — Download SSP population & GDP projections
 
 1. Go to <https://climate-solutions-explorer.pik-potsdam.de/>
 2. Select your country, navigate to the Population and GDP charts.
 3. Download the chart CSV for SSP1–SSP5.
-4. Place the files in `transport/input_data/country_specific/` and
-   `residential/input_data/country_specific/` with the names:
+4. Place the files in `transport/input_data/unsdata_historical/` and
+   `residential/input_data/unsdata_historical/` with the names:
    - `chart-data_pop_{Country}.csv`
    - `chart-data_gdp_{Country}.csv`
 

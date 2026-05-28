@@ -71,7 +71,7 @@ sectoral-energy-demands/
 ├── transport/                   # Transport mode & technology energy demand
 ├── residential/                 # Residential end-use energy demand
 ├── additional sectors/          # Agriculture, Services, Non-energy, Other
-├── data/country_specific/       # UNSD energy-balance CSVs (34 countries × 13 years)
+├── data/unsdata_historical/       # UNSD energy-balance CSVs (34 countries × 13 years)
 ├── plots/                       # Post-processing Jupyter notebooks
 │
 ├── build_CAGR.py                # Cross-sector CAGR computation from UNSD data

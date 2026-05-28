@@ -95,7 +95,7 @@ Countries converge toward regional average:
 
 ## Technical Notes
 
-- **Data Source**: UNSD country-specific CSV files in `data/country_specific/`
+- **Data Source**: UNSD country-specific CSV files in `data/unsdata_historical/`
 - **Calculation Function**: `get_final_energy_cagr_from_unsd()` in `industry/build_CAGR.py`
 - **Window Size**: 5-year rolling windows
 - **Fallback**: If no historical data, defaults to 1.5% CAGR

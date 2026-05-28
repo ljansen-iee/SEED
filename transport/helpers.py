@@ -10,7 +10,7 @@ from pathlib import Path
 transport_dir = Path(__file__).resolve().parent
 
 # Path to the folder containing individual country CSVs (Algeria-2021.csv, etc.)
-unsd_input_folder = transport_dir / "input_data" / "unsd_country_specific"
+unsd_input_folder = transport_dir / "input_data" / "unsd_unsdata_historical"
 
 # Path to the global folder where the merged master file lives
 unsd_global_dir = transport_dir / "input_data" / "global"
@@ -75,8 +75,8 @@ def read_file(file_path):
         print(f"Error reading {file_path}: {e}")
         return None
 
-def load_country_specific_data(input_path):
-    folder_path = os.path.join(input_path, "country_specific")
+def load_unsdata_historical_data(input_path):
+    folder_path = os.path.join(input_path, "unsdata_historical")
     dfs_country_spe = {}
     if os.path.exists(folder_path):
         for file_doc in os.listdir(folder_path):
