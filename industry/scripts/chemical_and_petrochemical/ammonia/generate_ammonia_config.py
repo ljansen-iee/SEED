@@ -39,6 +39,13 @@ CAGR METHODOLOGY:
      * SMR pathway: Process optimization, heat recovery
      * Renewable pathway: Electrolyzer efficiency improvements
 
+CONFIGURATION STRUCTURE:
+========================
+metric_1: 'chemical and petrochemical' (UNSD sector level - standardized)
+metric_2: 'production', 'cagr', 'technology_route', 'fuel_share', 'intensity_base'
+metric_3: Specific industry metric (e.g., 'ammonia production per year', 'SMR+HB', 'Renewable synthesis')
+metric_4: Sub-metric (e.g., fuel type for fuel_share rows)
+
 WHY DIFFERENT APPROACHES?
 - Production: Historical data reflects policy, economic, market trends → use UNSD
 - Intensity: Technology efficiency gains are predictable → use engineering projections
@@ -200,7 +207,7 @@ def build_ammonia_production_rows(
     
     # Use generic helper to build production rows with CAGR
     return build_production_rows_with_cagr(
-        industry_sector="ammonia",
+        industry_sector="chemical and petrochemical",
         metric_name="ammonia production per year",
         base_values=base_values,
         cagr_dict=cagr_dict,
@@ -247,7 +254,7 @@ def build_ammonia_import_rows(
         base_values[country] = float(base_row["import_volumes"].iloc[0])
     
     return build_production_rows_with_cagr(
-        industry_sector="ammonia",
+        industry_sector="chemical and petrochemical",
         metric_name="ammonia import volumes per year",
         base_values=base_values,
         cagr_dict=cagr_dict,
@@ -428,7 +435,7 @@ def build_ammonia_fuel_share_rows(
     
     # Build rows using generic helper
     df_smr = build_fuel_share_rows(
-        industry_sector="ammonia",
+        industry_sector="chemical and petrochemical",
         fuel_shares_dict=smr_shares,
         metric_label="SMR+HB",
         countries=countries,
@@ -438,7 +445,7 @@ def build_ammonia_fuel_share_rows(
     )
     
     df_renewable = build_fuel_share_rows(
-        industry_sector="ammonia",
+        industry_sector="chemical and petrochemical",
         fuel_shares_dict=renewable_shares,
         metric_label="Renewable synthesis",
         countries=countries,
@@ -592,7 +599,7 @@ def build_ammonia_intensity_cagr_rows(
                     cagr_value = 0.0
                 
                 row = {
-                    'metric_1': 'ammonia',  # Industry sector
+                    'metric_1': 'chemical and petrochemical',  # Industry sector
                     'metric_2': 'cagr',  # Type
                     'metric_3': metric_name,  # Technology route
                     'metric_4': '',  # Not applicable

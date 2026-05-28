@@ -91,9 +91,32 @@ intensity_cagr_config = {
 
 ---
 
+### ✅ Paper & Pulp Energy Intensity CAGR Validation - COMPLETED
+**Status:** ✅ Complete
+**Context:** Values updated based on China Energy Partnership Technical Guideline
+
+**Updated Values (line ~278 in generate_paper_pulp_config.py):**
+```python
+intensity_cagr_config = {
+    "Energy intensity of Primary pulp": [0.0, -0.006, -0.008],
+    "Energy intensity of Secondary pulp": [0.0, -0.005, -0.007],
+    "Energy intensity of Paper production": [0.0, -0.0055, -0.0075],
+}
+```
+
+**Source:** China Energy Partnership (2021) - Technical Guideline Energy Efficiency
+- Link: https://energypartnership.cn/fileadmin/china/media_elements/publications/2021/Technical_Guideline_Energy_Efficiency_Pulp_and_Paper_EN.pdf
+- Target: 19-20% energy demand reduction by 2050
+- Progressive: -0.5% to -0.6%/year → 14-17% reduction by 2050
+- Optimistic: -0.7% to -0.8%/year → 19-21% reduction by 2050 (matches target)
+
+**File:** `scripts/paper_and_pulp/generate_paper_pulp_config.py`
+
+---
+
 ### ✅ CSV File Write Permission Issue - RESOLVED
 **Status:** ✅ Complete  
-**Resolution:** CSV file was closed, config regeneration successful (2,106 rows written)
+**Resolution:** CSV file was closed, config regeneration successful (2,784 rows written)
 
 **File:** `generate_industry_config.py`
 
@@ -117,14 +140,61 @@ intensity_cagr_config = {
 
 ---
 
-### 🟢 Paper & Pulp Sector - NEXT UP
-**Status:** Not started  
-**Priority:** Next industry sector after HVC
+### ✅ Paper & Pulp Sector Integration - COMPLETED
+**Status:** ✅ Complete (2,784 total rows: Steel 840 + Ammonia 393 + HVC 519 + Cement 354 + Paper & Pulp 678)
+
+**Files Created:**
+- ✅ `scripts/paper_and_pulp/generate_paper_pulp_config.py` - Main orchestrator (~580 lines)
+- ✅ Integration into `generate_industry_config.py` complete
+
+**Existing Files Used:**
+- `scripts/paper_and_pulp/build_paper_and_pulp_production.py` - FAO data loader
+- `scripts/paper_and_pulp/build_share_primary_pulp.py` - Fuel shares & primary/secondary ratios
+- `scripts/paper_and_pulp/build_energy_intensities_paper_pulp.py` - Intensity functions
+
+**Intensity CAGR Source:**
+- China Energy Partnership (2021) - Technical Guideline Energy Efficiency
+- Link: https://energypartnership.cn/fileadmin/china/media_elements/publications/2021/Technical_Guideline_Energy_Efficiency_Pulp_and_Paper_EN.pdf
+- Target: 19-20% reduction by 2050
+
+---
+
+### 🔵 Fuel-Specific Efficiency Curves  
+**Status:** Future Enhancement  
+**Context:** Current intensity CAGR applies uniformly across all fuel types, but improvement rates differ
+
+**Issue:**
+- Electrification improvements are faster than fossil fuel efficiency gains
+- Current model: Single CAGR applies to all fuels equally
+- Reality: Electricity efficiency and renewable power integration improve rapidly
+- Fossil fuels: Limited efficiency gains (already near thermodynamic limits)
+
+**Example Differentiation:**
+- Electricity intensity CAGR: -1.5% to -2.5%/year (renewable integration, process electrification)
+- Fossil fuel intensity CAGR: -0.3% to -0.8%/year (marginal efficiency, waste heat recovery)
+
+**Affected Sectors:**
+- Steel (electricity vs coal/gas in EAF vs BF)
+- Paper & Pulp (electricity vs biomass/gas in pulping/drying)
+- Cement (electricity vs coal/diesel in grinding vs kilns)
+- All sectors where fuel mix transitions occur
+
+**Implementation Approach:**
+1. Modify intensity CAGR config structure to support per-fuel rates
+2. Update `build_intensity_base_rows()` and `build_cagr_rows()` in `core/helpers.py`
+3. Adjust intensity projection functions to handle fuel-specific curves
+4. Document methodology change in sector docstrings
 
 **Action Items:**
-- [ ] Create production data loader
-- [ ] Define technology routes (kraft/sulfite/mechanical pulping)
-- [ ] Create fuel share functions
+- [ ] Research IEA/literature for fuel-specific efficiency improvement rates
+- [ ] Design data structure for per-fuel CAGR config
+- [ ] Implement modified row builders
+- [ ] Test with pilot sector (steel or paper & pulp)
+- [ ] Roll out to remaining sectors
+
+---
+
+### 🟢 Additional Industry Sectors (Future)
 - [ ] Create energy intensity functions
 - [ ] Create generate_paper_pulp_config.py
 - [ ] Integrate into generate_industry_config.py

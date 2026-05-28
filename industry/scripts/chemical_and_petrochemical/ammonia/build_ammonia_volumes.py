@@ -1,9 +1,8 @@
 """
-build_ammonia_from_undata.py
-----------------------------
+build_ammonia_volumes.py
+------------------------
 Processes the UNdata ammonia CSV export (FAO FAOSTAT / UN Comtrade format)
-into scenario CSV files that can supplement or replace
-``ammonia_all_countries_scenarios.xlsx``.
+into scenario CSV files for ammonia volume projections.
 
 Input
 ~~~~~
@@ -93,10 +92,6 @@ UNDATA_CSV = (
 
 # Path to country-specific UNSD data
 unsd_path = _INDUSTRY_ROOT / "input_data" / "country_specific"
-
-# Legacy Excel file path (for backwards compatibility)
-AMMONIA_SCENARIO_XLSX = _INDUSTRY_ROOT / "input_data" / "petrochemicals" / "ammonia_all_countries_scenarios.xlsx"
-AMMONIA_SCENARIO_SHEET = "combined_wide"
 
 # Path to generated volumes CSV (output)
 AMMONIA_VOLUMES_CSV = _INDUSTRY_ROOT / "output_data" / "interim_data" / "ammonia_volumes.csv"

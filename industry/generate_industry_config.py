@@ -49,6 +49,9 @@ from datetime import datetime
 # === Import sector-specific configuration builders ===
 from scripts.iron_and_steel.generate_steel_config import generate_steel_config_rows
 from scripts.chemical_and_petrochemical.ammonia.generate_ammonia_config import generate_ammonia_config_rows
+from scripts.chemical_and_petrochemical.HVC.generate_hvc_config import generate_hvc_config_rows
+from scripts.non_metallic_minerals.generate_cement_config import generate_cement_config_rows
+from scripts.paper_and_pulp.generate_paper_pulp_config import generate_paper_pulp_config_rows
 
 # === Import helpers ===
 from industry.core.helpers import DEFAULT_TARGET_YEARS
@@ -125,8 +128,20 @@ def generate_industry_config_csv(
     )
     print(f"✓ Ammonia configuration complete: {len(df_ammonia)} rows")
     
-    # TODO: Add other sectors
-    # df_cement = generate_cement_config_rows(countries, base_year, target_years, scenarios)
+    # HVC (Chemical and Petrochemical)
+    df_hvc = generate_hvc_config_rows(
+        countries, base_year, target_years, scenarios
+    )
+    
+    # Cement (Non-metallic Minerals)
+    df_cement = generate_cement_config_rows(
+        countries, base_year, target_years, scenarios
+    )
+    
+    # Paper & Pulp
+    df_paper_pulp = generate_paper_pulp_config_rows(
+        countries, base_year, target_years, scenarios
+    )
     
     # === Concatenate all sectors ===
     print("\nConcatenating all sectors...")
@@ -134,7 +149,9 @@ def generate_industry_config_csv(
         [
             df_steel,
             df_ammonia,
-            # df_cement,   # TODO
+            df_hvc,
+            df_cement,
+            df_paper_pulp,
         ],
         ignore_index=True,
     )

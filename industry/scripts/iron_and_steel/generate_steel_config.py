@@ -31,11 +31,14 @@ CAGR METHODOLOGY:
      * Namibia: 1.5% BAU (no data, using default)
 
 2. INTENSITY CAGR:
-   - Source: Fixed engineering assumptions (defined in config builder)
+   - Source: IEA Technology Roadmap - Iron and Steel Sector
+     https://iea.blob.core.windows.net/assets/imports/events/64/IEARoadmapseries.pdf
+     Current: ~20 GJ/t crude steel, Target: ~10.4 GJ/t (50% reduction potential)
    - Method: Predefined constant CAGR per route and scenario
    - BAU: 0% (no improvement assumed)
    - Progressive: 0% (technology switch, not efficiency)
    - Optimistic: -0.1% to -0.107% (efficiency gains)
+   - TODO: Review and update CAGR values to align with IEA 50% reduction target
    - Country-specific: No - technology improvements are global
    - Routes:
      * BF+BOF: 0% all scenarios (mature technology)
@@ -490,11 +493,20 @@ def generate_steel_config_rows(
     # Intensity CAGR
     print("Building energy intensity CAGR rows...")
     intensity_cagr_config = {
-        "Energy intensity of BF+BOF": [0.0, 0.0, 0.0],
-        "Energy intensity of DR+EAF": [0.0, 0.0, -0.001],
-        "Energy intensity of Scrap EAF": [0.0, 0.0, -0.001],
-        "Energy intensity of Casting, rolling & finishing": [0.0, 0.0, -0.00107],
+        "Energy intensity of BF+BOF": [0.0, -0.012, -0.022],
+        "Energy intensity of DR+EAF": [0.0, -0.015, -0.025],
+        "Energy intensity of Scrap EAF": [0.0, -0.015, -0.022],
+        "Energy intensity of Casting, rolling & finishing": [0.0, -0.015, -0.022],
     }
+    # Source: IEA Technology Roadmap - Iron and Steel Sector
+    # https://iea.blob.core.windows.net/assets/imports/events/64/IEARoadmapseries.pdf
+    # Target: 50% energy intensity reduction by 2050 (20 GJ/t → 10.4 GJ/t)
+    # BAU: 0% (no improvement - inertia, developing countries)
+    # Progressive: -1.2% to -1.5%/year (~30-35% reduction by 2050)
+    #   - Waste heat recovery, process optimization, partial fuel switching
+    # Optimistic: -2.2% to -2.5%/year (~48-53% reduction by 2050)
+    #   - Matches IEA "energy efficiency slim process" target
+    #   - Hydrogen-based DRI, advanced EAF, comprehensive heat recovery
     
     df_intensity_cagr_rows = []
     all_years = [base_year] + target_years

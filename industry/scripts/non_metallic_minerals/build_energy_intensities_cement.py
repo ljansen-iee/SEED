@@ -1,10 +1,6 @@
 # scripts/non_metallic_minerals/build_energy_intensities_cement.py
 
 from typing import Dict, List, Optional
-import os
-import sys
-from pathlib import Path
-
 from industry.build_CAGR import interpolate_or_extrapolate
 from industry.core.helpers import _build_rate_anchors_indexed, _get_value_by_index, get_scenarios_from_build_config_industry
 

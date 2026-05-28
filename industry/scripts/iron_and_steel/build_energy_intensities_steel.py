@@ -1,4 +1,16 @@
 # scripts/industry/steel/build_energy_intensities_steel.py
+"""
+Steel energy intensity functions.
+
+Provides energy intensity data (MWh/tonne steel) for each production route.
+
+REFERENCE:
+- IEA Technology Roadmap - Iron and Steel Sector
+  https://iea.blob.core.windows.net/assets/imports/events/64/IEARoadmapseries.pdf
+  Current global average: ~20 GJ/t crude steel (~5.56 MWh/t)
+  Best available technology / energy efficiency slim process: ~10.4 GJ/t (~2.89 MWh/t)
+  Improvement potential: ~50% reduction by 2050 under optimistic scenarios
+"""
 
 from typing import Dict, List, Optional
 import os
