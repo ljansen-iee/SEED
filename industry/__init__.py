@@ -20,23 +20,28 @@ from industry.core.helpers import (
     validate_fuel_shares,
     country_to_iso2,
     get_fuel_shares_from_unsd,
+    interpolate_or_extrapolate,
     METRIC_ORDER
 )
 
-from industry.build_CAGR import (
-    load_industry_config,
-    interpolate_or_extrapolate,
-    get_metric_cagr_cfg_from_excel,
-    get_metric_config_entry_from_excel,
-    expand_with_cagr_smooth,
-    generate_industry_config_csv
-)
+# Constants (previously from build_config_industry.py)
+SCENARIOS = ["BAU", "Progressive", "Optimistic"]
+BASE_YEAR = 2020
+TARGET_YEARS = DEFAULT_TARGET_YEARS
+INDUSTRY_CONFIG_FILE = "INDUSTRY_CONFIG.csv"
+BASE_DIR = INDUSTRY_DIR
+INDUSTRY_CONFIG_PATH = BASE_DIR / "output_data" / "CONFIG" / INDUSTRY_CONFIG_FILE
 
-from industry.build_config_industry import (
-    SCENARIOS,
-    BASE_YEAR,
-    TARGET_YEARS,
-    INDUSTRY_CONFIG_FILE,
-    BASE_DIR,
-    INDUSTRY_CONFIG_PATH
-)
+# Legacy imports - only used by old workflow files (build_CAGR.py, build_config_industry.py, build_final_energy_demand.py)
+# These are kept for backward compatibility but should NOT be used in new code
+try:
+    from industry.build_CAGR import (
+        load_industry_config,
+        get_metric_cagr_cfg_from_excel,
+        get_metric_config_entry_from_excel,
+        expand_with_cagr_smooth,
+        generate_industry_config_csv as legacy_generate_industry_config_csv
+    )
+except ImportError:
+    # If build_CAGR.py has issues, ignore - it's only for legacy workflow
+    pass

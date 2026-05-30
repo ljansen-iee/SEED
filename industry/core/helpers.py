@@ -4,8 +4,36 @@ from pathlib import Path
 from typing import Callable, Dict, List
 import numpy as np
 import pandas as pd
+from scipy.interpolate import interp1d
 
 DEFAULT_TARGET_YEARS = [2030, 2035, 2040, 2045, 2050]
+
+
+# ============================================================================
+# INTERPOLATION / EXTRAPOLATION UTILITIES
+# ============================================================================
+
+def interpolate_or_extrapolate(values: Dict[int, float], target_years: List[int]) -> Dict[int, float]:
+    """
+    Interpolate or extrapolate values for target years based on known values.
+    
+    Args:
+        values: Dict of {year: value}, some values may be None
+        target_years: List of years to generate values for
+    
+    Returns:
+        Dict of {year: interpolated_value} for all target years
+    """
+    known_years = sorted([y for y, v in values.items() if v is not None])
+    if not known_years:
+        return {y: 0.0 for y in target_years}
+    
+    known_vals = [values[y] for y in known_years]
+    if len(known_years) < 2:
+        return {y: known_vals[0] for y in target_years}
+    
+    f = interp1d(known_years, known_vals, fill_value="extrapolate")
+    return {y: float(f(y)) for y in target_years}
 
 
 def _resolve_industry_dir():
@@ -24,27 +52,13 @@ INDUSTRY_DIR = _resolve_industry_dir()
 
 
 def get_scenarios_from_build_config_industry() -> list[str]:
-    """Read SCENARIOS directly from build_config_industry.py so all scripts follow that single source."""
-    # Since this file is now in core/, go up one level to find build_config_industry.py
-    main_industry_path = Path(__file__).resolve().parent.parent / "build_config_industry.py"
-
-    with main_industry_path.open("r", encoding="utf-8") as handle:
-        tree = ast.parse(handle.read(), filename=str(main_industry_path))
-
-    for node in tree.body:
-        if isinstance(node, ast.Assign):
-            for target in node.targets:
-                if isinstance(target, ast.Name) and target.id == "SCENARIOS":
-                    value = node.value
-                    if isinstance(value, (ast.List, ast.Tuple)):
-                        scenarios: list[str] = []
-                        for element in value.elts:
-                            if isinstance(element, ast.Constant) and isinstance(element.value, str):
-                                scenarios.append(element.value)
-                        if scenarios:
-                            return scenarios
-
-    raise ValueError("SCENARIOS not found or invalid in build_config_industry.py")
+    """
+    Return the standard scenarios list.
+    
+    Note: This used to read from build_config_industry.py, but now returns
+    the standard scenarios directly to avoid circular imports with legacy files.
+    """
+    return ["BAU", "Progressive", "Optimistic"]
 
 def convert_wide_to_long(df_wide, country):
     """
@@ -1430,8 +1444,11 @@ def build_intensity_base_rows(
     # Get base year intensities from function
     intensities = intensity_function([base_year], scenarios)
     
-    # Calculate base intensity (aggregated across all fuels)
+    # Calculate base intensity
+    # NOTE: For simplified config, all fuels have the same intensity value.
+    # We take the first fuel's value instead of summing (which would be 7× too high).
     base_intensity = 0.0
+    fuel_count = 0
     for fuel, year_data in intensities.items():
         if base_year in year_data:
             # Use first scenario value (base year same across scenarios)
@@ -1439,6 +1456,11 @@ def build_intensity_base_rows(
             if scenario_values:
                 first_scenario = list(scenario_values.values())[0]
                 base_intensity += first_scenario
+                fuel_count += 1
+    
+    # Average across fuels (or just take first if all same)
+    if fuel_count > 0:
+        base_intensity = base_intensity / fuel_count
     
     # Generate row for BASE YEAR only (same for all scenarios)
     for scenario in scenarios:

@@ -29,12 +29,82 @@ are handled separately by sector-specific engineering models.
 """
 
 from typing import Dict, List, Optional
+from pathlib import Path
 
-# Import the existing UNSD CAGR calculator
-try:
-    from industry.build_CAGR import get_final_energy_cagr_from_unsd
-except ImportError:
-    from build_CAGR import get_final_energy_cagr_from_unsd
+
+# ============================================================================
+# HELPER FUNCTIONS
+# ============================================================================
+
+def calculate_rolling_cagr(historical_data: Dict[int, float], window: int = 5) -> float:
+    """
+    Calculate mean CAGR from rolling 5-year windows.
+    
+    Args:
+        historical_data: Dict of {year: value_in_GWh}
+        window: Number of years for each CAGR calculation (default 5)
+    
+    Returns:
+        Mean CAGR as a decimal (e.g., 0.02 for 2%)
+    """
+    if not historical_data or len(historical_data) < 2:
+        return 0.0
+    
+    sorted_years = sorted(historical_data.keys())
+    cagr_list = []
+    
+    # Calculate rolling CAGR for each 5-year window
+    for i in range(len(sorted_years) - window):
+        start_year = sorted_years[i]
+        end_year = sorted_years[i + window]
+        
+        start_val = historical_data.get(start_year, 0)
+        end_val = historical_data.get(end_year, 0)
+        
+        # Skip if either value is zero or negative
+        if start_val > 0 and end_val > 0:
+            cagr = (end_val / start_val) ** (1 / window) - 1
+            cagr_list.append(cagr)
+    
+    if not cagr_list:
+        # Fallback: calculate single CAGR from first to last available year
+        first_year = sorted_years[0]
+        last_year = sorted_years[-1]
+        first_val = historical_data.get(first_year, 0)
+        last_val = historical_data.get(last_year, 0)
+        years_diff = last_year - first_year
+        
+        if first_val > 0 and last_val > 0 and years_diff > 0:
+            return (last_val / first_val) ** (1 / years_diff) - 1
+        return 0.0
+    
+    # Return mean of all rolling CAGRs
+    return sum(cagr_list) / len(cagr_list)
+
+
+def get_final_energy_cagr_from_unsd(country: str, sector_keyword: str) -> float:
+    """
+    Get historical data from UNSD files and calculate CAGR for a sector.
+    
+    Args:
+        country: Country name (e.g., "Morocco")
+        sector_keyword: Sector keyword to search in UNSD files (e.g., "Food and tobacco")
+    
+    Returns:
+        CAGR as decimal (e.g., 0.02 for 2%)
+    """
+    from industry.core.helpers import get_historical_sector_data
+    
+    # Get the industry folder path (parent of core/)
+    industry_folder = Path(__file__).parent.parent
+    folder_path = industry_folder / "input_data" / "unsdata_historical"
+    
+    historical_data = get_historical_sector_data(folder_path, country, sector_keyword)
+    
+    if historical_data is None or len(historical_data) < 2:
+        return 0.0
+    
+    return calculate_rolling_cagr(historical_data, window=5)
 
 
 def calculate_production_cagr_from_unsd(
