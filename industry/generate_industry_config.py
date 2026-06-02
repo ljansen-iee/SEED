@@ -62,6 +62,7 @@ from scripts.non_ferrous_metals.generate_non_ferrous_metals_config import genera
 from scripts.textile_and_leather.generate_textile_leather_config import generate_textile_leather_config_rows
 from scripts.transport_equipment.generate_transport_equipment_config import generate_transport_equipment_config_rows
 from scripts.wood_and_wood_products.generate_wood_products_config import generate_wood_products_config_rows
+from scripts.other_industries.generate_other_industries_config import generate_other_industries_config_rows
 
 # === Import helpers ===
 from industry.core.helpers import DEFAULT_TARGET_YEARS
@@ -198,6 +199,11 @@ def generate_industry_config_csv(
     )
     print(f"✓ Wood and wood products: {len(df_wood)} rows")
     
+    df_other_industries = generate_other_industries_config_rows(
+        countries, base_year, target_years, scenarios
+    )
+    print(f"✓ Other industries (Industry n.e.s): {len(df_other_industries)} rows")
+    
     # === Concatenate all sectors ===
     print("\nConcatenating all sectors...")
     df_all = pd.concat(
@@ -215,6 +221,7 @@ def generate_industry_config_csv(
             df_textile,
             df_transport_eq,
             df_wood,
+            df_other_industries,
         ],
         ignore_index=True,
     )

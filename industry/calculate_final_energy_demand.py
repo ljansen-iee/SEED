@@ -639,8 +639,33 @@ class FinalEnergyCalculator:
         """
         Calculate energy demand for simple sectors (no production/intensity detail).
         
-        Uses PyPSA-Earth approach:
-        Formula: Energy(year,fuel) = BaseEnergy(2020) × (1+CAGR)^years × FuelShare(fuel)
+        METHODOLOGY - Separating Activity Growth and Efficiency Gains:
+        ==============================================================
+        
+        Historical UNSD energy trends reflect: Total Energy = Activity × Efficiency
+        
+        For projections, we decompose into:
+        1. ACTIVITY GROWTH: From UNSD historical CAGR (with IQR outlier capping)
+        2. EFFICIENCY GAINS: Scenario-based storyline assumptions
+        
+        Formula:
+        Energy(year, carrier) = BaseEnergy(2020) 
+                               × (1 + activity_cagr)^years 
+                               × (1 + efficiency_rate)^years
+                               × FuelShare(carrier, year)
+        
+        Where:
+        - activity_cagr = UNSD_CAGR × scenario_multiplier
+        - efficiency_rate = scenario-dependent (negative for improvements)
+        
+        Scenario Parameters:
+        - BAU: activity_mult=1.0×, efficiency=-1.0%/year
+        - Progressive: activity_mult=1.2×, efficiency=-2.0%/year
+        - Optimistic: activity_mult=1.5×, efficiency=-3.0%/year
+        
+        TODO: Review and adjust efficiency rates based on sector-specific studies.
+        Current values are placeholder assumptions requiring validation against
+        IEA/IRENA technology roadmaps for each sector.
         
         Args:
             sector_config_name: Name in INDUSTRY_CONFIG metric_1 (e.g., 'Food and tobacco')
@@ -670,6 +695,22 @@ class FinalEnergyCalculator:
         industry_folder = Path(__file__).parent
         unsd_path = industry_folder / "input_data" / "unsdata_historical"
         
+        # Scenario parameters - ACTIVITY GROWTH and EFFICIENCY GAINS
+        scenario_params = {
+            'BAU': {
+                'activity_multiplier': 1.0,    # Historical activity trend continues
+                'efficiency_rate': -0.010      # -1.0%/year efficiency improvement
+            },
+            'Progressive': {
+                'activity_multiplier': 1.2,    # 20% faster activity growth
+                'efficiency_rate': -0.020      # -2.0%/year efficiency improvement
+            },
+            'Optimistic': {
+                'activity_multiplier': 1.5,    # 50% faster activity growth
+                'efficiency_rate': -0.030      # -3.0%/year efficiency improvement
+            }
+        }
+        
         results = []
         base_year = 2020
         
@@ -693,24 +734,29 @@ class FinalEnergyCalculator:
             # Convert GWh → MWh
             base_energy_mwh = base_energy_gwh * 1000
             
-            # 2. Get CAGR from UNSD historical trends
-            cagr = get_final_energy_cagr_from_unsd(country, sector_config_name)
+            # 2. Get ACTIVITY CAGR from UNSD historical trends (with IQR capping)
+            # NOTE: This represents historical activity/volume growth (net of past efficiency)
+            historical_cagr = get_final_energy_cagr_from_unsd(country, sector_config_name)
             
             # 3. Calculate for each scenario and year
             for scenario in scenarios:
-                # Apply scenario multiplier
-                scenario_multipliers = {
-                    'BAU': 1.0,
-                    'Progressive': 1.2,
-                    'Optimistic': 1.5
-                }
-                adjusted_cagr = cagr * scenario_multipliers.get(scenario, 1.0)
+                params = scenario_params.get(scenario, scenario_params['BAU'])
+                
+                # ACTIVITY growth = historical CAGR × scenario multiplier
+                activity_cagr = historical_cagr * params['activity_multiplier']
+                
+                # EFFICIENCY improvement (negative rate = improvement)
+                efficiency_rate = params['efficiency_rate']
                 
                 for year in years:
                     years_elapsed = year - base_year
                     
-                    # Project total energy
-                    projected_energy_mwh = base_energy_mwh * ((1 + adjusted_cagr) ** years_elapsed)
+                    # Project total energy with SEPARATED activity and efficiency components
+                    # Energy = Base × Activity_Growth × Efficiency_Change
+                    activity_factor = (1 + activity_cagr) ** years_elapsed
+                    efficiency_factor = (1 + efficiency_rate) ** years_elapsed
+                    
+                    projected_energy_mwh = base_energy_mwh * activity_factor * efficiency_factor
                     
                     # 4. Apply fuel shares (note: years in config are strings)
                     year_shares = fuel_shares[
@@ -802,7 +848,8 @@ class FinalEnergyCalculator:
             ('Non-ferrous metals', 'non-ferrous metals'),
             ('Textile and leather', 'textile and leather'),
             ('Transport equipment', 'transport equipment'),
-            ('Wood and wood products', 'wood and wood products')
+            ('Wood and wood products', 'wood and wood products'),
+            ('Industry n.e.s', 'other industries')  # Catch-all for industries not elsewhere specified
         ]
         
         for config_name, output_name in simple_sectors:
@@ -844,7 +891,8 @@ class FinalEnergyCalculator:
             'food and tobacco',
             'mining and quarrying',
             'textile and leather',
-            'wood and wood products'
+            'wood and wood products',
+            'other industries'
         ]
         
         wide = long_df.pivot_table(
@@ -868,6 +916,117 @@ class FinalEnergyCalculator:
         wide = wide.sort_values(['country', 'year', 'scenario', 'carrier'])
         
         return wide
+    
+    def export_pypsa_format(self, wide_df: pd.DataFrame, output_dir: Path,
+                           process_emissions_path: Path = None) -> List[Path]:
+        """
+        Export scenario-year CSV files in PyPSA format.
+        
+        - One CSV per scenario-year combination
+        - Drop 'scenario' and 'year' columns
+        - Add process emissions as a carrier row (same level as oil, gas, etc.)
+        
+        Args:
+            wide_df: Wide format energy demand DataFrame
+            output_dir: Output directory for PyPSA CSVs
+            process_emissions_path: Path to process_emissions_summary.csv
+        
+        Returns:
+            List of generated file paths
+        """
+        print("\n" + "="*80)
+        print("EXPORTING PYPSA-FORMAT FILES (scenario-year CSVs + process emissions)")
+        print("="*80)
+        
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Load process emissions if available
+        process_emissions_df = None
+        if process_emissions_path and process_emissions_path.exists():
+            process_emissions_df = pd.read_csv(process_emissions_path)
+            print(f"\nLoaded process emissions: {len(process_emissions_df)} rows")
+        else:
+            print(f"\nWarning: Process emissions not found at {process_emissions_path}")
+            print("  Generating CSVs without process emissions")
+        
+        generated_files = []
+        
+        # Get unique scenario-year combinations
+        scenario_years = wide_df[['scenario', 'year']].drop_duplicates().sort_values(['scenario', 'year'])
+        
+        for _, row in scenario_years.iterrows():
+            scenario = row['scenario']
+            year = int(row['year'])
+            
+            print(f"\nProcessing {scenario} {year}...")
+            
+            # Filter energy data for this scenario-year
+            energy_data = wide_df[
+                (wide_df['scenario'] == scenario) &
+                (wide_df['year'] == year)
+            ].copy()
+            
+            # Drop scenario and year columns
+            energy_data = energy_data.drop(columns=['scenario', 'year'])
+            
+            # Add process emissions as a carrier row if available
+            if process_emissions_df is not None:
+                # Filter process emissions for this scenario-year
+                pe_data = process_emissions_df[
+                    (process_emissions_df['scenario'] == scenario) &
+                    (process_emissions_df['year'] == year)
+                ].copy()
+                
+                if not pe_data.empty:
+                    # Pivot process emissions: sector columns with emissions values
+                    pe_pivot = pe_data.pivot_table(
+                        index='country',
+                        columns='sector',
+                        values='emissions_MtCO2',
+                        aggfunc='sum',
+                        fill_value=0
+                    ).reset_index()
+                    
+                    # Add carrier column
+                    pe_pivot['carrier'] = 'process_emissions'
+                    
+                    # Align columns with energy_data
+                    # Get all sector columns from energy_data
+                    sector_cols = [col for col in energy_data.columns if col not in ['country', 'carrier']]
+                    
+                    # Ensure process emissions has all sector columns
+                    for col in sector_cols:
+                        if col not in pe_pivot.columns:
+                            pe_pivot[col] = 0
+                    
+                    # Reorder columns to match energy_data
+                    pe_pivot = pe_pivot[['country', 'carrier'] + sector_cols]
+                    
+                    # Append process emissions row(s) to energy data
+                    energy_data = pd.concat([energy_data, pe_pivot], ignore_index=True)
+                    print(f"  Added process emissions: {len(pe_pivot)} rows")
+            
+            # Sort by country and carrier
+            energy_data = energy_data.sort_values(['country', 'carrier'])
+            
+            # Generate filename: energy_total_{scenario}_{year}.csv
+            scenario_slug = scenario.lower().replace(' ', '_')
+            filename = f"energy_total_{scenario_slug}_{year}.csv"
+            output_path = output_dir / filename
+            
+            # Save
+            energy_data.to_csv(output_path, index=False)
+            generated_files.append(output_path)
+            print(f"  Saved: {filename} ({len(energy_data)} rows)")
+        
+        print("\n" + "="*80)
+        print(f"GENERATED {len(generated_files)} PYPSA-FORMAT FILES")
+        print("="*80)
+        for path in generated_files:
+            print(f"  - {path.name}")
+        
+        return generated_files
 
 
 def main():
@@ -893,7 +1052,7 @@ def main():
     # Save long format
     output_long_path = output_dir / 'final_energy_demand_detailed_sectors_long.csv'
     results_long.to_csv(output_long_path, index=False)
-    print(f"\n✓ Saved long format to: {output_long_path}")
+    print(f"\n[OK] Saved long format to: {output_long_path}")
     
     # Convert to wide format
     results_wide = calculator.pivot_to_wide_format(results_long)
@@ -901,7 +1060,17 @@ def main():
     # Save wide format
     output_wide_path = output_dir / 'final_energy_demand_detailed_sectors_wide.csv'
     results_wide.to_csv(output_wide_path, index=False)
-    print(f"✓ Saved wide format to: {output_wide_path}")
+    print(f"[OK] Saved wide format to: {output_wide_path}")
+    
+    # Export PyPSA-format CSVs (scenario-year files with process emissions)
+    process_emissions_path = output_dir / 'process_emissions_summary.csv'
+    pypsa_output_dir = output_dir / 'energy_totals'
+    
+    pypsa_files = calculator.export_pypsa_format(
+        wide_df=results_wide,
+        output_dir=pypsa_output_dir,
+        process_emissions_path=process_emissions_path
+    )
     
     # Display sample
     print("\n" + "="*80)
@@ -915,7 +1084,7 @@ def main():
     if not sample.empty:
         print(sample.to_string(index=False))
     
-    print("\n✓ Calculation complete!")
+    print("\n[OK] Calculation complete!")
 
 
 if __name__ == '__main__':

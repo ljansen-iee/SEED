@@ -1,44 +1,80 @@
 """
 Centralized CAGR (Compound Annual Growth Rate) calculation utilities.
 
-This module provides production growth rate calculations based on historical
+This module provides activity/volume growth rate calculations based on historical
 UNSD (United Nations Statistics Division) energy consumption data.
+
+IMPORTANT DISTINCTION - Activity vs Efficiency:
+==============================================
+UNSD CAGR = ACTIVITY/VOLUME GROWTH (net of historical efficiency improvements)
+
+Historical energy trends reflect:
+  Total Energy Growth = Activity Growth - Historical Efficiency Gains
+
+For modeling purposes:
+1. UNSD CAGR → used as ACTIVITY/VOLUME growth baseline
+2. Efficiency improvements → applied SEPARATELY by scenario-based assumptions
+
+Example:
+  If UNSD shows 2.5%/year energy growth historically:
+  - We interpret this as 2.5%/year ACTIVITY growth
+  - Then apply additional scenario-based efficiency gains:
+    * BAU: -1.0%/year
+    * Progressive: -2.0%/year  
+    * Optimistic: -3.0%/year
 
 METHODOLOGY:
 ===========
-Production CAGR is calculated from historical energy consumption trends because:
-1. Energy consumption closely tracks production volumes
+Activity CAGR is calculated from historical energy consumption trends because:
+1. Energy consumption closely tracks production/activity volumes
 2. UNSD provides consistent, validated data across 200+ countries
 3. Captures real market dynamics (policy, economic, technological changes)
 
 Process:
 1. Load UNSD historical energy consumption (2011-2023)
-2. Calculate rolling 5-year mean CAGR from trends
-3. Apply scenario-specific multipliers for future projections
+2. Calculate rolling 5-year CAGR windows
+3. Apply IQR (Interquartile Range) outlier capping to remove anomalies
+4. Take mean of capped values as final CAGR
+5. Apply scenario-specific multipliers for future projections
+
+IQR Outlier Capping:
+- Removes statistical outliers (e.g., COVID shock, data errors)
+- Bounds: Q1 - 1.5×IQR to Q3 + 1.5×IQR
+- Hard limits: -30% to +30% CAGR (physically realistic bounds)
 
 Fallback:
 - If no UNSD data available: 1.5% default (IEA/World Bank industrial average)
 
-Scenario Multipliers:
+Scenario Multipliers (Applied to Activity Growth):
 - BAU (Baseline): 1.0× - historical trend continues unchanged
 - Progressive: 1.2× - 20% acceleration from policy/efficiency gains
 - Optimistic: 1.5× - 50% acceleration from aggressive decarbonization
 
-Note: This is for PRODUCTION growth only. Intensity improvements (efficiency gains)
-are handled separately by sector-specific engineering models.
+Note: For DETAILED industries (steel, cement, ammonia), efficiency improvements
+come from engineering-based intensity projections (IEA Technology Roadmaps).
+For SIMPLE industries, efficiency improvements are applied via separate efficiency
+rate parameters by scenario.
 """
 
 from typing import Dict, List, Optional
 from pathlib import Path
+import numpy as np
+import pandas as pd
 
 
 # ============================================================================
 # HELPER FUNCTIONS
 # ============================================================================
 
-def calculate_rolling_cagr(historical_data: Dict[int, float], window: int = 5) -> float:
+def calculate_rolling_cagr_with_iqr_capping(historical_data: Dict[int, float], window: int = 5) -> float:
     """
-    Calculate mean CAGR from rolling 5-year windows.
+    Calculate mean CAGR from rolling windows with IQR-based outlier capping.
+    
+    This method provides robust growth estimates by:
+    1. Computing rolling window CAGRs
+    2. Removing statistical outliers using IQR (Interquartile Range)
+    3. Applying hard bounds (±30%) for physical realism
+    4. Taking mean of capped values
     
     Args:
         historical_data: Dict of {year: value_in_GWh}
@@ -53,7 +89,7 @@ def calculate_rolling_cagr(historical_data: Dict[int, float], window: int = 5) -
     sorted_years = sorted(historical_data.keys())
     cagr_list = []
     
-    # Calculate rolling CAGR for each 5-year window
+    # Calculate rolling CAGR for each window
     for i in range(len(sorted_years) - window):
         start_year = sorted_years[i]
         end_year = sorted_years[i + window]
@@ -75,11 +111,47 @@ def calculate_rolling_cagr(historical_data: Dict[int, float], window: int = 5) -
         years_diff = last_year - first_year
         
         if first_val > 0 and last_val > 0 and years_diff > 0:
-            return (last_val / first_val) ** (1 / years_diff) - 1
+            single_cagr = (last_val / first_val) ** (1 / years_diff) - 1
+            # Apply hard bounds even for single value
+            return np.clip(single_cagr, -0.30, 0.30)
         return 0.0
     
-    # Return mean of all rolling CAGRs
-    return sum(cagr_list) / len(cagr_list)
+    # Apply IQR-based outlier capping if we have enough data points
+    if len(cagr_list) >= 4:
+        cagr_array = np.array(cagr_list)
+        
+        # Remove inf/-inf values
+        cagr_array = cagr_array[~np.isinf(cagr_array)]
+        
+        if len(cagr_array) >= 4:
+            q1 = np.percentile(cagr_array, 25)
+            q3 = np.percentile(cagr_array, 75)
+            iqr = q3 - q1
+            
+            # IQR bounds
+            lower_bound = q1 - 1.5 * iqr
+            upper_bound = q3 + 1.5 * iqr
+            
+            # Cap values to IQR bounds
+            cagr_capped = np.clip(cagr_array, lower_bound, upper_bound)
+        else:
+            cagr_capped = cagr_array
+    else:
+        cagr_capped = np.array(cagr_list)
+    
+    # Apply hard bounds for physical realism (±30% per year)
+    cagr_capped = np.clip(cagr_capped, -0.30, 0.30)
+    
+    # Return mean of capped values
+    return float(np.mean(cagr_capped))
+
+
+def calculate_rolling_cagr(historical_data: Dict[int, float], window: int = 5) -> float:
+    """
+    Legacy function - calls new IQR-capped version.
+    Kept for backward compatibility.
+    """
+    return calculate_rolling_cagr_with_iqr_capping(historical_data, window)
 
 
 def get_final_energy_cagr_from_unsd(country: str, sector_keyword: str) -> float:
@@ -98,6 +170,11 @@ def get_final_energy_cagr_from_unsd(country: str, sector_keyword: str) -> float:
     # Get the industry folder path (parent of core/)
     industry_folder = Path(__file__).parent.parent
     folder_path = industry_folder / "input_data" / "unsdata_historical"
+    
+    # IMPORTANT: This calculates ACTIVITY/VOLUME CAGR from historical energy data.
+    # The historical energy growth represents net activity growth (after historical efficiency).
+    # For projections, we treat this as pure activity growth and apply additional
+    # scenario-based efficiency improvements separately.
     
     historical_data = get_historical_sector_data(folder_path, country, sector_keyword)
     
@@ -185,13 +262,13 @@ def calculate_production_cagr_from_unsd(
             historical_cagr = get_final_energy_cagr_from_unsd(country, unsd_sector_name)
             
             if historical_cagr is None or historical_cagr == 0.0:
-                print(f"    ⚠ No UNSD data for {country}, using fallback default: {fallback_cagr:.1%}")
+                print(f"    [WARNING] No UNSD data for {country}, using fallback default: {fallback_cagr:.1%}")
                 historical_cagr = fallback_cagr
             else:
-                print(f"    ✓ Historical CAGR: {historical_cagr:.4%}")
+                print(f"    [OK] Historical CAGR: {historical_cagr:.4%}")
         
         except Exception as e:
-            print(f"    ⚠ Error loading UNSD data for {country}: {e}")
+            print(f"    [WARNING] Error loading UNSD data for {country}: {e}")
             print(f"    Using fallback default: {fallback_cagr:.1%}")
             historical_cagr = fallback_cagr
         
