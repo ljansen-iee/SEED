@@ -6,7 +6,7 @@ This script creates CSV summaries of all CAGR values used in the model:
 2. Intensity CAGR (efficiency improvements)
 3. Summary by sector and scenario
 
-Output files in: industry/output_data/interim/cagr_extracts/
+Output files in: industry/output_data/interim_data/cagr_extracts/
 """
 
 from pathlib import Path
@@ -17,7 +17,7 @@ def extract_cagr_values():
     
     base_dir = Path(__file__).parent
     config_path = base_dir / 'output_data' / 'CONFIG' / 'INDUSTRY_CONFIG.csv'
-    output_dir = base_dir / 'output_data' / 'interim' / 'cagr_extracts'
+    output_dir = base_dir / 'output_data' / 'interim_data' / 'cagr_extracts'
     output_dir.mkdir(parents=True, exist_ok=True)
     
     print("="*80)

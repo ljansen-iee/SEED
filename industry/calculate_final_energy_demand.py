@@ -322,13 +322,17 @@ class FinalEnergyCalculator:
                             })
                     
                     # === ENDOGENOUS STEEL DEMAND ===
-                    results.append({
-                        'country': country,
-                        'scenario': scenario,
-                        'year': year,
-                        'carrier': 'steel',
-                        'energy_MWh': production  # tonnes
-                    })
+                    # Only PRIMARY steel creates new steel demand (from iron ore)
+                    # Secondary steel (scrap) is recycling existing steel → no endogenous demand
+                    if primary_share > 0:
+                        primary_production = production * primary_share
+                        results.append({
+                            'country': country,
+                            'scenario': scenario,
+                            'year': year,
+                            'carrier': 'steel',
+                            'energy_MWh': primary_production  # tonnes (only primary)
+                        })
         
         df = pd.DataFrame(results)
         if not df.empty:
@@ -634,6 +638,100 @@ class FinalEnergyCalculator:
             print(f"  Generated {len(df)} records")
         return df
     
+    def calculate_aluminium_energy(self, years: List[int], scenarios: List[str]) -> pd.DataFrame:
+        """
+        Calculate aluminium energy with Primary/Secondary route hierarchy.
+        
+        Similar to steel: production × route_share × intensity × fuel_share
+        
+        Routes:
+        - Primary aluminium (Hall-Héroult): 64% (2020), energy-intensive
+        - Secondary aluminium (Recycling): 36% (2020), low energy
+        
+        Returns:
+            DataFrame with exogenous energy by carrier
+        """
+        print("\nCalculating aluminium (non-ferrous metals) sector...")
+        sector = 'non-ferrous metals'
+        sector_data = self.config[self.config['metric_1'] == sector].copy()
+        results = []
+        
+        for country in self.countries:
+            for scenario in scenarios:
+                for year in years:
+                    year_str = str(year)
+                    
+                    # Get total aluminium production
+                    prod_mask = ((sector_data['metric_2'] == 'production') &
+                                (sector_data['metric_3'] == 'Aluminium production per year') &
+                                (sector_data['scenario'] == scenario) &
+                                (sector_data['year'] == year_str))
+                    
+                    if not prod_mask.any():
+                        continue
+                    
+                    production = sector_data.loc[prod_mask, country].iloc[0]
+                    if pd.isna(production) or production == 0:
+                        continue
+                    
+                    # Get Primary/Secondary shares
+                    primary_mask = ((sector_data['metric_2'] == 'technology_route') &
+                                   (sector_data['metric_3'] == 'Primary aluminium') &
+                                   (sector_data['scenario'] == scenario) &
+                                   (sector_data['year'] == year_str))
+                    
+                    secondary_mask = ((sector_data['metric_2'] == 'technology_route') &
+                                     (sector_data['metric_3'] == 'Secondary aluminium') &
+                                     (sector_data['scenario'] == scenario) &
+                                     (sector_data['year'] == year_str))
+                    
+                    primary_share = sector_data.loc[primary_mask, country].iloc[0] if primary_mask.any() else 0
+                    secondary_share = sector_data.loc[secondary_mask, country].iloc[0] if secondary_mask.any() else 0
+                    
+                    energy_by_carrier = {carrier: 0.0 for carrier in CARRIER_ORDER}
+                    
+                    # === PRIMARY ALUMINIUM (Hall-Héroult electrolysis) ===
+                    if primary_share > 0:
+                        primary_production = production * primary_share
+                        intensity = self.get_intensity(sector, 'Primary aluminium', country, scenario, year)
+                        if intensity > 0:
+                            energy_by_carrier = self._add_route_energy(
+                                sector_data, 'Primary aluminium', primary_production, intensity,
+                                country, scenario, year_str, energy_by_carrier
+                            )
+                    
+                    # === SECONDARY ALUMINIUM (Recycling) ===
+                    if secondary_share > 0:
+                        secondary_production = production * secondary_share
+                        intensity = self.get_intensity(sector, 'Secondary aluminium', country, scenario, year)
+                        if intensity > 0:
+                            energy_by_carrier = self._add_route_energy(
+                                sector_data, 'Secondary aluminium', secondary_production, intensity,
+                                country, scenario, year_str, energy_by_carrier
+                            )
+                    
+                    # === UNSPECIFIED (other non-ferrous: copper, zinc, lead, etc.) ===
+                    # This is the RESIDUAL: UNSD total - aluminium detailed
+                    energy_by_carrier = self._add_unspecified_energy(
+                        sector_data, sector, country, scenario, year_str, energy_by_carrier
+                    )
+                    
+                    # Store results
+                    for carrier, energy in energy_by_carrier.items():
+                        if energy > 0:
+                            results.append({
+                                'country': country,
+                                'scenario': scenario,
+                                'year': year,
+                                'carrier': carrier,
+                                'energy_MWh': energy
+                            })
+        
+        df = pd.DataFrame(results)
+        if not df.empty:
+            print(f"  Generated {len(df)} records")
+        return df
+    
     def calculate_simple_sector_energy(self, sector_config_name: str, sector_output_name: str,
                                        years: List[int], scenarios: List[str]) -> pd.DataFrame:
         """
@@ -837,6 +935,12 @@ class FinalEnergyCalculator:
             paper_df['sector'] = 'paper pulp and print'
             all_results.append(paper_df)
         
+        # Aluminium (non-ferrous metals)
+        aluminium_df = self.calculate_aluminium_energy(years, scenarios)
+        if not aluminium_df.empty:
+            aluminium_df['sector'] = 'non-ferrous metals'
+            all_results.append(aluminium_df)
+        
         # ========== SIMPLE SECTORS (PyPSA-Earth approach) ==========
         # These use base year energy × CAGR projection × fuel shares
         
@@ -845,7 +949,7 @@ class FinalEnergyCalculator:
             ('Manufacturing  const. and mining', 'construction'),
             ('Machinery', 'machinery'),
             ('Mining and quarrying', 'mining and quarrying'),
-            ('Non-ferrous metals', 'non-ferrous metals'),
+            # NOTE: Non-ferrous metals removed - now handled as detailed sector (aluminium)
             ('Textile and leather', 'textile and leather'),
             ('Transport equipment', 'transport equipment'),
             ('Wood and wood products', 'wood and wood products'),
@@ -1010,9 +1114,9 @@ class FinalEnergyCalculator:
             # Sort by country and carrier
             energy_data = energy_data.sort_values(['country', 'carrier'])
             
-            # Generate filename: energy_total_{scenario}_{year}.csv
+            # Generate filename: industry+{scenario}+{year}.csv
             scenario_slug = scenario.lower().replace(' ', '_')
-            filename = f"energy_total_{scenario_slug}_{year}.csv"
+            filename = f"industry+{scenario_slug}+{year}.csv"
             output_path = output_dir / filename
             
             # Save
@@ -1064,11 +1168,10 @@ def main():
     
     # Export PyPSA-format CSVs (scenario-year files with process emissions)
     process_emissions_path = output_dir / 'process_emissions_summary.csv'
-    pypsa_output_dir = output_dir / 'energy_totals'
     
     pypsa_files = calculator.export_pypsa_format(
         wide_df=results_wide,
-        output_dir=pypsa_output_dir,
+        output_dir=output_dir,
         process_emissions_path=process_emissions_path
     )
     

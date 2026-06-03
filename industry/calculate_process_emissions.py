@@ -294,17 +294,62 @@ class ProcessEmissionCalculator:
         Calculate process emissions for ammonia production.
         
         Ammonia has NO process emissions (emissions are on energy side from H₂ production).
-        Returns empty DataFrame for consistency.
+        Returns rows with 0 emissions for traceability (not empty DataFrame).
         
         Args:
             years: Target years
             scenarios: Scenarios
         
         Returns:
-            Empty DataFrame (no process emissions for ammonia)
+            DataFrame with 0 emissions (for completeness in output CSV)
         """
         print("\nAmmonia process emissions: 0 (emissions on energy side)")
-        return pd.DataFrame()
+        
+        # Get ammonia production data from chemical and petrochemical sector
+        ammonia_prod = self.config[
+            (self.config['metric_1'] == 'chemical and petrochemical') &
+            (self.config['metric_2'] == 'production') &
+            (self.config['metric_3'] == 'ammonia production per year')
+        ].copy()
+        
+        if ammonia_prod.empty:
+            print("  No ammonia production data found")
+            return pd.DataFrame()
+        
+        results = []
+        
+        for _, row in ammonia_prod.iterrows():
+            year = int(row['year'])
+            scenario = row['scenario']
+            
+            if year not in years or scenario not in scenarios:
+                continue
+            
+            for country in self.countries:
+                production_100t = row[country]
+                if pd.isna(production_100t) or production_100t == 0:
+                    continue
+                
+                # Convert to Mt
+                production_mt = production_100t * 100 / 1e6
+                
+                # Append row with 0 emissions (for traceability)
+                results.append({
+                    'country': country,
+                    'scenario': scenario,
+                    'year': year,
+                    'sector': 'chemical and petrochemical',
+                    'route': 'ammonia (no process emissions)',
+                    'production_Mt': production_mt,
+                    'factor_tCO2_per_t': 0.0,
+                    'emissions_MtCO2': 0.0
+                })
+        
+        df = pd.DataFrame(results)
+        if not df.empty:
+            print(f"  Generated {len(df)} rows (all with 0 emissions for traceability)")
+        
+        return df
     
     def calculate_paper_emissions(self, years: list, scenarios: list) -> pd.DataFrame:
         """
@@ -403,6 +448,119 @@ class ProcessEmissionCalculator:
             print(f"  Total emissions range: {df['emissions_MtCO2'].sum():.2f} MtCO₂")
         else:
             print("  Warning: No paper/pulp production data found")
+        
+        return df
+    
+    def calculate_aluminium_emissions(self, years: list, scenarios: list) -> pd.DataFrame:
+        """
+        Calculate process emissions for aluminium production.
+        
+        Aluminium process emissions come from anode oxidation in Hall-Héroult electrolysis:
+        - Primary aluminium: 1.5 tCO₂/t (carbon anode → CO₂)
+        - Secondary aluminium: 0.0 tCO₂/t (recycling - no chemical reaction)
+        
+        Emission factors from PROCESS_EMISSION_FACTORS['non-ferrous metals']:
+        - 'Aluminium_primary': 1.5 tCO₂/t
+        - 'Aluminium_secondary': 0.0 tCO₂/t
+        
+        Args:
+            years: Target years
+            scenarios: Scenarios
+        
+        Returns:
+            DataFrame with emissions data by route
+        """
+        print("\nCalculating aluminium process emissions...")
+        
+        # Get aluminium production data
+        aluminium_prod = self.config[
+            (self.config['metric_1'] == 'non-ferrous metals') &
+            (self.config['metric_2'] == 'production') &
+            (self.config['metric_3'] == 'Aluminium production per year')
+        ].copy()
+        
+        if aluminium_prod.empty:
+            print("  Warning: No aluminium production data found")
+            return pd.DataFrame()
+        
+        # Get technology route shares
+        aluminium_routes = self.config[
+            (self.config['metric_1'] == 'non-ferrous metals') &
+            (self.config['metric_2'] == 'technology_route')
+        ].copy()
+        
+        if aluminium_routes.empty:
+            print("  Warning: No aluminium route share data found")
+            return pd.DataFrame()
+        
+        results = []
+        
+        # For each production row, calculate route-specific emissions
+        for _, prod_row in aluminium_prod.iterrows():
+            year = int(prod_row['year'])
+            scenario = prod_row['scenario']
+            
+            if year not in years or scenario not in scenarios:
+                continue
+            
+            # Get route shares for this year/scenario
+            route_shares = aluminium_routes[
+                (aluminium_routes['year'] == str(year)) &
+                (aluminium_routes['scenario'] == scenario)
+            ]
+            
+            for country in self.countries:
+                total_production_100t = prod_row[country]
+                if pd.isna(total_production_100t) or total_production_100t == 0:
+                    continue
+                
+                # Convert 100 tonnes → Mt
+                total_production_mt = total_production_100t * 100 / 1e6
+                
+                # Split by route
+                for _, route_row in route_shares.iterrows():
+                    route = route_row['metric_3']  # e.g., 'Primary aluminium', 'Secondary aluminium'
+                    route_share = route_row[country]
+                    
+                    if pd.isna(route_share) or route_share == 0:
+                        continue
+                    
+                    # Route-specific production
+                    route_production_mt = total_production_mt * route_share
+                    
+                    # Get emission factor (map route name to factor key)
+                    if 'Primary' in route:
+                        emission_factor = get_emission_factor('non-ferrous metals', 'Aluminium_primary')
+                    elif 'Secondary' in route:
+                        emission_factor = get_emission_factor('non-ferrous metals', 'Aluminium_secondary')
+                    else:
+                        emission_factor = get_emission_factor('non-ferrous metals', 'Unspecified')
+                    
+                    # Calculate emissions: Mt/year × tCO₂/t = MtCO₂/year
+                    emissions_mt = route_production_mt * emission_factor
+                    
+                    results.append({
+                        'country': country,
+                        'scenario': scenario,
+                        'year': year,
+                        'sector': 'non-ferrous metals',
+                        'route': route,
+                        'production_Mt': route_production_mt,
+                        'factor_tCO2_per_t': emission_factor,
+                        'emissions_MtCO2': emissions_mt
+                    })
+        
+        df = pd.DataFrame(results)
+        if not df.empty:
+            print(f"  Generated {len(df)} emission records")
+            
+            # Summary by route
+            primary_emissions = df[df['route'].str.contains('Primary', na=False)]['emissions_MtCO2'].sum()
+            secondary_emissions = df[df['route'].str.contains('Secondary', na=False)]['emissions_MtCO2'].sum()
+            
+            print(f"  Primary aluminium: {primary_emissions:.2f} MtCO₂ (across all scenarios/years)")
+            print(f"  Secondary aluminium: {secondary_emissions:.2f} MtCO₂ (should be ~0)")
+            print(f"  Total: {df['emissions_MtCO2'].sum():.2f} MtCO₂")
         
         return df
     
@@ -525,28 +683,25 @@ class ProcessEmissionCalculator:
         if not hvc_df.empty:
             all_emissions.append(hvc_df)
         
-        # Ammonia (zero emissions, just for logging)
-        self.calculate_ammonia_emissions(years, scenarios)
+        # Ammonia (zero emissions - rows for traceability)
+        ammonia_df = self.calculate_ammonia_emissions(years, scenarios)
+        if not ammonia_df.empty:
+            all_emissions.append(ammonia_df)
         
         # Paper/Pulp (minor emissions)
         paper_df = self.calculate_paper_emissions(years, scenarios)
         if not paper_df.empty:
             all_emissions.append(paper_df)
         
-        # TODO: Simple sectors - add when production volumes become available:
-        # - Aluminium: Use calculate_generic_sector_emissions() with 'Aluminium_primary' (1.5 tCO2/t)
+        # Aluminium (by route: Primary has emissions, Secondary has zero)
+        aluminium_df = self.calculate_aluminium_emissions(years, scenarios)
+        if not aluminium_df.empty:
+            all_emissions.append(aluminium_df)
+        
+        # TODO: Additional sectors when production volumes become available:
         # - Ceramics: Use calculate_generic_sector_emissions() with 'Ceramics' (0.03 tCO2/t)
         # - Glass: Use calculate_generic_sector_emissions() with 'Glass' (0.02 tCO2/t)
         # - Food processing: Meat (fermentation), dairy products if data available
-        # Example when aluminium data is added:
-        #   alu_df = self.calculate_generic_sector_emissions(
-        #       sector_name='non-ferrous metals',
-        #       production_metric='Aluminium production per year',
-        #       route_name='Aluminium_primary',
-        #       years=years, scenarios=scenarios
-        #   )
-        #   if not alu_df.empty:
-        #       all_emissions.append(alu_df)
         
         if not all_emissions:
             print("\nWarning: No emissions calculated!")
