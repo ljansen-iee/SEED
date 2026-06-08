@@ -60,11 +60,11 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 # Import steel-specific data libraries
-from scripts.iron_and_steel.build_steel_production import (
+from industry.scripts.iron_and_steel.build_steel_production import (
     load_and_process_both,
     clean_worldsteel_excel,
 )
-from scripts.iron_and_steel.build_shares_steel import (
+from industry.scripts.iron_and_steel.build_shares_steel import (
     share_fuel_bf_bof,
     share_fuel_dr_eaf,
     share_fuel_scrap_eaf,
@@ -72,7 +72,7 @@ from scripts.iron_and_steel.build_shares_steel import (
     share_fuel_unspecified_steel,
     share_steel_primary_secondary,
 )
-from scripts.iron_and_steel.build_energy_intensities_steel import (
+from industry.scripts.iron_and_steel.build_energy_intensities_steel import (
     intensity_bf_bof,
     intensity_dr_eaf,
     intensity_scrap_eaf,
@@ -82,16 +82,16 @@ from scripts.iron_and_steel.build_energy_intensities_steel import (
 # Import helpers
 try:
     # When running from root (e.g., via imported by another script)
-    from industry.core.cagr_calculator import calculate_production_cagr_from_unsd
-    from industry.core.helpers import extract_all_fuels, extract_capacity_shares
+    from industry.utils.cagr_calculator import calculate_production_cagr_from_unsd
+    from industry.utils.helpers import extract_all_fuels, extract_capacity_shares
 except ImportError:
     # When running from industry folder directly
-    from core.cagr_calculator import calculate_production_cagr_from_unsd
-    from core.helpers import extract_all_fuels, extract_capacity_shares
+    from utils.cagr_calculator import calculate_production_cagr_from_unsd
+    from utils.helpers import extract_all_fuels, extract_capacity_shares
 
 
 # ============================================================================
-# CAGR CALCULATION (Now uses centralized core.cagr_calculator)
+# CAGR CALCULATION (Now uses centralized utils.cagr_calculator)
 # ============================================================================
 
 def calculate_steel_cagr_from_unsd(
@@ -103,7 +103,7 @@ def calculate_steel_cagr_from_unsd(
     Calculate data-driven CAGR for steel production from historical UNSD data.
     
     This is now a thin wrapper around the centralized calculate_production_cagr_from_unsd()
-    function in industry.core.cagr_calculator. The centralized version ensures consistent
+    function in industry.utils.cagr_calculator. The centralized version ensures consistent
     methodology across all sectors (steel, ammonia, cement, etc.).
     
     Args:
@@ -433,9 +433,9 @@ def generate_steel_config_rows(
     
     # Import generic builders
     try:
-        from industry.core.helpers import build_fuel_share_rows, build_intensity_base_rows
+        from industry.utils.helpers import build_fuel_share_rows, build_intensity_base_rows
     except ImportError:
-        from core.helpers import build_fuel_share_rows, build_intensity_base_rows
+        from utils.helpers import build_fuel_share_rows, build_intensity_base_rows
     
     # Fuel shares
     print("Loading fuel shares...")

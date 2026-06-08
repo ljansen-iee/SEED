@@ -72,7 +72,6 @@ def convert_wide_to_long(df_wide, country):
     df_long["Year"] = df_long["Year"].astype(int)
     return df_long
 
-from industry.build_CAGR import interpolate_or_extrapolate
 
 def extract_capacity_shares(df, country, steel_types, base_year=2020, target_years=None, all_types=None):
     """
@@ -114,8 +113,12 @@ def extract_all_fuels(func, target_years, scenarios=None):
     """
     Generic wrapper to extract interpolated results for all standard fuels
     from a given function like share_fuel_bf_bof or intensity_bf_bof.
+    
+    Includes endogenous carriers (ammonia, methanol, steel) which are demanded
+    as intermediate products rather than being disaggregated into their production fuels.
     """
-    fuels = ["diesel", "natural_gas", "electricity", "coal", "heat", "biomass", "hydrogen"]
+    fuels = ["diesel", "natural_gas", "electricity", "coal", "heat", "biomass", "hydrogen", 
+             "ammonia", "methanol", "steel"]
     data = func(target_years, scenarios) if scenarios else func(target_years)
     
     extracted = {}
@@ -123,7 +126,7 @@ def extract_all_fuels(func, target_years, scenarios=None):
         if fuel in data:
             extracted[fuel] = data[fuel]
         else:
-            print(f" Warning: Fuel '{fuel}' missing in {func.__name__}")
+            # Don't warn - many routes legitimately don't use all fuels
             extracted[fuel] = {}
     return extracted
 
@@ -513,8 +516,8 @@ def get_historical_sector_data(folder_path: Path, country: str, sector_keyword: 
     """
     history = {}
     
-    # 1. Glob all files for this country (e.g., Morocco-2016.csv, Morocco-2017.csv)
-    files = list(folder_path.glob(f"{country}-*.csv"))
+    # 1. Glob all files for this country (e.g., UNSD_Morocco-2016.csv, UNSD_Morocco-2017.csv)
+    files = list(folder_path.glob(f"UNSD_{country}-*.csv"))
     
     if not files:
         print(f" No files found for {country} in {folder_path}")
@@ -580,8 +583,8 @@ def get_fuel_shares_from_unsd(folder_path: Path, country: str, sector_keyword: s
         "hydrogen": 0.0,
     }
     
-    # Find all files for this country
-    files = list(folder_path.glob(f"{country}-*.csv"))
+    # Find all files for this country (with UNSD_ prefix)
+    files = list(folder_path.glob(f"UNSD_{country}-*.csv"))
     if not files:
         print(f" No UNSD files found for {country} in {folder_path}")
         return None  # Missing data - caller should use average

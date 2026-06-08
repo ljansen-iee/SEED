@@ -5,7 +5,7 @@ This is a "simple" sector with only fuel shares (no production/intensity detail)
 Output format matches: "Share of [fuel] for unspecified wood and wood products"
 """
 
-from industry.core.helpers import build_simple_sector_fuel_share_rows
+from industry.utils.helpers import build_simple_sector_fuel_share_rows
 from industry.scripts.wood_and_wood_products.build_wood_shares import get_wood_fuel_shares
 
 

@@ -20,7 +20,7 @@ Normalization: Renormalized to sum to 100% per (year, scenario)
 """
 
 from typing import List, Dict, Optional
-from industry.build_CAGR import interpolate_or_extrapolate
+from industry.utils.helpers import interpolate_or_extrapolate
 
 SCENARIOS = ["BAU", "Progressive", "Optimistic"]
 
@@ -208,13 +208,18 @@ def share_fuel_hvc_mto(target_years: List[int], scenarios: Optional[List[str]] =
     """
     Fuel shares for Methanol-to-Olefins (MTO) route (% of MTO energy).
     
-    2020 Baseline Source: Expert assumption
-    - MTO is more electricity-intensive than cracking
-    - Electricity: 60% (reaction, separation)
-    - Natural gas: 35% (heat integration)
+    IMPORTANT: Methanol is treated as an ENDOGENOUS CARRIER (like ammonia).
+    The energy system will optimize methanol production separately.
     
-    Future potential: Green methanol from H2 + CO2 capture
-    - Optimistic scenario: High electrification + green methanol feedstock
+    2020 Baseline Source: Expert assumption
+    - Methanol: 70% (feedstock - supplied by energy system)
+    - Electricity: 25% (reaction, separation, compression)
+    - Natural gas: 5% (process heat integration)
+    
+    Future trends:
+    - Methanol share stable (always needed as feedstock)
+    - Increasing electrification for process energy
+    - Green methanol production handled in energy system optimization
     
     TODO: Validate against MTO plant operation data
     """
@@ -222,24 +227,29 @@ def share_fuel_hvc_mto(target_years: List[int], scenarios: Optional[List[str]] =
         scenarios = SCENARIOS
     
     base_data = {
-        "diesel": {
-            2020: [2, 2, 2],
-            2030: [2, 1, 0],
-            2050: [2, 0, 0]
-        },
-        "natural_gas": {
-            2020: [35, 35, 35],
-            2030: [35, 30, 20],
-            2050: [35, 20, 10]
+        "methanol": {
+            2020: [70, 70, 70],
+            2030: [70, 70, 70],
+            2050: [70, 70, 70]
         },
         "electricity": {
-            2020: [60, 60, 60],
-            2030: [60, 64, 70],
-            2050: [60, 70, 80]
+            2020: [25, 25, 25],
+            2030: [25, 27, 28],
+            2050: [25, 28, 29]
+        },
+        "natural_gas": {
+            2020: [5, 5, 5],
+            2030: [5, 3, 2],
+            2050: [5, 2, 1]
+        },
+        "diesel": {
+            2020: [0, 0, 0],
+            2030: [0, 0, 0],
+            2050: [0, 0, 0]
         },
         "coal": {
-            2020: [3, 3, 3],
-            2030: [3, 0, 0],
+            2020: [0, 0, 0],
+            2030: [0, 0, 0],
             2050: [0, 0, 0]
         },
         "heat": {
@@ -249,13 +259,13 @@ def share_fuel_hvc_mto(target_years: List[int], scenarios: Optional[List[str]] =
         },
         "biomass": {
             2020: [0, 0, 0],
-            2030: [0, 5, 5],
-            2050: [0, 5, 5]
+            2030: [0, 0, 0],
+            2050: [0, 0, 0]
         },
         "hydrogen": {
             2020: [0, 0, 0],
-            2030: [0, 0, 5],
-            2050: [0, 5, 5]
+            2030: [0, 0, 0],
+            2050: [0, 0, 0]
         },
     }
     

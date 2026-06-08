@@ -79,8 +79,8 @@ from industry.scripts.chemical_and_petrochemical.ammonia.build_intensities_ammon
 # Import helpers
 try:
     # When running from root
-    from industry.core.cagr_calculator import calculate_production_cagr_from_unsd
-    from industry.core.helpers import (
+    from industry.utils.cagr_calculator import calculate_production_cagr_from_unsd
+    from industry.utils.helpers import (
         extract_all_fuels,
         build_fuel_share_rows,
         build_intensity_base_rows,
@@ -89,8 +89,8 @@ try:
     )
 except ImportError:
     # When running from industry folder directly
-    from core.cagr_calculator import calculate_production_cagr_from_unsd
-    from core.helpers import (
+    from utils.cagr_calculator import calculate_production_cagr_from_unsd
+    from utils.helpers import (
         extract_all_fuels,
         build_fuel_share_rows,
         build_intensity_base_rows,
@@ -100,7 +100,7 @@ except ImportError:
 
 
 # ============================================================================
-# CAGR CALCULATION (Now uses centralized core.cagr_calculator)
+# CAGR CALCULATION (Now uses centralized utils.cagr_calculator)
 # ============================================================================
 
 def calculate_ammonia_cagr_from_unsd(
@@ -112,7 +112,7 @@ def calculate_ammonia_cagr_from_unsd(
     Calculate data-driven CAGR for ammonia production from historical UNSD data.
     
     This is now a thin wrapper around the centralized calculate_production_cagr_from_unsd()
-    function in industry.core.cagr_calculator. The centralized version ensures consistent
+    function in industry.utils.cagr_calculator. The centralized version ensures consistent
     methodology across all sectors (steel, ammonia, cement, etc.).
     
     METHODOLOGY (SAME AS STEEL):
@@ -284,7 +284,7 @@ def build_ammonia_cagr_rows(
     already indicates this is a CAGR value.
     """
     return build_cagr_rows(
-        industry_sector="ammonia",
+        industry_sector="chemical and petrochemical",
         metric_name="ammonia production",
         cagr_dict=cagr_dict,
         countries=countries,
@@ -334,7 +334,7 @@ def build_ammonia_pathway_share_rows(
             
             # Create ONE row for SMR+HB with all countries
             row_smr = {
-                "metric_1": "ammonia",  # Industry sector
+                "metric_1": "chemical and petrochemical",  # Industry sector
                 "metric_2": "technology_route",  # Type
                 "metric_3": "SMR+HB",  # Technology route
                 "metric_4": "",  # Not applicable
@@ -348,7 +348,7 @@ def build_ammonia_pathway_share_rows(
             
             # Create ONE row for Renewable synthesis with all countries
             row_renewable = {
-                "metric_1": "ammonia",  # Industry sector
+                "metric_1": "chemical and petrochemical",  # Industry sector
                 "metric_2": "technology_route",  # Type
                 "metric_3": "Renewable synthesis",  # Technology route
                 "metric_4": "",  # Not applicable
@@ -397,7 +397,7 @@ def build_ammonia_reallocation_share_rows(
             
             # Create ONE row for import reallocation with all countries
             row = {
-                "metric_1": "ammonia",  # Industry sector
+                "metric_1": "chemical and petrochemical",  # Industry sector
                 "metric_2": "technology_route",  # Type
                 "metric_3": "Import reallocation",  # Metric
                 "metric_4": "",  # Not applicable
@@ -508,7 +508,7 @@ def build_ammonia_intensity_rows(
             
             # Create row for base year only
             row = {
-                "metric_1": "ammonia",  # Industry sector
+                "metric_1": "chemical and petrochemical",  # Industry sector
                 "metric_2": "intensity_base",  # Type
                 "metric_3": metric_name,  # Technology route
                 "metric_4": "",  # Not applicable

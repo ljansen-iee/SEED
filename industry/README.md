@@ -374,7 +374,7 @@ industry/
 │   │       └── build_hvc_production.py
 │   │
 │   ├── food_and_tobacco/
-│   ├── non-ferrous_metals/
+│   ├── non_ferrous_metals/
 │   ├── mining_and_quarrying/
 │   ├── machinery/
 │   ├── transport_equipment/

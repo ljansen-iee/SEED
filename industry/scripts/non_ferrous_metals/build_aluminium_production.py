@@ -5,7 +5,7 @@ Processes BGS aluminium production data into scenario-based volume projections.
 
 Input
 ~~~~~
-``industry/input_data/non-ferrous_metals/AL_production.csv``
+``industry/input_data/non_ferrous_metals/AL_production.csv``
     Columns: country | production[ktons/a] | Year | source
     Historical data from British Geological Survey (2015-2022)
 
@@ -72,7 +72,7 @@ _INDUSTRY_ROOT = _SCRIPT_DIR.parents[2]
 
 # Path to BGS aluminium data
 AL_PRODUCTION_CSV = (
-    _INDUSTRY_ROOT / "input_data" / "non-ferrous_metals" / "AL_production.csv"
+    _INDUSTRY_ROOT / "input_data" / "non_ferrous_metals" / "AL_production.csv"
 )
 
 # Output directory

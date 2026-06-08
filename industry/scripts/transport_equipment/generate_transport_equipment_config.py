@@ -5,7 +5,7 @@ This is a "simple" sector with only fuel shares (no production/intensity detail)
 Output format matches: "Share of [fuel] for unspecified transport equipment"
 """
 
-from industry.core.helpers import build_simple_sector_fuel_share_rows
+from industry.utils.helpers import build_simple_sector_fuel_share_rows
 from industry.scripts.transport_equipment.build_shares_transport_equipment import get_transport_equipment_fuel_shares
 
 

@@ -1,5 +1,5 @@
 """
-industry.core - Centralized utilities for sectoral energy demand modeling.
+industry.utils - Centralized utilities for sectoral energy demand modeling.
 
 This package contains shared functionality used across multiple industry sectors:
 - CAGR calculation from UNSD historical data

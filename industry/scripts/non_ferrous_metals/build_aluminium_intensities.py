@@ -68,8 +68,8 @@ Date: June 2026
 from __future__ import annotations
 
 from typing import Dict, List, Optional
-from industry.build_CAGR import interpolate_or_extrapolate
-from industry.core.helpers import get_scenarios_from_build_config_industry
+from industry.utils.helpers import interpolate_or_extrapolate
+from industry.utils.helpers import get_scenarios_from_build_config_industry
 
 SCENARIOS = get_scenarios_from_build_config_industry()
 

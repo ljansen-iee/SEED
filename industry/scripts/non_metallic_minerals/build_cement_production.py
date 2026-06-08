@@ -8,7 +8,7 @@ import numpy as np
 import re
 from pathlib import Path
 
-from industry.build_CAGR import interpolate_or_extrapolate
+from industry.utils.helpers import interpolate_or_extrapolate
 
 
 def find_input_folder():
@@ -201,8 +201,16 @@ def load_cement_value(file_path, year: int) -> float:
 
 # cement_production.py (or wherever your original lived)
 from typing import Dict, List, Optional
-from industry.build_CAGR import interpolate_or_extrapolate, load_yaml_config
-from industry.core.helpers import get_scenarios_from_build_config_industry
+from industry.utils.helpers import interpolate_or_extrapolate, get_scenarios_from_build_config_industry
+import yaml
+
+def load_yaml_config(filename: str):
+    """Load YAML config file (helper for legacy code)."""
+    config_path = Path(__file__).parent.parent.parent / "input_data" / filename
+    if config_path.exists():
+        with open(config_path, 'r') as f:
+            return yaml.safe_load(f)
+    return {}
 
 SCENARIOS = get_scenarios_from_build_config_industry()
 
@@ -263,7 +271,7 @@ def get_cement_and_clinker(
     cement_path: Dict[int, Dict[str, float]] = {}
     try:
         # Optional imports kept inside the try so this function remains drop-in.
-        from industry.core.helpers import (
+        from industry.utils.helpers import (
             _build_rate_anchors_indexed,
             _forecast_from_history_and_sparse_cagr,
             get_metric_cagr_cfg_layered,

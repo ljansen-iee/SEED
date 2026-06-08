@@ -82,10 +82,10 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 # Import paper & pulp-specific data libraries
-from scripts.paper_and_pulp.build_paper_and_pulp_production import (
+from industry.scripts.paper_and_pulp.build_paper_and_pulp_production import (
     process_paper_pulp_data,
 )
-from scripts.paper_and_pulp.build_share_primary_pulp import (
+from industry.scripts.paper_and_pulp.build_share_primary_pulp import (
     share_fuel_primary_pulp,
     share_fuel_secondary_pulp,
     share_fuel_paper,
@@ -93,7 +93,7 @@ from scripts.paper_and_pulp.build_share_primary_pulp import (
     share_fuel_unspecified_paper_pulp,
     activity_factor_unspecified_paper_pulp,
 )
-from scripts.paper_and_pulp.build_energy_intensities_paper_pulp import (
+from industry.scripts.paper_and_pulp.build_energy_intensities_paper_pulp import (
     intensity_primary_pulp,
     intensity_secondary_pulp,
     intensity_paper_production,
@@ -102,8 +102,8 @@ from scripts.paper_and_pulp.build_energy_intensities_paper_pulp import (
 # Import helpers
 try:
     # When running from root
-    from industry.core.cagr_calculator import calculate_production_cagr_from_unsd
-    from industry.core.helpers import (
+    from industry.utils.cagr_calculator import calculate_production_cagr_from_unsd
+    from industry.utils.helpers import (
         extract_all_fuels,
         build_fuel_share_rows,
         build_intensity_base_rows,
@@ -112,8 +112,8 @@ try:
     )
 except ImportError:
     # When running from industry folder directly
-    from core.cagr_calculator import calculate_production_cagr_from_unsd
-    from core.helpers import (
+    from utils.cagr_calculator import calculate_production_cagr_from_unsd
+    from utils.helpers import (
         extract_all_fuels,
         build_fuel_share_rows,
         build_intensity_base_rows,

@@ -47,25 +47,25 @@ import numpy as np
 from datetime import datetime
 
 # === Import sector-specific configuration builders ===
-from scripts.iron_and_steel.generate_steel_config import generate_steel_config_rows
-from scripts.chemical_and_petrochemical.ammonia.generate_ammonia_config import generate_ammonia_config_rows
-from scripts.chemical_and_petrochemical.HVC.generate_hvc_config import generate_hvc_config_rows
-from scripts.non_metallic_minerals.generate_cement_config import generate_cement_config_rows
-from scripts.paper_and_pulp.generate_paper_pulp_config import generate_paper_pulp_config_rows
+from industry.scripts.iron_and_steel.generate_steel_config import generate_steel_config_rows
+from industry.scripts.chemical_and_petrochemical.ammonia.generate_ammonia_config import generate_ammonia_config_rows
+from industry.scripts.chemical_and_petrochemical.HVC.generate_hvc_config import generate_hvc_config_rows
+from industry.scripts.non_metallic_minerals.generate_cement_config import generate_cement_config_rows
+from industry.scripts.paper_and_pulp.generate_paper_pulp_config import generate_paper_pulp_config_rows
 
 # === Import simple sector configuration builders ===
-from scripts.food_and_tobacco.generate_food_tobacco_config import generate_food_tobacco_config_rows
-from scripts.construction.generate_construction_config import generate_construction_config_rows
-from scripts.machinery.generate_machinery_config import generate_machinery_config_rows
-from scripts.mining_and_quarrying.generate_mining_quarrying_config import generate_mining_quarrying_config_rows
-from scripts.non_ferrous_metals.generate_non_ferrous_metals_config import generate_non_ferrous_metals_config_rows
-from scripts.textile_and_leather.generate_textile_leather_config import generate_textile_leather_config_rows
-from scripts.transport_equipment.generate_transport_equipment_config import generate_transport_equipment_config_rows
-from scripts.wood_and_wood_products.generate_wood_products_config import generate_wood_products_config_rows
-from scripts.other_industries.generate_other_industries_config import generate_other_industries_config_rows
+from industry.scripts.food_and_tobacco.generate_food_tobacco_config import generate_food_tobacco_config_rows
+from industry.scripts.construction.generate_construction_config import generate_construction_config_rows
+from industry.scripts.machinery.generate_machinery_config import generate_machinery_config_rows
+from industry.scripts.mining_and_quarrying.generate_mining_quarrying_config import generate_mining_quarrying_config_rows
+from industry.scripts.non_ferrous_metals.generate_aluminium_config import generate_aluminium_config
+from industry.scripts.textile_and_leather.generate_textile_leather_config import generate_textile_leather_config_rows
+from industry.scripts.transport_equipment.generate_transport_equipment_config import generate_transport_equipment_config_rows
+from industry.scripts.wood_and_wood_products.generate_wood_products_config import generate_wood_products_config_rows
+from industry.scripts.other_industries.generate_other_industries_config import generate_other_industries_config_rows
 
 # === Import helpers ===
-from industry.core.helpers import DEFAULT_TARGET_YEARS
+from industry.utils.helpers import DEFAULT_TARGET_YEARS
 
 # === Module-level constants ===
 BASE_YEAR = 2020
@@ -73,7 +73,7 @@ TARGET_YEARS = DEFAULT_TARGET_YEARS
 SCENARIOS = ["BAU", "Progressive", "Optimistic"]
 INDUSTRY_CONFIG_FILE = "industry_config.csv"
 
-BASE_DIR = Path(__file__).resolve().parent
+BASE_DIR = Path(__file__).resolve().parents[1]  # Go up from scripts/ to industry/
 INDUSTRY_CONFIG_PATH = BASE_DIR / INDUSTRY_CONFIG_FILE
 
 
@@ -179,10 +179,8 @@ def generate_industry_config_csv(
     )
     print(f"✓ Mining and quarrying: {len(df_mining)} rows")
     
-    df_non_ferrous = generate_non_ferrous_metals_config_rows(
-        countries, base_year, target_years, scenarios
-    )
-    print(f"✓ Non-ferrous metals: {len(df_non_ferrous)} rows")
+    df_aluminium = generate_aluminium_config(countries)
+    print(f"✓ Non-ferrous metals (aluminium + other): {len(df_aluminium)} rows")
     
     df_textile = generate_textile_leather_config_rows(
         countries, base_year, target_years, scenarios
@@ -217,7 +215,7 @@ def generate_industry_config_csv(
             df_construction,
             df_machinery,
             df_mining,
-            df_non_ferrous,
+            df_aluminium,
             df_textile,
             df_transport_eq,
             df_wood,
@@ -226,19 +224,44 @@ def generate_industry_config_csv(
         ignore_index=True,
     )
     
-    # === Write to CSV ===
-    output_path = Path(output_path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+    # === Apply standardization FIRST (before projection files) ===
+    print(f"\n{'='*60}")
+    print("STANDARDIZING METRICS AND UNITS")
+    print(f"{'='*60}")
     
-    print(f"\nWriting to: {output_path}")
-    df_all.to_csv(output_path, index=False)
+    # 1. Make all metric_1 lowercase
+    df_all['metric_1'] = df_all['metric_1'].str.lower()
     
-    print(f"✓ Successfully generated INDUSTRY_CONFIG.csv")
-    print(f"  Total rows: {len(df_all)}")
-    print(f"  Columns: {list(df_all.columns)}")
-    print(f"  Countries: {countries}")
+    # 2. Rename 'industry n.e.s' to 'other'
+    df_all['metric_1'] = df_all['metric_1'].replace('industry n.e.s', 'other')
     
-    # === Auto-generate derivative files ===
+    # 3. Make all metric_2 lowercase
+    df_all['metric_2'] = df_all['metric_2'].str.lower()
+    
+    # 4. Make all metric_3 lowercase
+    df_all['metric_3'] = df_all['metric_3'].str.lower()
+    
+    # 5. Rename 'energy_intensity' to 'intensity_base' in metric_2
+    df_all['metric_2'] = df_all['metric_2'].replace('energy_intensity', 'intensity_base')
+    
+    # 6. Standardize units to t/a for production
+    unit_mapping = {
+        't/year': 't/a',
+        'tonnes': 't/a',
+        '100t/a': 't/a',  # Will need to multiply values by 100
+    }
+    
+    # For 100t/a -> t/a conversion, multiply production values by 100
+    mask_100t = df_all['units'] == '100t/a'
+    if mask_100t.any():
+        country_cols = [c for c in df_all.columns if c not in ['metric_1', 'metric_2', 'metric_3', 'metric_4', 'year', 'scenario', 'units']]
+        df_all.loc[mask_100t, country_cols] = df_all.loc[mask_100t, country_cols] * 100
+    
+    df_all['units'] = df_all['units'].replace(unit_mapping)
+    
+    print("✓ Standardization complete")
+    
+    # === Auto-generate derivative files (AFTER standardization) ===
     # Create interim_data folder for auto-generated files
     interim_dir = BASE_DIR / "output_data" / "interim_data"
     interim_dir.mkdir(parents=True, exist_ok=True)
@@ -267,9 +290,19 @@ def generate_industry_config_csv(
         df_all, countries, base_year, target_years, scenarios, volumes_path
     )
     
+    # === Write to CSV ===
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    print(f"\nWriting to: {output_path}")
+    df_all.to_csv(output_path, index=False)
+    
     print(f"\n{'='*60}")
-    print(f"INDUSTRY_CONFIG.csv generation complete!")
+    print(f"INDUSTRY_CONFIG.csv GENERATION COMPLETE!")
     print(f"{'='*60}")
+    print(f"  Total rows: {len(df_all)}")
+    print(f"  Columns: {list(df_all.columns)}")
+    print(f"  Countries: {countries}")
     
     return df_all
 
@@ -304,24 +337,24 @@ def build_steel_intensity_projections(
     """
     print(f"\nGenerating steel intensity projections...")
     
-    # Get base intensities and CAGR from config
+    # Get base intensities and CAGR from config (now lowercased)
     intensity_base = df_config[df_config['metric_2'] == 'intensity_base'].copy()
     intensity_cagr = df_config[df_config['metric_2'] == 'cagr'].copy()
     # Filter for intensity CAGR rows (not production CAGR)
     intensity_routes = [
-        "Energy intensity of BF+BOF",
-        "Energy intensity of DR+EAF",
-        "Energy intensity of Scrap EAF",
-        "Energy intensity of Casting, rolling & finishing"
+        "energy intensity of bf+bof",
+        "energy intensity of dr+eaf",
+        "energy intensity of scrap eaf",
+        "energy intensity of casting, rolling & finishing"
     ]
     intensity_cagr = intensity_cagr[intensity_cagr['metric_3'].isin(intensity_routes)]
     
-    # Routes to process
+    # Routes to process (lowercase after standardization)
     routes = [
-        ("Energy intensity of BF+BOF", "BF+BOF"),
-        ("Energy intensity of DR+EAF", "DR+EAF"),
-        ("Energy intensity of Scrap EAF", "Scrap EAF"),
-        ("Energy intensity of Casting, rolling & finishing", "Casting, rolling & finishing"),
+        ("energy intensity of bf+bof", "bf+bof"),
+        ("energy intensity of dr+eaf", "dr+eaf"),
+        ("energy intensity of scrap eaf", "scrap eaf"),
+        ("energy intensity of casting, rolling & finishing", "casting, rolling & finishing"),
     ]
     
     all_years = [base_year] + target_years
@@ -432,9 +465,10 @@ def build_ammonia_intensity_projections(
     intensity_smr = intensity_ammonia_smr_hb(target_years=target_years, scenarios=scenarios)
     intensity_renewable = intensity_ammonia_renewable(target_years=target_years, scenarios=scenarios)
     
+    # Route names (lowercase to match standardized config)
     pathways = [
-        ("Energy intensity of SMR+HB", intensity_smr),
-        ("Energy intensity of Renewable synthesis", intensity_renewable),
+        ("energy intensity of smr+hb", intensity_smr),
+        ("energy intensity of renewable synthesis", intensity_renewable),
     ]
     
     all_years = [base_year] + target_years
@@ -556,31 +590,31 @@ def build_steel_volumes(
     
     for scenario in scenarios:
         for year in all_years:
-            # Extract metrics for this scenario/year
+            # Extract metrics for this scenario/year (lowercase after standardization)
             total_prod = extract_metric(
-                df_config, "iron and steel", "production", "Steel production per year", 
+                df_config, "iron and steel", "production", "steel production per year", 
                 scenario, year, countries
             )
             
             primary_share = extract_metric(
-                df_config, "iron and steel", "technology_route", "Primary steel production", 
+                df_config, "iron and steel", "technology_route", "primary steel production", 
                 scenario, year, countries
             )
             
             secondary_share = extract_metric(
-                df_config, "iron and steel", "technology_route", "Secondary steel production", 
+                df_config, "iron and steel", "technology_route", "secondary steel production", 
                 scenario, year, countries
             )
             
             bf_bof_share = extract_metric(
                 df_config, "iron and steel", "technology_route",
-                "BF+BOF",
+                "bf+bof",
                 scenario, year, countries
             )
             
             dr_eaf_share = extract_metric(
                 df_config, "iron and steel", "technology_route",
-                "DR+EAF",
+                "dr+eaf",
                 scenario, year, countries
             )
             

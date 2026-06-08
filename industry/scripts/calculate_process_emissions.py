@@ -23,13 +23,14 @@ Output:
 from pathlib import Path
 import pandas as pd
 import numpy as np
-from industry.core.process_emission_factors import get_emission_factor, PROCESS_EMISSION_FACTORS
+from typing import Optional
+from industry.utils.process_emission_factors import get_emission_factor, PROCESS_EMISSION_FACTORS
 
 
 class ProcessEmissionCalculator:
     """Calculate process emissions from production data."""
     
-    def __init__(self, config_path: Path = None):
+    def __init__(self, config_path: Optional[Path] = None):
         """
         Initialize calculator with INDUSTRY_CONFIG.csv.
         
@@ -37,7 +38,7 @@ class ProcessEmissionCalculator:
             config_path: Path to INDUSTRY_CONFIG.csv. If None, uses default location.
         """
         if config_path is None:
-            industry_dir = Path(__file__).parent
+            industry_dir = Path(__file__).resolve().parents[1]  # Go up from scripts/ to industry/
             config_path = industry_dir / "output_data" / "CONFIG" / "INDUSTRY_CONFIG.csv"
         
         print(f"Loading configuration from: {config_path}")
@@ -74,11 +75,11 @@ class ProcessEmissionCalculator:
         """
         print("\nCalculating steel process emissions...")
         
-        # Get total steel production data
+        # Get total steel production data (lowercase after standardization)
         steel_total = self.config[
             (self.config['metric_1'] == 'iron and steel') &
             (self.config['metric_2'] == 'production') &
-            (self.config['metric_3'] == 'Steel production per year')
+            (self.config['metric_3'] == 'steel production per year')
         ].copy()
         
         if steel_total.empty:
@@ -169,11 +170,11 @@ class ProcessEmissionCalculator:
         """
         print("\nCalculating cement process emissions...")
         
-        # Get cement production data
+        # Get cement production data (lowercase after standardization)
         cement_prod = self.config[
             (self.config['metric_1'] == 'non-metallic minerals') &
             (self.config['metric_2'] == 'production') &
-            (self.config['metric_3'] == 'Cement production per year')
+            (self.config['metric_3'] == 'cement production per year')
         ].copy()
         
         if cement_prod.empty:
@@ -237,11 +238,11 @@ class ProcessEmissionCalculator:
         """
         print("\nCalculating HVC process emissions...")
         
-        # Get HVC production data
+        # Get HVC production data (lowercase after standardization)
         hvc_prod = self.config[
             (self.config['metric_1'] == 'chemical and petrochemical') &
             (self.config['metric_2'] == 'production') &
-            (self.config['metric_3'] == 'HVC production per year')
+            (self.config['metric_3'] == 'hvc production per year')
         ].copy()
         
         if hvc_prod.empty:
@@ -368,18 +369,18 @@ class ProcessEmissionCalculator:
         """
         print("\nCalculating paper/pulp process emissions...")
         
-        # Get pulp production
+        # Get pulp production (lowercase after standardization)
         pulp_prod = self.config[
             (self.config['metric_1'] == 'paper, pulp and printing') &
             (self.config['metric_2'] == 'production') &
-            (self.config['metric_3'] == 'Pulp production per year')
+            (self.config['metric_3'] == 'pulp production per year')
         ].copy()
         
-        # Get paper production
+        # Get paper production (lowercase after standardization)
         paper_prod = self.config[
             (self.config['metric_1'] == 'paper, pulp and printing') &
             (self.config['metric_2'] == 'production') &
-            (self.config['metric_3'] == 'Paper production per year')
+            (self.config['metric_3'] == 'paper production per year')
         ].copy()
         
         results = []
@@ -472,11 +473,11 @@ class ProcessEmissionCalculator:
         """
         print("\nCalculating aluminium process emissions...")
         
-        # Get aluminium production data
+        # Get aluminium production data (lowercase after standardization)
         aluminium_prod = self.config[
             (self.config['metric_1'] == 'non-ferrous metals') &
             (self.config['metric_2'] == 'production') &
-            (self.config['metric_3'] == 'Aluminium production per year')
+            (self.config['metric_3'] == 'aluminium production per year')
         ].copy()
         
         if aluminium_prod.empty:
@@ -528,10 +529,10 @@ class ProcessEmissionCalculator:
                     # Route-specific production
                     route_production_mt = total_production_mt * route_share
                     
-                    # Get emission factor (map route name to factor key)
-                    if 'Primary' in route:
+                    # Get emission factor (map route name to factor key - lowercase after standardization)
+                    if 'primary' in route.lower():
                         emission_factor = get_emission_factor('non-ferrous metals', 'Aluminium_primary')
-                    elif 'Secondary' in route:
+                    elif 'secondary' in route.lower():
                         emission_factor = get_emission_factor('non-ferrous metals', 'Aluminium_secondary')
                     else:
                         emission_factor = get_emission_factor('non-ferrous metals', 'Unspecified')
@@ -741,7 +742,9 @@ def main():
     if args.output_dir:
         output_dir = Path(args.output_dir)
     else:
-        output_dir = Path(__file__).parent / "output_data"
+        # Default to industry/output_data/interim_data/
+        industry_root = Path(__file__).resolve().parents[1]  # Go up from scripts/ to industry/
+        output_dir = industry_root / "output_data" / "interim_data"
     
     output_dir.mkdir(parents=True, exist_ok=True)
     

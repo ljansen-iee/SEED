@@ -62,7 +62,7 @@ These sectors have explicit production data, with growth rates derived from **SS
 
 **Data Location**: 
 - `INDUSTRY_CONFIG.csv`, `metric_1='iron and steel'`, `metric_3='Steel production per year'`
-- Extract: `docs/cagr_extracts/production_cagr.csv`
+- Extract: `output_data/interim_data/production_cagr.csv`
 
 ---
 
@@ -339,7 +339,7 @@ Activity(year) = Base_Activity(2020) × (1 + activity_cagr)^years
 
 ### CSV Extracts
 
-1. **[production_cagr.csv](cagr_extracts/production_cagr.csv)** (480 rows)
+1. **[production_cagr.csv](../output_data/interim_data/production_cagr.csv)** (480 rows)
    - All production CAGR values for detailed sectors
    - By sector, country, period, scenario
 
@@ -438,5 +438,5 @@ When UNSD data is unavailable for a country-sector combination:
 **Related Documentation**:
 - [EFFICIENCY_CAGR_SUMMARY.md](EFFICIENCY_CAGR_SUMMARY.md) - Energy intensity improvements
 - [CAGR_SUMMARY.md](CAGR_SUMMARY.md) - Combined overview
-- [production_cagr.csv](cagr_extracts/production_cagr.csv) - Detailed sector values
+- [production_cagr.csv](../output_data/interim_data/production_cagr.csv) - Detailed sector values
 - [IQR Methodology](../core/cagr_calculator.py) - Implementation details

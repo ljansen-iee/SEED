@@ -54,15 +54,15 @@ from industry.scripts.non_ferrous_metals.build_aluminium_intensities import (
 )
 
 # Import shared utilities
-from industry.core.helpers import get_scenarios_from_build_config_industry
+from industry.utils.helpers import get_scenarios_from_build_config_industry, country_to_iso2
 
 # Get scenarios from config
 SCENARIOS = get_scenarios_from_build_config_industry()
 
 # Paths
-_SCRIPT_DIR = Path(__file__).resolve().parent
-_INDUSTRY_ROOT = _SCRIPT_DIR.parents[2]
-AL_PRODUCTION_CSV = _INDUSTRY_ROOT / "input_data" / "non-ferrous_metals" / "AL_production.csv"
+_SCRIPT_DIR = Path(__file__).parent
+_INDUSTRY_ROOT = _SCRIPT_DIR.parent.parent  # scripts/non_ferrous_metals/ -> scripts/ -> industry/
+AL_PRODUCTION_CSV = (_INDUSTRY_ROOT / "input_data" / "non_ferrous_metals" / "AL_production.csv").resolve()
 
 # ---------------------------------------------------------------------------
 # Production Rows
@@ -94,7 +94,17 @@ def build_aluminium_production_rows(countries: List[str], target_years: List[int
             
             # Add country data
             for country in countries:
-                base_production, actual_base_year = get_base_production(df_hist, country, BASE_YEAR)
+                # Convert country name to ISO code for data lookup
+                # AL_production.csv uses ISO codes (e.g., 'EG', 'ZA')
+                # but INDUSTRY_CONFIG uses full names (e.g., 'Egypt', 'South Africa')
+                country_code = country_to_iso2(country)
+                
+                if not country_code:
+                    # No ISO code mapping available
+                    row[country] = 0.0
+                    continue
+                
+                base_production, actual_base_year = get_base_production(df_hist, country_code, BASE_YEAR)
                 
                 if base_production == 0:
                     row[country] = 0.0
@@ -230,14 +240,15 @@ def build_aluminium_fuel_share_rows(countries: List[str], target_years: List[int
 # Unspecified "Other Non-Ferrous" Rows
 # ---------------------------------------------------------------------------
 
-def build_other_non_ferrous_rows(countries: List[str], target_years: List[int]) -> pd.DataFrame:
+def build_other_non_ferrous_rows(countries: List[str], target_years: List[str]) -> pd.DataFrame:
     """
-    Build unspecified rows for other non-ferrous metals (copper, zinc, lead, etc.).
+    Build activity_factor rows for other non-ferrous metals (copper, zinc, lead, etc.).
     
     This is a PLACEHOLDER - actual implementation should calculate residual:
         other_non_ferrous = UNSD_total - aluminium_detailed
     
     For now, we create empty rows that will be populated by calculate_final_energy_demand.py
+    Changed from 'unspecified' to 'activity_factor' for consistency with simple sectors.
     """
     rows = []
     
@@ -248,12 +259,12 @@ def build_other_non_ferrous_rows(countries: List[str], target_years: List[int]) 
         for year in target_years:
             row = {
                 'metric_1': 'non-ferrous metals',
-                'metric_2': 'unspecified',
+                'metric_2': 'activity_factor',
                 'metric_3': 'other_non_ferrous',
                 'metric_4': '',
                 'year': str(year),
                 'scenario': scenario,
-                'units': 'GWh',
+                'units': 'dimensionless',
             }
             
             # Placeholder zeros - will be calculated dynamically

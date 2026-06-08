@@ -1,4 +1,4 @@
-from core.helpers import get_historical_sector_data
+from industry.utils.helpers import get_historical_sector_data
 from pathlib import Path
 
 data = get_historical_sector_data(Path('input_data/unsdata_historical'), 'Egypt', 'Industry n.e.s')

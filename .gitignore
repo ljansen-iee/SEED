@@ -19,3 +19,12 @@ graphic_tool
 transport/trans_config.csv
 industry/industry_config.csv
 plots/Industry_type_analysis_table.xlsx
+
+pypsa_input
+additional sectors
+check_other_cagr
+
+# methodological infos
+DATA_CENTRALIZATION_STATUS.md
+industry\TODO_OLD_BACKUP.md
+industry\TODO.md

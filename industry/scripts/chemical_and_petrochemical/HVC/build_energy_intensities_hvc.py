@@ -213,16 +213,20 @@ def intensity_hvc_mto(
     """
     Energy intensity for Methanol-to-Olefins (MTO) route (MWh/tonne HVC).
     
-    2020 Baseline: 15-18 MWh/t HVC (most energy-intensive route)
-    - MTO reactor: Higher energy requirement than cracking
-    - Methanol synthesis energy embedded (if not green methanol)
-    - More complex separation process
+    IMPORTANT: Methanol is treated as an ENDOGENOUS CARRIER.
+    Intensity here reflects methanol feedstock + process energy only.
+    Methanol production energy is handled separately in the energy system.
+    
+    2020 Baseline: ~16 MWh/t HVC total
+    - Methanol feedstock: ~11 MWh/t (2.5-3.0 tonnes methanol per tonne olefins)
+    - Process electricity: ~4 MWh/t (reaction, separation, compression)
+    - Process heat: ~1 MWh/t (natural gas for heat integration)
     
     Source: Engineering estimate based on MTO plant designs
-    - Chinese MTO plants: ~16-18 MWh/t olefins
+    - Chinese MTO plants: 2.5-3.0 t methanol/t olefins
+    - Methanol LHV: ~5.5 MWh/t → 11-16.5 MWh/t feedstock energy
     
-    Future: Green methanol could reduce carbon intensity but not necessarily
-            energy intensity (electrolysis + synthesis energy)
+    Future: Process efficiency improvements, but methanol requirement stable
     
     TODO: Validate against MTO operator data (Dalian, Jiangsu plants)
     """
@@ -230,25 +234,30 @@ def intensity_hvc_mto(
         scenarios = ["BAU", "Progressive", "Optimistic"]
     
     base_data = {
-        "diesel": {
-            2020: [0.32, 0.32, 0.32],
-            2030: [0.32, 0.32, 0.31],
-            2050: [0.32, 0.32, 0.29],
-        },
-        "natural_gas": {
-            2020: [5.6, 5.6, 5.6],
-            2030: [5.6, 5.6, 5.45],
-            2050: [5.6, 5.6, 5.15],
+        "methanol": {
+            2020: [11.0, 11.0, 11.0],
+            2030: [11.0, 11.0, 11.0],
+            2050: [11.0, 11.0, 11.0],
         },
         "electricity": {
-            2020: [9.6, 9.6, 9.6],
-            2030: [9.6, 9.6, 9.35],
-            2050: [9.6, 9.6, 8.85],
+            2020: [4.0, 4.0, 4.0],
+            2030: [4.0, 3.9, 3.8],
+            2050: [4.0, 3.8, 3.7],
+        },
+        "natural_gas": {
+            2020: [1.0, 1.0, 1.0],
+            2030: [1.0, 0.9, 0.8],
+            2050: [1.0, 0.8, 0.7],
+        },
+        "diesel": {
+            2020: [0.0, 0.0, 0.0],
+            2030: [0.0, 0.0, 0.0],
+            2050: [0.0, 0.0, 0.0],
         },
         "coal": {
-            2020: [0.48, 0.48, 0.48],
-            2030: [0.48, 0.48, 0.47],
-            2050: [0.48, 0.48, 0.44],
+            2020: [0.0, 0.0, 0.0],
+            2030: [0.0, 0.0, 0.0],
+            2050: [0.0, 0.0, 0.0],
         },
         "heat": {
             2020: [0.0, 0.0, 0.0],

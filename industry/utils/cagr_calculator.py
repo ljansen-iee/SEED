@@ -154,22 +154,31 @@ def calculate_rolling_cagr(historical_data: Dict[int, float], window: int = 5) -
     return calculate_rolling_cagr_with_iqr_capping(historical_data, window)
 
 
-def get_final_energy_cagr_from_unsd(country: str, sector_keyword: str) -> float:
+def get_final_energy_cagr_from_unsd(country: str, sector_keyword: str, floor_at_zero: bool = True) -> float:
     """
     Get historical data from UNSD files and calculate CAGR for a sector.
     
     Args:
         country: Country name (e.g., "Morocco")
         sector_keyword: Sector keyword to search in UNSD files (e.g., "Food and tobacco")
+        floor_at_zero: If True, negative CAGRs are floored at 0% (prevents decline projections)
     
     Returns:
         CAGR as decimal (e.g., 0.02 for 2%)
-    """
-    from industry.core.helpers import get_historical_sector_data
     
-    # Get the industry folder path (parent of core/)
+    Notes:
+        - Historical CAGR floored at 0% for "other" sectors to prevent unrealistic declines
+        - Rationale: Historical declines often reflect data reclassification, sectoral shifts,
+          or measurement issues rather than true long-term trends
+        - Conservative approach assumes policy/investment will stabilize declining industries
+    """
+    from industry.utils.helpers import get_historical_sector_data
+    
+    # CENTRALIZED UNSD DATA: Use shared data folder across all sectors
+    # Path: sectoral-energy-demands/data/country_specific/
+    # Contains UNSD files named: {Country}-{Year}.csv (e.g., Morocco-2022.csv)
     industry_folder = Path(__file__).parent.parent
-    folder_path = industry_folder / "input_data" / "unsdata_historical"
+    folder_path = industry_folder.parent / "data" / "country_specific"
     
     # IMPORTANT: This calculates ACTIVITY/VOLUME CAGR from historical energy data.
     # The historical energy growth represents net activity growth (after historical efficiency).
@@ -181,7 +190,14 @@ def get_final_energy_cagr_from_unsd(country: str, sector_keyword: str) -> float:
     if historical_data is None or len(historical_data) < 2:
         return 0.0
     
-    return calculate_rolling_cagr(historical_data, window=5)
+    cagr = calculate_rolling_cagr(historical_data, window=5)
+    
+    # CONSERVATIVE FLOOR: Prevent unrealistic decline projections
+    # Negative historical trends often reflect data issues, not sustainable long-term decline
+    if floor_at_zero and cagr < 0:
+        return 0.0
+    
+    return cagr
 
 
 def calculate_production_cagr_from_unsd(

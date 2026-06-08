@@ -64,8 +64,8 @@ from typing import Dict, List, Optional
 import sys
 from pathlib import Path
 
-from industry.build_CAGR import interpolate_or_extrapolate
-from industry.core.helpers import get_scenarios_from_build_config_industry
+from industry.utils.helpers import interpolate_or_extrapolate
+from industry.utils.helpers import get_scenarios_from_build_config_industry
 
 SCENARIOS = get_scenarios_from_build_config_industry()
 

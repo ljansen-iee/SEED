@@ -6,7 +6,7 @@ import pandas as pd  # Import pandas for data manipulation
 from pathlib import Path
 from typing import List, Optional
 
-from industry.core.helpers import get_scenarios_from_build_config_industry, interpolate_or_extrapolate
+from industry.utils.helpers import get_scenarios_from_build_config_industry, interpolate_or_extrapolate
 
 SCENARIOS = get_scenarios_from_build_config_industry()
 

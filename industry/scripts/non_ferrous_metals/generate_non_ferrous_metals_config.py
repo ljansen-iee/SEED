@@ -5,7 +5,7 @@ This is a "simple" sector with only fuel shares (no production/intensity detail)
 Output format matches: "Share of [fuel] for unspecified non-ferrous metals"
 """
 
-from industry.core.helpers import build_simple_sector_fuel_share_rows
+from industry.utils.helpers import build_simple_sector_fuel_share_rows
 from industry.scripts.non_ferrous_metals.build_non_ferrous_metals_shares import get_non_ferrous_fuel_shares
 
 

@@ -181,11 +181,11 @@ Each sector should have specific efficiency potential based on:
 
 ### CSV Extracts
 
-1. **[intensity_cagr.csv](cagr_extracts/intensity_cagr.csv)** (780 rows)
+1. **[intensity_cagr.csv](../output_data/interim_data/intensity_cagr.csv)** (780 rows)
    - All efficiency CAGR values by sector, technology, scenario, country
    - Long format for analysis
 
-2. **[intensity_cagr_summary.csv](cagr_extracts/intensity_cagr_summary.csv)** (13 rows)
+2. **[intensity_cagr_summary.csv](../output_data/interim_data/intensity_cagr_summary.csv)** (13 rows)
    - Summary table: one row per technology route
    - Columns: sector, technology, BAU, Progressive, Optimistic
 
@@ -273,4 +273,4 @@ projected_energy = base_energy × activity_factor × efficiency_factor
 **Related Documentation**:
 - [VOLUME_CAGR_SUMMARY.md](VOLUME_CAGR_SUMMARY.md) - Activity/production growth rates
 - [CAGR_SUMMARY.md](CAGR_SUMMARY.md) - Combined overview
-- [intensity_cagr_summary.csv](cagr_extracts/intensity_cagr_summary.csv) - Quick reference table
+- [intensity_cagr_summary.csv](../output_data/interim_data/intensity_cagr_summary.csv) - Quick reference table

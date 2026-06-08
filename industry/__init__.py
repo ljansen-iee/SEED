@@ -2,7 +2,7 @@
 from pathlib import Path
 
 # Core imports
-from industry.core.helpers import (
+from industry.utils.helpers import (
     _resolve_industry_dir,
     INDUSTRY_DIR,
     get_scenarios_from_build_config_industry,
@@ -34,14 +34,5 @@ INDUSTRY_CONFIG_PATH = BASE_DIR / "output_data" / "CONFIG" / INDUSTRY_CONFIG_FIL
 
 # Legacy imports - only used by old workflow files (build_CAGR.py, build_config_industry.py, build_final_energy_demand.py)
 # These are kept for backward compatibility but should NOT be used in new code
-try:
-    from industry.build_CAGR import (
-        load_industry_config,
-        get_metric_cagr_cfg_from_excel,
-        get_metric_config_entry_from_excel,
-        expand_with_cagr_smooth,
-        generate_industry_config_csv as legacy_generate_industry_config_csv
-    )
-except ImportError:
-    # If build_CAGR.py has issues, ignore - it's only for legacy workflow
-    pass
+# Legacy imports removed - old workflow files (build_CAGR.py, build_config_industry.py) have been deleted
+# New workflow uses scripts/generate_industry_config.py instead

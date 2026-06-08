@@ -361,7 +361,7 @@ Based on your requirements, here are some questions for refinement:
 **Question**: How to pass process emissions to PyPSA-Earth?
 
 **Options**:
-- A) Add to energy demand CSV as pseudo-fuel "process_emissions"
+- A) Add to energy demand CSV as pseudo-fuel "process emissions"
 - B) Separate CSV that PyPSA reads independently
 - C) Pre-aggregate into total emissions for each region
 

@@ -17,7 +17,7 @@ import os
 import sys
 from pathlib import Path
 
-from industry.build_CAGR import interpolate_or_extrapolate
+from industry.utils.helpers import interpolate_or_extrapolate
 
 
 def _interpolate_intensities(

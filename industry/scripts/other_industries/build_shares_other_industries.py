@@ -14,7 +14,7 @@ Examples include:
 
 from pathlib import Path
 import pandas as pd
-from industry.core.helpers import get_fuel_shares_from_unsd
+from industry.utils.helpers import get_fuel_shares_from_unsd
 
 
 # UNSD sector name (must match UNSD CSV exactly)

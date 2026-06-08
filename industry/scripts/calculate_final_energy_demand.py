@@ -17,11 +17,17 @@ warnings.filterwarnings('ignore')
 CARRIER_ORDER = ['oil', 'gas', 'electricity', 'coal', 'heat', 'biomass', 
                  'hydrogen', 'ammonia', 'methanol', 'steel']
 
+# Map INDUSTRY_CONFIG metric_1 names to UNSD sector names for data lookup
+# CRITICAL: UNSD uses different names than our standardized config
+CONFIG_TO_UNSD_SECTOR = {
+    'other': 'Industry n.e.s',  # FIX: 'other' renamed from 'industry n.e.s' during standardization
+    # Other sectors use same names in both config and UNSD, no mapping needed
+}
+
 # Map INDUSTRY_CONFIG metric_1 names to output column names
 SECTOR_NAME_MAPPING = {
     'iron and steel': 'iron and steel',
-    'ammonia': 'chemical and petrochemical',
-    'chemical and petrochemical': 'chemical and petrochemical',
+    'chemical and petrochemical': 'chemical and petrochemical',  # Includes ammonia and HVC
     'non-metallic minerals': 'non-metallic minerals',
     'paper, pulp and printing': 'paper pulp and print',
     'food and tobacco': 'food and tobacco',
@@ -99,7 +105,7 @@ class FinalEnergyCalculator:
         
         # For steel, use projection file
         if sector == 'iron and steel' and self.steel_intensities is not None:
-            route_text = f"Energy intensity of {route}"
+            route_text = f"energy intensity of {route}"
             mask = ((self.steel_intensities['route'] == route_text) &
                     (self.steel_intensities['scenario'] == scenario) &
                     (self.steel_intensities['year'] == year_str))
@@ -107,9 +113,9 @@ class FinalEnergyCalculator:
             if not result.empty:
                 return result.iloc[0]
         
-        # For ammonia, use projection file
-        if sector == 'ammonia' and self.ammonia_intensities is not None:
-            route_text = f"Energy intensity of {route}"
+        # For ammonia, use projection file (now under chemical and petrochemical)
+        if sector in ['ammonia', 'chemical and petrochemical'] and self.ammonia_intensities is not None:
+            route_text = f"energy intensity of {route}"
             mask = ((self.ammonia_intensities['route'] == route_text) &
                     (self.ammonia_intensities['scenario'] == scenario) &
                     (self.ammonia_intensities['year'] == year_str))
@@ -124,8 +130,8 @@ class FinalEnergyCalculator:
                 (self.config['metric_3'] == route))
         
         if not mask.any():
-            # Try "Energy intensity of {route}" pattern
-            route_text = f"Energy intensity of {route}"
+            # Try "energy intensity of {route}" pattern (lowercase after standardization)
+            route_text = f"energy intensity of {route}"
             mask = ((self.config['metric_1'] == sector) &
                     (self.config['metric_2'] == 'intensity_base') &
                     (self.config['metric_3'] == route_text))
@@ -136,7 +142,21 @@ class FinalEnergyCalculator:
         result = self.config.loc[mask, country]
         if result.empty:
             return 0.0
-        return result.iloc[0]
+        
+        intensity_value = result.iloc[0]
+        
+        # CRITICAL FIX: Convert MWh/100t to MWh/t
+        # After unit standardization, production is in tonnes (t/a)
+        # but some intensities are still in MWh/100t
+        # Check units and convert if needed
+        units_result = self.config.loc[mask, 'units']
+        if not units_result.empty:
+            units = units_result.iloc[0]
+            if units == 'MWh/100t':
+                # Convert from MWh/100t to MWh/t by dividing by 100
+                intensity_value = intensity_value / 100
+        
+        return intensity_value
     
     def _add_route_energy(self, sector_data: pd.DataFrame, route: str,
                          route_production: float, intensity: float,
@@ -233,14 +253,14 @@ class FinalEnergyCalculator:
                     if pd.isna(production) or production == 0:
                         continue
                     
-                    # Get Primary/Secondary shares
+                    # Get Primary/Secondary shares (lowercase after standardization)
                     primary_mask = ((sector_data['metric_2'] == 'technology_route') &
-                                   (sector_data['metric_3'] == 'Primary steel production') &
+                                   (sector_data['metric_3'] == 'primary steel production') &
                                    (sector_data['scenario'] == scenario) &
                                    (sector_data['year'] == year_str))
                     
                     secondary_mask = ((sector_data['metric_2'] == 'technology_route') &
-                                     (sector_data['metric_3'] == 'Secondary steel production') &
+                                     (sector_data['metric_3'] == 'secondary steel production') &
                                      (sector_data['scenario'] == scenario) &
                                      (sector_data['year'] == year_str))
                     
@@ -253,55 +273,55 @@ class FinalEnergyCalculator:
                     if primary_share > 0:
                         primary_production = production * primary_share
                         
-                        # Get BF+BOF and DR+EAF shares within primary
+                        # Get BF+BOF and DR+EAF shares within primary (lowercase after standardization)
                         bf_bof_mask = ((sector_data['metric_2'] == 'technology_route') &
-                                      (sector_data['metric_3'] == 'BF+BOF') &
+                                      (sector_data['metric_3'] == 'bf+bof') &
                                       (sector_data['scenario'] == scenario) &
                                       (sector_data['year'] == year_str))
                         
                         dr_eaf_mask = ((sector_data['metric_2'] == 'technology_route') &
-                                      (sector_data['metric_3'] == 'DR+EAF') &
+                                      (sector_data['metric_3'] == 'dr+eaf') &
                                       (sector_data['scenario'] == scenario) &
                                       (sector_data['year'] == year_str))
                         
                         bf_bof_share = sector_data.loc[bf_bof_mask, country].iloc[0] if bf_bof_mask.any() else 0
                         dr_eaf_share = sector_data.loc[dr_eaf_mask, country].iloc[0] if dr_eaf_mask.any() else 0
                         
-                        # BF+BOF route
+                        # BF+BOF route (lowercase after standardization)
                         if bf_bof_share > 0:
                             route_production = primary_production * bf_bof_share
-                            intensity = self.get_intensity(sector, 'BF+BOF', country, scenario, year)
+                            intensity = self.get_intensity(sector, 'bf+bof', country, scenario, year)
                             if intensity > 0:
                                 energy_by_carrier = self._add_route_energy(
-                                    sector_data, 'BF+BOF', route_production, intensity,
+                                    sector_data, 'bf+bof', route_production, intensity,
                                     country, scenario, year_str, energy_by_carrier
                                 )
                         
-                        # DR+EAF route
+                        # DR+EAF route (lowercase after standardization)
                         if dr_eaf_share > 0:
                             route_production = primary_production * dr_eaf_share
-                            intensity = self.get_intensity(sector, 'DR+EAF', country, scenario, year)
+                            intensity = self.get_intensity(sector, 'dr+eaf', country, scenario, year)
                             if intensity > 0:
                                 energy_by_carrier = self._add_route_energy(
-                                    sector_data, 'DR+EAF', route_production, intensity,
+                                    sector_data, 'dr+eaf', route_production, intensity,
                                     country, scenario, year_str, energy_by_carrier
                                 )
                     
                     # === SECONDARY STEEL (Scrap EAF) ===
                     if secondary_share > 0:
                         secondary_production = production * secondary_share
-                        intensity = self.get_intensity(sector, 'Scrap EAF', country, scenario, year)
+                        intensity = self.get_intensity(sector, 'scrap eaf', country, scenario, year)
                         if intensity > 0:
                             energy_by_carrier = self._add_route_energy(
-                                sector_data, 'Scrap EAF', secondary_production, intensity,
+                                sector_data, 'scrap eaf', secondary_production, intensity,
                                 country, scenario, year_str, energy_by_carrier
                             )
                     
                     # === CASTING, ROLLING & FINISHING (all production) ===
-                    casting_intensity = self.get_intensity(sector, 'Casting, rolling & finishing', country, scenario, year)
+                    casting_intensity = self.get_intensity(sector, 'casting, rolling & finishing', country, scenario, year)
                     if casting_intensity > 0:
                         energy_by_carrier = self._add_route_energy(
-                            sector_data, 'Casting, rolling & finishing', production, casting_intensity,
+                            sector_data, 'casting, rolling & finishing', production, casting_intensity,
                             country, scenario, year_str, energy_by_carrier
                         )
                     
@@ -346,11 +366,9 @@ class FinalEnergyCalculator:
         """
         print("\nCalculating ammonia sector...")
         
-        # Production volumes are in 'chemical and petrochemical' sector
-        production_data = self.config[self.config['metric_1'] == 'chemical and petrochemical'].copy()
-        
-        # Technology routes and intensities are in 'ammonia' sector
-        tech_data = self.config[self.config['metric_1'] == 'ammonia'].copy()
+        # All ammonia data is now under 'chemical and petrochemical' sector
+        # (consolidated from previous split between 'chemical and petrochemical' and 'ammonia')
+        sector_data = self.config[self.config['metric_1'] == 'chemical and petrochemical'].copy()
         
         results = []
         
@@ -359,27 +377,27 @@ class FinalEnergyCalculator:
                 for year in years:
                     year_str = str(year)
                     
-                    # Get production volumes from chemical sector
-                    prod_mask = ((production_data['metric_2'] == 'production') &
-                                (production_data['metric_3'] == 'ammonia production per year') &
-                                (production_data['scenario'] == scenario) &
-                                (production_data['year'] == year_str))
+                    # Get production volumes
+                    prod_mask = ((sector_data['metric_2'] == 'production') &
+                                (sector_data['metric_3'] == 'ammonia production per year') &
+                                (sector_data['scenario'] == scenario) &
+                                (sector_data['year'] == year_str))
                     
                     production = 0
                     if prod_mask.any():
-                        production = production_data.loc[prod_mask, country].iloc[0]
+                        production = sector_data.loc[prod_mask, country].iloc[0]
                         if pd.isna(production):
                             production = 0
                     
-                    # Get import volumes from chemical sector
-                    import_mask = ((production_data['metric_2'] == 'production') &
-                                  (production_data['metric_3'] == 'ammonia import volumes per year') &
-                                  (production_data['scenario'] == scenario) &
-                                  (production_data['year'] == year_str))
+                    # Get import volumes
+                    import_mask = ((sector_data['metric_2'] == 'production') &
+                                  (sector_data['metric_3'] == 'ammonia import volumes per year') &
+                                  (sector_data['scenario'] == scenario) &
+                                  (sector_data['year'] == year_str))
                     
                     imports = 0
                     if import_mask.any():
-                        imports = production_data.loc[import_mask, country].iloc[0]
+                        imports = sector_data.loc[import_mask, country].iloc[0]
                         if pd.isna(imports):
                             imports = 0
                     
@@ -387,12 +405,12 @@ class FinalEnergyCalculator:
                     if production > 0:
                         energy_by_carrier = {carrier: 0.0 for carrier in CARRIER_ORDER}
                         
-                        # Get technology routes from ammonia sector
-                        route_mask = ((tech_data['metric_2'] == 'technology_route') &
-                                     (tech_data['scenario'] == scenario) &
-                                     (tech_data['year'] == year_str))
+                        # Get technology routes
+                        route_mask = ((sector_data['metric_2'] == 'technology_route') &
+                                     (sector_data['scenario'] == scenario) &
+                                     (sector_data['year'] == year_str))
                         
-                        routes = tech_data.loc[route_mask, ['metric_3', country]].copy()
+                        routes = sector_data.loc[route_mask, ['metric_3', country]].copy()
                         routes.columns = ['route', 'share']
                         
                         for _, route_row in routes.iterrows():
@@ -402,18 +420,19 @@ class FinalEnergyCalculator:
                             if pd.isna(route_share) or route_share == 0:
                                 continue
                             
-                            intensity = self.get_intensity('ammonia', route, country, scenario, year)
+                            # Use 'chemical and petrochemical' for intensity lookup (consolidated sector)
+                            intensity = self.get_intensity('chemical and petrochemical', route, country, scenario, year)
                             
                             if intensity > 0:
                                 route_production = production * route_share
                                 energy_by_carrier = self._add_route_energy(
-                                    tech_data, route, route_production, intensity,
+                                    sector_data, route, route_production, intensity,
                                     country, scenario, year_str, energy_by_carrier
                                 )
                         
-                        # Add unspecified from tech_data
+                        # Add unspecified from sector_data
                         energy_by_carrier = self._add_unspecified_energy(
-                            tech_data, 'ammonia', country, scenario, year_str, energy_by_carrier
+                            sector_data, 'chemical and petrochemical', country, scenario, year_str, energy_by_carrier
                         )
                         
                         # Store exogenous energy
@@ -461,9 +480,9 @@ class FinalEnergyCalculator:
                 for year in years:
                     year_str = str(year)
                     
-                    # Get HVC production
+                    # Get HVC production (lowercase after standardization)
                     prod_mask = ((sector_data['metric_2'] == 'production') &
-                                (sector_data['metric_3'] == 'HVC production per year') &
+                                (sector_data['metric_3'] == 'hvc production per year') &
                                 (sector_data['scenario'] == scenario) &
                                 (sector_data['year'] == year_str))
                     
@@ -551,7 +570,7 @@ class FinalEnergyCalculator:
                     # Special handling for paper & pulp (TWO productions: pulp and paper)
                     if sector == 'paper, pulp and printing':
                         # 1. Calculate PULP energy (with Primary/Secondary routes)
-                        pulp_mask = prod_mask & (sector_data['metric_3'] == 'Pulp production per year')
+                        pulp_mask = prod_mask & (sector_data['metric_3'] == 'pulp production per year')
                         if pulp_mask.any():
                             pulp_production = sector_data.loc[pulp_mask, country].iloc[0]
                             if not pd.isna(pulp_production) and pulp_production > 0:
@@ -575,14 +594,14 @@ class FinalEnergyCalculator:
                                         )
                         
                         # 2. Calculate PAPER energy (no routes, direct intensity)
-                        paper_mask = prod_mask & (sector_data['metric_3'] == 'Paper production per year')
+                        paper_mask = prod_mask & (sector_data['metric_3'] == 'paper production per year')
                         if paper_mask.any():
                             paper_production = sector_data.loc[paper_mask, country].iloc[0]
                             if not pd.isna(paper_production) and paper_production > 0:
-                                intensity = self.get_intensity(sector, 'Paper production', country, scenario, year)
+                                intensity = self.get_intensity(sector, 'paper production', country, scenario, year)
                                 if intensity > 0:
                                     energy_by_carrier = self._add_route_energy(
-                                        sector_data, 'Paper production', paper_production, intensity,
+                                        sector_data, 'paper production', paper_production, intensity,
                                         country, scenario, year_str, energy_by_carrier
                                     )
                     else:
@@ -661,9 +680,9 @@ class FinalEnergyCalculator:
                 for year in years:
                     year_str = str(year)
                     
-                    # Get total aluminium production
+                    # Get total aluminium production (lowercase after standardization)
                     prod_mask = ((sector_data['metric_2'] == 'production') &
-                                (sector_data['metric_3'] == 'Aluminium production per year') &
+                                (sector_data['metric_3'] == 'aluminium production per year') &
                                 (sector_data['scenario'] == scenario) &
                                 (sector_data['year'] == year_str))
                     
@@ -674,14 +693,14 @@ class FinalEnergyCalculator:
                     if pd.isna(production) or production == 0:
                         continue
                     
-                    # Get Primary/Secondary shares
+                    # Get Primary/Secondary shares (lowercase after standardization)
                     primary_mask = ((sector_data['metric_2'] == 'technology_route') &
-                                   (sector_data['metric_3'] == 'Primary aluminium') &
+                                   (sector_data['metric_3'] == 'primary aluminium') &
                                    (sector_data['scenario'] == scenario) &
                                    (sector_data['year'] == year_str))
                     
                     secondary_mask = ((sector_data['metric_2'] == 'technology_route') &
-                                     (sector_data['metric_3'] == 'Secondary aluminium') &
+                                     (sector_data['metric_3'] == 'secondary aluminium') &
                                      (sector_data['scenario'] == scenario) &
                                      (sector_data['year'] == year_str))
                     
@@ -693,20 +712,20 @@ class FinalEnergyCalculator:
                     # === PRIMARY ALUMINIUM (Hall-Héroult electrolysis) ===
                     if primary_share > 0:
                         primary_production = production * primary_share
-                        intensity = self.get_intensity(sector, 'Primary aluminium', country, scenario, year)
+                        intensity = self.get_intensity(sector, 'primary aluminium', country, scenario, year)
                         if intensity > 0:
                             energy_by_carrier = self._add_route_energy(
-                                sector_data, 'Primary aluminium', primary_production, intensity,
+                                sector_data, 'primary aluminium', primary_production, intensity,
                                 country, scenario, year_str, energy_by_carrier
                             )
                     
                     # === SECONDARY ALUMINIUM (Recycling) ===
                     if secondary_share > 0:
                         secondary_production = production * secondary_share
-                        intensity = self.get_intensity(sector, 'Secondary aluminium', country, scenario, year)
+                        intensity = self.get_intensity(sector, 'secondary aluminium', country, scenario, year)
                         if intensity > 0:
                             energy_by_carrier = self._add_route_energy(
-                                sector_data, 'Secondary aluminium', secondary_production, intensity,
+                                sector_data, 'secondary aluminium', secondary_production, intensity,
                                 country, scenario, year_str, energy_by_carrier
                             )
                     
@@ -774,8 +793,8 @@ class FinalEnergyCalculator:
         Returns:
             DataFrame with columns: country, scenario, year, carrier, energy_MWh
         """
-        from industry.core.helpers import get_historical_sector_data
-        from industry.core.cagr_calculator import get_final_energy_cagr_from_unsd
+        from industry.utils.helpers import get_historical_sector_data
+        from industry.utils.cagr_calculator import get_final_energy_cagr_from_unsd
         
         print(f"\nCalculating {sector_output_name} sector...")
         
@@ -789,9 +808,10 @@ class FinalEnergyCalculator:
             print(f"  Warning: No fuel shares found for {sector_config_name}")
             return pd.DataFrame()
         
-        # UNSD data path
-        industry_folder = Path(__file__).parent
-        unsd_path = industry_folder / "input_data" / "unsdata_historical"
+        # CENTRALIZED UNSD DATA PATH
+        # Use shared data folder: sectoral-energy-demands/data/country_specific/
+        industry_folder = Path(__file__).resolve().parents[1]  # industry/
+        unsd_path = industry_folder.parent / "data" / "country_specific"
         
         # Scenario parameters - ACTIVITY GROWTH and EFFICIENCY GAINS
         scenario_params = {
@@ -813,8 +833,12 @@ class FinalEnergyCalculator:
         base_year = 2020
         
         for country in self.countries:
-            # 1. Get base year total energy from UNSD (returns dict {year: GWh})
-            historical_data = get_historical_sector_data(unsd_path, country, sector_config_name)
+            # 1. Map config sector name to UNSD sector name (if needed)
+            # CRITICAL: UNSD may use different names than our standardized config
+            unsd_sector_name = CONFIG_TO_UNSD_SECTOR.get(sector_config_name, sector_config_name)
+            
+            # 2. Get base year total energy from UNSD (returns dict {year: GWh})
+            historical_data = get_historical_sector_data(unsd_path, country, unsd_sector_name)
             
             if historical_data is None or base_year not in historical_data:
                 # Try to get any available year
@@ -832,11 +856,11 @@ class FinalEnergyCalculator:
             # Convert GWh → MWh
             base_energy_mwh = base_energy_gwh * 1000
             
-            # 2. Get ACTIVITY CAGR from UNSD historical trends (with IQR capping)
+            # 3. Get ACTIVITY CAGR from UNSD historical trends (with IQR capping)
             # NOTE: This represents historical activity/volume growth (net of past efficiency)
-            historical_cagr = get_final_energy_cagr_from_unsd(country, sector_config_name)
+            historical_cagr = get_final_energy_cagr_from_unsd(country, unsd_sector_name)
             
-            # 3. Calculate for each scenario and year
+            # 4. Calculate for each scenario and year
             for scenario in scenarios:
                 params = scenario_params.get(scenario, scenario_params['BAU'])
                 
@@ -856,7 +880,7 @@ class FinalEnergyCalculator:
                     
                     projected_energy_mwh = base_energy_mwh * activity_factor * efficiency_factor
                     
-                    # 4. Apply fuel shares (note: years in config are strings)
+                    # 5. Apply fuel shares (note: years in config are strings)
                     year_shares = fuel_shares[
                         (fuel_shares['year'] == str(year)) &
                         (fuel_shares['scenario'] == scenario)
@@ -943,17 +967,18 @@ class FinalEnergyCalculator:
         
         # ========== SIMPLE SECTORS (PyPSA-Earth approach) ==========
         # These use base year energy × CAGR projection × fuel shares
+        # NOTE: Using lowercase names after config standardization
         
         simple_sectors = [
-            ('Food and tobacco', 'food and tobacco'),
-            ('Manufacturing  const. and mining', 'construction'),
-            ('Machinery', 'machinery'),
-            ('Mining and quarrying', 'mining and quarrying'),
+            ('food and tobacco', 'food and tobacco'),
+            ('manufacturing  const. and mining', 'construction'),
+            ('machinery', 'machinery'),
+            ('mining and quarrying', 'mining and quarrying'),
             # NOTE: Non-ferrous metals removed - now handled as detailed sector (aluminium)
-            ('Textile and leather', 'textile and leather'),
-            ('Transport equipment', 'transport equipment'),
-            ('Wood and wood products', 'wood and wood products'),
-            ('Industry n.e.s', 'other industries')  # Catch-all for industries not elsewhere specified
+            ('textile and leather', 'textile and leather'),
+            ('transport equipment', 'transport equipment'),
+            ('wood and wood products', 'wood and wood products'),
+            ('other', 'other')  # Renamed from 'Industry n.e.s' during standardization
         ]
         
         for config_name, output_name in simple_sectors:
@@ -996,7 +1021,7 @@ class FinalEnergyCalculator:
             'mining and quarrying',
             'textile and leather',
             'wood and wood products',
-            'other industries'
+            'other'
         ]
         
         wide = long_df.pivot_table(
@@ -1020,122 +1045,13 @@ class FinalEnergyCalculator:
         wide = wide.sort_values(['country', 'year', 'scenario', 'carrier'])
         
         return wide
-    
-    def export_pypsa_format(self, wide_df: pd.DataFrame, output_dir: Path,
-                           process_emissions_path: Path = None) -> List[Path]:
-        """
-        Export scenario-year CSV files in PyPSA format.
-        
-        - One CSV per scenario-year combination
-        - Drop 'scenario' and 'year' columns
-        - Add process emissions as a carrier row (same level as oil, gas, etc.)
-        
-        Args:
-            wide_df: Wide format energy demand DataFrame
-            output_dir: Output directory for PyPSA CSVs
-            process_emissions_path: Path to process_emissions_summary.csv
-        
-        Returns:
-            List of generated file paths
-        """
-        print("\n" + "="*80)
-        print("EXPORTING PYPSA-FORMAT FILES (scenario-year CSVs + process emissions)")
-        print("="*80)
-        
-        output_dir = Path(output_dir)
-        output_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Load process emissions if available
-        process_emissions_df = None
-        if process_emissions_path and process_emissions_path.exists():
-            process_emissions_df = pd.read_csv(process_emissions_path)
-            print(f"\nLoaded process emissions: {len(process_emissions_df)} rows")
-        else:
-            print(f"\nWarning: Process emissions not found at {process_emissions_path}")
-            print("  Generating CSVs without process emissions")
-        
-        generated_files = []
-        
-        # Get unique scenario-year combinations
-        scenario_years = wide_df[['scenario', 'year']].drop_duplicates().sort_values(['scenario', 'year'])
-        
-        for _, row in scenario_years.iterrows():
-            scenario = row['scenario']
-            year = int(row['year'])
-            
-            print(f"\nProcessing {scenario} {year}...")
-            
-            # Filter energy data for this scenario-year
-            energy_data = wide_df[
-                (wide_df['scenario'] == scenario) &
-                (wide_df['year'] == year)
-            ].copy()
-            
-            # Drop scenario and year columns
-            energy_data = energy_data.drop(columns=['scenario', 'year'])
-            
-            # Add process emissions as a carrier row if available
-            if process_emissions_df is not None:
-                # Filter process emissions for this scenario-year
-                pe_data = process_emissions_df[
-                    (process_emissions_df['scenario'] == scenario) &
-                    (process_emissions_df['year'] == year)
-                ].copy()
-                
-                if not pe_data.empty:
-                    # Pivot process emissions: sector columns with emissions values
-                    pe_pivot = pe_data.pivot_table(
-                        index='country',
-                        columns='sector',
-                        values='emissions_MtCO2',
-                        aggfunc='sum',
-                        fill_value=0
-                    ).reset_index()
-                    
-                    # Add carrier column
-                    pe_pivot['carrier'] = 'process_emissions'
-                    
-                    # Align columns with energy_data
-                    # Get all sector columns from energy_data
-                    sector_cols = [col for col in energy_data.columns if col not in ['country', 'carrier']]
-                    
-                    # Ensure process emissions has all sector columns
-                    for col in sector_cols:
-                        if col not in pe_pivot.columns:
-                            pe_pivot[col] = 0
-                    
-                    # Reorder columns to match energy_data
-                    pe_pivot = pe_pivot[['country', 'carrier'] + sector_cols]
-                    
-                    # Append process emissions row(s) to energy data
-                    energy_data = pd.concat([energy_data, pe_pivot], ignore_index=True)
-                    print(f"  Added process emissions: {len(pe_pivot)} rows")
-            
-            # Sort by country and carrier
-            energy_data = energy_data.sort_values(['country', 'carrier'])
-            
-            # Generate filename: industry+{scenario}+{year}.csv
-            scenario_slug = scenario.lower().replace(' ', '_')
-            filename = f"industry+{scenario_slug}+{year}.csv"
-            output_path = output_dir / filename
-            
-            # Save
-            energy_data.to_csv(output_path, index=False)
-            generated_files.append(output_path)
-            print(f"  Saved: {filename} ({len(energy_data)} rows)")
-        
-        print("\n" + "="*80)
-        print(f"GENERATED {len(generated_files)} PYPSA-FORMAT FILES")
-        print("="*80)
-        for path in generated_files:
-            print(f"  - {path.name}")
-        
-        return generated_files
 
 
 def main():
     """Main entry point"""
-    base_dir = Path(__file__).parent
+    # Go up from scripts/ to industry/ root
+    base_dir = Path(__file__).resolve().parents[1]
+    
     config_path = base_dir / 'output_data' / 'CONFIG' / 'INDUSTRY_CONFIG.csv'
     interim_dir = base_dir / 'output_data' / 'interim_data'
     output_dir = base_dir / 'output_data'
@@ -1165,15 +1081,8 @@ def main():
     output_wide_path = output_dir / 'final_energy_demand_detailed_sectors_wide.csv'
     results_wide.to_csv(output_wide_path, index=False)
     print(f"[OK] Saved wide format to: {output_wide_path}")
-    
-    # Export PyPSA-format CSVs (scenario-year files with process emissions)
-    process_emissions_path = output_dir / 'process_emissions_summary.csv'
-    
-    pypsa_files = calculator.export_pypsa_format(
-        wide_df=results_wide,
-        output_dir=output_dir,
-        process_emissions_path=process_emissions_path
-    )
+    print(f"\n[INFO] PyPSA output generation moved to build_pypsa_energy_demands.py")
+    print(f"[INFO] Run that script to generate industry_totals+scenario+year.csv files")
     
     # Display sample
     print("\n" + "="*80)

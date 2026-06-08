@@ -8,7 +8,7 @@ category for industrial activities not classified in specific sectors.
 Output format matches: "Share of [fuel] for other industries"
 """
 
-from industry.core.helpers import build_simple_sector_fuel_share_rows
+from industry.utils.helpers import build_simple_sector_fuel_share_rows
 from industry.scripts.other_industries.build_shares_other_industries import get_unsd_fuel_shares
 
 

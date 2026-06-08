@@ -61,15 +61,15 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 # Import HVC-specific data libraries
-from scripts.chemical_and_petrochemical.HVC.build_hvc_production import (
+from industry.scripts.chemical_and_petrochemical.HVC.build_hvc_production import (
     get_hvc_production,
 )
-from scripts.chemical_and_petrochemical.HVC.build_shares_hvc import (
+from industry.scripts.chemical_and_petrochemical.HVC.build_shares_hvc import (
     share_fuel_hvc_naphtha,
     share_fuel_hvc_lpg,
     share_fuel_hvc_mto,
 )
-from scripts.chemical_and_petrochemical.HVC.build_energy_intensities_hvc import (
+from industry.scripts.chemical_and_petrochemical.HVC.build_energy_intensities_hvc import (
     intensity_hvc_naphtha,
     intensity_hvc_lpg,
     intensity_hvc_mto,
@@ -78,26 +78,26 @@ from scripts.chemical_and_petrochemical.HVC.build_energy_intensities_hvc import 
 # Import helpers
 try:
     # When running from root
-    from industry.core.cagr_calculator import calculate_production_cagr_from_unsd
-    from industry.core.helpers import (
+    from industry.utils.cagr_calculator import calculate_production_cagr_from_unsd
+    from industry.utils.helpers import (
         extract_all_fuels,
         build_fuel_share_rows,
         build_intensity_base_rows,
         build_production_rows_with_cagr,
         build_cagr_rows,
+        interpolate_or_extrapolate,
     )
-    from industry.build_CAGR import interpolate_or_extrapolate
 except ImportError:
     # When running from industry folder directly
-    from core.cagr_calculator import calculate_production_cagr_from_unsd
-    from core.helpers import (
+    from utils.cagr_calculator import calculate_production_cagr_from_unsd
+    from utils.helpers import (
         extract_all_fuels,
         build_fuel_share_rows,
         build_intensity_base_rows,
         build_production_rows_with_cagr,
         build_cagr_rows,
+        interpolate_or_extrapolate,
     )
-    from build_CAGR import interpolate_or_extrapolate
 
 
 # ============================================================================

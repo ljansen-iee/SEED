@@ -80,42 +80,42 @@ import pandas as pd
 import numpy as np
 
 # Import data loading functions
-from scripts.non_metallic_minerals.build_cement_production import (
+from industry.scripts.non_metallic_minerals.build_cement_production import (
     find_input_folder,
     find_cement_files,
     load_cement_value,
 )
-from scripts.non_metallic_minerals.build_shares_cement import (
+from industry.scripts.non_metallic_minerals.build_shares_cement import (
     share_fuel_cement_production,
     share_fuel_unspecified_nmm,
 )
-from scripts.non_metallic_minerals.build_energy_intensities_cement import (
+from industry.scripts.non_metallic_minerals.build_energy_intensities_cement import (
     intensity_cement_production,
 )
 
 # Import centralized utilities
 try:
     # When running from root
-    from industry.core.cagr_calculator import calculate_production_cagr_from_unsd
-    from industry.core.helpers import (
+    from industry.utils.cagr_calculator import calculate_production_cagr_from_unsd
+    from industry.utils.helpers import (
         extract_all_fuels,
         build_production_rows_with_cagr,
         build_cagr_rows,
         build_fuel_share_rows,
         build_intensity_base_rows,
+        interpolate_or_extrapolate,
     )
-    from industry.build_CAGR import interpolate_or_extrapolate
 except ImportError:
     # When running from industry folder directly
-    from core.cagr_calculator import calculate_production_cagr_from_unsd
-    from core.helpers import (
+    from utils.cagr_calculator import calculate_production_cagr_from_unsd
+    from utils.helpers import (
         extract_all_fuels,
         build_production_rows_with_cagr,
         build_cagr_rows,
         build_fuel_share_rows,
         build_intensity_base_rows,
+        interpolate_or_extrapolate,
     )
-    from build_CAGR import interpolate_or_extrapolate
 
 
 # ============================================================================
