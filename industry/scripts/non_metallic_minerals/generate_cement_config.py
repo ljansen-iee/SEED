@@ -8,7 +8,8 @@ for INDUSTRY_CONFIG.csv. This includes:
 - Clinker ratio projections (blended cement adoption)
 - Fuel shares (electrification + hydrogen transition)
 - Energy intensities (efficiency improvements)
-- Unspecified non-metallic minerals (proxy for glass, ceramics, etc.)
+- Unspecified non-metallic minerals (placeholder for glass, ceramics, etc.)
+  DEFAULT: Zero activity (user can populate if needed)
 
 This modular structure allows easy maintenance and testing of cement logic
 independently from other sectors (steel, ammonia, etc.).
@@ -420,19 +421,20 @@ def generate_cement_config_rows(
     print(f"  ✓ Generated {len(df_intensity_cagr)} intensity CAGR rows")
     
     # 9. Build unspecified non-metallic minerals rows
-    # NOTE: "Unspecified NMM" captures other non-metallic mineral processes not explicitly modeled
+    # NOTE: "Unspecified NMM" is a placeholder for other NMM processes not explicitly modeled
     # (e.g., glass production, ceramics, lime, gypsum)
-    # Uses cement as a proxy with separate fuel shares and CAGR
+    # DEFAULT: Zero activity (to avoid double-counting with detailed cement)
+    # USER CAN ADD: If user adds activity values, they will be included in demand calculation
     print("\n9. Building unspecified non-metallic minerals rows...")
     
-    # Use cement production as base, scaled by a factor (proxy for other NMM)
-    unspecified_base_values = {country: value * 0.3 for country, value in base_values.items()}
+    # Set all to ZERO (no double-counting)
+    unspecified_base_values = {country: 0.0 for country in countries}
     
     df_unspecified_prod = build_production_rows_with_cagr(
         industry_sector="non-metallic minerals",
         metric_name="Unspecified NMM activity factor",
         base_values=unspecified_base_values,
-        cagr_dict=cement_cagr_dict,  # Same CAGR as cement
+        cagr_dict=cement_cagr_dict,  # Same CAGR as cement (only used if user adds values)
         countries=countries,
         base_year=base_year,
         target_years=target_years,
@@ -441,10 +443,11 @@ def generate_cement_config_rows(
     )
     all_dfs.append(df_unspecified_prod)
     
+    # CAGR rows for unspecified (only used if user adds activity values)
     df_unspecified_cagr = build_cagr_rows(
         industry_sector="non-metallic minerals",
         metric_name="Unspecified NMM activity factor",
-        cagr_dict=cement_cagr_dict,
+        cagr_dict=cement_cagr_dict,  # Same as cement
         countries=countries,
         base_year=base_year,
         target_years=target_years,

@@ -1,12 +1,21 @@
 """
 Generate configuration rows for wood and wood products sector.
 
-This is a "simple" sector with only fuel shares (no production/intensity detail).
-Output format matches: "Share of [fuel] for unspecified wood and wood products"
+SIMPLIFIED METHODOLOGY (Phase 1):
+1. Historical Energy: Extract 2020 base year from UNSD
+2. CAGR: Calculate from UNSD trends with scenario multipliers
+3. Fuel Shares: Extract 2020 UNSD shares, keep CONSTANT
+
+TODO: Add fuel share transformation logic for Phase 2
 """
 
-from industry.utils.helpers import build_simple_sector_fuel_share_rows
-from industry.scripts.wood_and_wood_products.build_wood_shares import get_wood_fuel_shares
+from typing import List
+import pandas as pd
+from industry.utils.helpers import (
+    build_historical_energy_rows,
+    build_simple_sector_cagr_rows,
+    build_simple_sector_fuel_share_rows_from_unsd,
+)
 
 
 def generate_wood_products_config_rows(
@@ -18,22 +27,30 @@ def generate_wood_products_config_rows(
     """
     Generate config rows for wood and wood products sector.
     
-    Simple sector pattern:
-    - metric_1: "Wood and wood products" (UNSD sector name)
-    - metric_2: "fuel_share"
-    - metric_3: "unspecified wood and wood products"
-    - metric_4: fuel name
+    Returns DataFrame with:
+    1. historical_energy_demand rows
+    2. cagr rows
+    3. fuel_share rows
     """
     
-    return build_simple_sector_fuel_share_rows(
-        sector_display_name="wood and wood products",
-        unsd_sector_name="Wood and wood products",
-        get_fuel_shares_func=get_wood_fuel_shares,
-        countries=countries,
-        base_year=base_year,
-        target_years=target_years,
-        scenarios=scenarios,
-    )
+    sector_name = "wood and wood products"
+    unsd_sector_name = "Wood and wood products"
+    
+    all_dfs = []
+    
+    all_dfs.append(build_historical_energy_rows(
+        sector_name, unsd_sector_name, countries, base_year
+    ))
+    
+    all_dfs.append(build_simple_sector_cagr_rows(
+        sector_name, unsd_sector_name, countries, scenarios
+    ))
+    
+    all_dfs.append(build_simple_sector_fuel_share_rows_from_unsd(
+        sector_name, unsd_sector_name, countries, base_year, target_years, scenarios
+    ))
+    
+    return pd.concat(all_dfs, ignore_index=True)
 
 
 if __name__ == "__main__":

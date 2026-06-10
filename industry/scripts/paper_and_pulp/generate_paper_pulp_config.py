@@ -8,7 +8,8 @@ for INDUSTRY_CONFIG.csv. This includes:
 - Primary/secondary pulp ratio
 - Fuel shares per process (primary pulp, secondary pulp, paper production)
 - Energy intensities per process
-- Unspecified paper & pulp activities
+- Unspecified paper & pulp activities (placeholder)
+  DEFAULT: Zero activity (user can populate if needed)
 
 This modular structure follows the steel/ammonia/cement/HVC pattern, allowing easy
 maintenance and testing of paper & pulp logic independently from other sectors.
@@ -65,7 +66,9 @@ CAGR METHODOLOGY:
 
 3. ACTIVITY FACTOR CAGR (Unspecified Paper & Pulp):
    - Source: Uses the same CAGR as paper/pulp production (UNSD-based)
-   - Rationale: Unspecified processes scale proportionally with total production
+   - NOTE: Only applies if user manually adds activity values to Unspecified
+   - DEFAULT: Unspecified activity is ZERO (to avoid double-counting with detailed pulp/paper)
+   - Rationale: If user adds unspecified processes, they should scale with production
    - Same as production CAGR values (see #1 above)
 
 CONFIGURATION STRUCTURE:
@@ -371,23 +374,18 @@ def build_unspecified_paper_pulp_rows(
     """
     Build unspecified paper & pulp activity and fuel share rows.
     
-    Captures miscellaneous processes not explicitly modeled:
+    NOTE: Placeholder for miscellaneous processes not explicitly modeled:
     - Converting operations, coating, specialty treatments
     - Auxiliary equipment, material handling
+    
+    DEFAULT: Zero activity (to avoid double-counting with detailed pulp/paper)
+    USER CAN ADD: If user adds activity values, they will be included in demand calculation
     """
     rows = []
     all_years = [base_year] + target_years
     
-    # 1. Activity factor rows (based on production CAGR)
-    cagr_cfg = {country: {sc: cagr_dict[country][sc] for sc in scenarios} for country in countries}
-    activity_factors = activity_factor_unspecified_paper_pulp(
-        base_year=base_year,
-        target_years=target_years,
-        scenarios=scenarios,
-        cagr_cfg=cagr_cfg,
-        base_value=1.0,
-        use_profile=False,
-    )
+    # 1. Activity factor rows - SET TO ZERO (no double-counting)
+    # CAGR is still available in config if user adds values manually
     
     for year in all_years:
         for scenario in scenarios:
@@ -400,8 +398,9 @@ def build_unspecified_paper_pulp_rows(
                 'scenario': scenario,
                 'units': 'dimensionless',
             }
+            # Set all countries to ZERO
             for country in countries:
-                row[country] = activity_factors[year][scenario]
+                row[country] = 0.0
             rows.append(row)
     
     # 2. Fuel share rows for unspecified

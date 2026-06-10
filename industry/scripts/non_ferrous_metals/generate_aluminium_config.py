@@ -290,36 +290,14 @@ def generate_aluminium_config(countries: List[str]) -> pd.DataFrame:
     Returns:
         DataFrame with all aluminium config rows
     """
-    print("="*80)
-    print("GENERATING ALUMINIUM CONFIGURATION")
-    print("="*80)
-    
     target_years = PROJECTION_YEARS
     
-    # 1. Production volumes
-    print("\n1. Building aluminium production rows...")
+    # Build all components
     df_production = build_aluminium_production_rows(countries, target_years)
-    print(f"   ✓ Generated {len(df_production)} production rows")
-    
-    # 2. Technology route shares
-    print("\n2. Building technology route share rows...")
     df_routes = build_aluminium_route_rows(countries, target_years)
-    print(f"   ✓ Generated {len(df_routes)} route share rows")
-    
-    # 3. Energy intensities
-    print("\n3. Building energy intensity rows...")
     df_intensities = build_aluminium_intensity_rows(countries, target_years)
-    print(f"   ✓ Generated {len(df_intensities)} intensity rows")
-    
-    # 4. Fuel shares
-    print("\n4. Building fuel share rows...")
     df_fuel_shares = build_aluminium_fuel_share_rows(countries, target_years)
-    print(f"   ✓ Generated {len(df_fuel_shares)} fuel share rows")
-    
-    # 5. Other non-ferrous (placeholder)
-    print("\n5. Building other non-ferrous placeholder rows...")
     df_other = build_other_non_ferrous_rows(countries, target_years)
-    print(f"   ✓ Generated {len(df_other)} other non-ferrous rows")
     
     # Combine all rows
     df_all = pd.concat([
@@ -329,9 +307,6 @@ def generate_aluminium_config(countries: List[str]) -> pd.DataFrame:
         df_fuel_shares,
         df_other,
     ], ignore_index=True)
-    
-    print(f"\n✓ Total aluminium config rows: {len(df_all)}")
-    print("="*80 + "\n")
     
     return df_all
 

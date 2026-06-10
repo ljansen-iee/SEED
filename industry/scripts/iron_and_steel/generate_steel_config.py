@@ -48,9 +48,10 @@ CAGR METHODOLOGY:
 
 3. ACTIVITY FACTOR CAGR (Unspecified Steel):
    - Source: Uses the same CAGR as steel production (UNSD-based)
-   - Rationale: Unspecified processes (specialty steel, finishing, etc.)
-     scale proportionally with total steel production
-   - This is why it varies by country - it reflects local production trends
+   - NOTE: Only applies if user manually adds volumes to Unspecified production
+   - DEFAULT: Unspecified production is ZERO (to avoid double-counting with detailed routes)
+   - Rationale: If user adds unspecified processes (specialty steel, finishing, etc.),
+     they should scale proportionally with total steel production
    - Same as production CAGR values (see #1 above)
 """
 
@@ -532,17 +533,36 @@ def generate_steel_config_rows(
     df_intensity_cagr = pd.DataFrame(df_intensity_cagr_rows)
     
     # Unspecified iron and steel
-    # NOTE: "Unspecified" captures all steel processes not explicitly modeled
+    # NOTE: "Unspecified" is a placeholder for steel processes not explicitly modeled
     # (e.g., specialty steel production, surface finishing, heat treatment)
-    # These grow at the same rate as total steel production (UNSD-based CAGR)
+    # DEFAULT: Zero volumes (to avoid double-counting with detailed routes)
+    # USER CAN ADD: If user adds volumes here, they will be included in demand calculation
     print("Building unspecified iron and steel rows...")
-    df_unspecified_prod = build_steel_production_rows(
-        df_steel_production, steel_cagr_dict, countries, base_year, target_years, scenarios
-    )
-    df_unspecified_prod['metric_3'] = 'Unspecified'
     
-    # Activity factor CAGR = Steel production CAGR (from UNSD)
-    # Rationale: Unspecified processes scale proportionally with total production
+    # Create zero-filled production rows (user can populate if needed)
+    unspecified_prod_rows = []
+    all_years = [base_year] + target_years
+    for year in all_years:
+        for scenario in scenarios:
+            row = {
+                'metric_1': 'iron and steel',
+                'metric_2': 'production',
+                'metric_3': 'Unspecified',
+                'metric_4': '',
+                'year': year,
+                'scenario': scenario,
+                'units': 't/a',
+            }
+            # Set all countries to ZERO (no double-counting)
+            for country in countries:
+                row[country] = 0.0
+            unspecified_prod_rows.append(row)
+    
+    df_unspecified_prod = pd.DataFrame(unspecified_prod_rows)
+    
+    # Activity factor CAGR for Unspecified (same as steel production CAGR)
+    # NOTE: These CAGR values are ONLY used if user adds volumes to Unspecified production
+    # Rationale: If user adds unspecified processes, they should scale with steel production trends
     # This is why values differ by country (reflecting local historical trends):
     #   - Egypt: 27.4% (rapid industrialization)
     #   - Morocco: 1.5% (default, no UNSD data)

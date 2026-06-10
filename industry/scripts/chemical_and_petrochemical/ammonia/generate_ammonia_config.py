@@ -98,6 +98,9 @@ except ImportError:
         build_cagr_rows,
     )
 
+# Keep conversion aligned with calculate_final_energy_demand.py
+AMMONIA_LHV_MWH_PER_TON = 5.17
+
 
 # ============================================================================
 # CAGR CALCULATION (Now uses centralized utils.cagr_calculator)
@@ -621,27 +624,26 @@ def build_ammonia_intensity_cagr_rows(
 # AMMONIA VOLUMES (PATHWAY SPLITS)
 # ============================================================================
 
-def build_ammonia_volumes_csv(output_dir: Optional[Path] = None) -> pd.DataFrame:
+def build_ammonia_volumes_csv(
+    df_ammonia_config: Optional[pd.DataFrame] = None,
+    countries: Optional[List[str]] = None,
+    base_year: Optional[int] = None,
+    target_years: Optional[List[int]] = None,
+    scenarios: Optional[List[str]] = None,
+    output_dir: Optional[Path] = None,
+) -> pd.DataFrame:
     """
-    Generate ammonia_volumes.csv with pathway splits (exog/endog) and GALT/GAIR indicators.
-    
-    This is equivalent to steel_volumes.csv for steel sector.
-    Output includes:
-    - path (scenario)
-    - country
-    - year
-    - local_production
-    - import_volumes
-    - total_demand
-    - GALT (Green Ammonia Local Transformation)
-    - GAIR (Green Ammonia Import Reallocation)
-    - CAGR_rate
-    - CAGR_factor
-    - exog_ammonia_conv_path (conventional/fossil pathway)
-    - endog_ammonia_green_path (renewable/green pathway)
-    
-    Returns:
-        DataFrame written to ammonia_volumes.csv
+    Generate ammonia_volumes.csv with pathway splits (exog/endog).
+
+    If df_ammonia_config is provided, volumes are derived directly from the
+    same config rows used by final energy demand (single source of truth):
+    - exog_ammonia_conv_path  = local_production * (1 - renewable_synthesis_share)
+    - endog_ammonia_green_path = local_production * renewable_synthesis_share
+                                 + import_volumes * import_reallocation_share
+
+    This guarantees consistency with calculate_final_energy_demand.py.
+
+    If df_ammonia_config is not provided, fallback to legacy build_all_scenarios().
     """
     print("\n" + "="*70)
     print("Generating ammonia_volumes.csv (pathway splits with GALT/GAIR)")
@@ -650,14 +652,138 @@ def build_ammonia_volumes_csv(output_dir: Optional[Path] = None) -> pd.DataFrame
     if output_dir is None:
         # Write to industry/output_data/interim_data/ to match steel_volumes.csv location
         output_dir = Path(__file__).resolve().parents[3] / "output_data" / "interim_data"
-    
-    # Use existing build_all_scenarios function
-    df = build_all_scenarios(output_dir=output_dir)
+
+    if df_ammonia_config is None:
+        # Backward-compatible fallback
+        df = build_all_scenarios(output_dir=output_dir)
+        print(f"✓ Generated {len(df):,} rows")
+        print(f"✓ Scenarios: {df['path'].unique().tolist()}")
+        print(f"✓ Countries: {df['country'].nunique()}")
+        print(f"✓ Year range: {df['year'].min()} - {df['year'].max()}")
+        return df
+
+    if countries is None or base_year is None or target_years is None or scenarios is None:
+        raise ValueError("countries, base_year, target_years, and scenarios are required when using df_ammonia_config")
+
+    all_years = [base_year] + target_years
+    rows = []
+
+    for scenario in scenarios:
+        for year in all_years:
+            year_str = str(year)
+
+            m2 = df_ammonia_config['metric_2'].astype(str).str.lower()
+            m3 = df_ammonia_config['metric_3'].astype(str).str.lower()
+            scen_col = df_ammonia_config['scenario'].astype(str)
+            year_col = df_ammonia_config['year'].astype(str)
+
+            prod_mask = (
+                (m2 == 'production') &
+                (m3 == 'ammonia production per year') &
+                (scen_col == scenario) &
+                (year_col == year_str)
+            )
+            imp_mask = (
+                (m2 == 'production') &
+                (m3 == 'ammonia import volumes per year') &
+                (scen_col == scenario) &
+                (year_col == year_str)
+            )
+            ren_mask = (
+                (m2 == 'technology_route') &
+                (m3 == 'renewable synthesis') &
+                (scen_col == scenario) &
+                (year_col == year_str)
+            )
+            ir_mask = (
+                (m2 == 'technology_route') &
+                (m3 == 'import reallocation') &
+                (scen_col == scenario) &
+                (year_col == year_str)
+            )
+
+            if not (prod_mask.any() and imp_mask.any() and ren_mask.any() and ir_mask.any()):
+                continue
+
+            prod_row = df_ammonia_config.loc[prod_mask].iloc[0]
+            imp_row = df_ammonia_config.loc[imp_mask].iloc[0]
+            ren_row = df_ammonia_config.loc[ren_mask].iloc[0]
+            ir_row = df_ammonia_config.loc[ir_mask].iloc[0]
+
+            for country in countries:
+                local_prod = float(prod_row.get(country, 0.0) or 0.0)
+                imports = float(imp_row.get(country, 0.0) or 0.0)
+                ren_share = float(ren_row.get(country, 0.0) or 0.0)
+                ir_share = float(ir_row.get(country, 0.0) or 0.0)
+
+                exog = local_prod * (1.0 - ren_share)
+                endog = local_prod * ren_share + imports * ir_share
+                total = local_prod + imports
+
+                # Convenience diagnostics (not used by final energy demand)
+                if year == base_year or total <= 0:
+                    cagr_factor = 1.0
+                    cagr_rate = 0.0
+                else:
+                    base_prod_mask = (
+                        (m2 == 'production') &
+                        (m3 == 'ammonia production per year') &
+                        (scen_col == scenario) &
+                        (year_col == str(base_year))
+                    )
+                    base_imp_mask = (
+                        (m2 == 'production') &
+                        (m3 == 'ammonia import volumes per year') &
+                        (scen_col == scenario) &
+                        (year_col == str(base_year))
+                    )
+                    if base_prod_mask.any() and base_imp_mask.any():
+                        base_total = float(df_ammonia_config.loc[base_prod_mask, country].iloc[0] or 0.0) + float(df_ammonia_config.loc[base_imp_mask, country].iloc[0] or 0.0)
+                    else:
+                        base_total = 0.0
+                    if base_total > 0:
+                        cagr_factor = total / base_total
+                        cagr_rate = cagr_factor ** (1.0 / (year - base_year)) - 1.0
+                    else:
+                        cagr_factor = 1.0
+                        cagr_rate = 0.0
+
+                rows.append({
+                    'path': scenario,
+                    'country': country,
+                    'year': int(year),
+                    'local_production': round(local_prod, 4),
+                    'import_volumes': round(imports, 4),
+                    'total_demand': round(total, 4),
+                    'local_green_transformation_share': round(ren_share, 4),
+                    'import_green_reallocation_share': round(ir_share, 4),
+                    'CAGR_rate': round(cagr_rate, 8),
+                    'CAGR_factor': round(cagr_factor, 6),
+                    'exog_ammonia_conv_path': round(exog, 4),
+                    'exog_ammonia_conv_path_MWh_nh3': round(exog * AMMONIA_LHV_MWH_PER_TON, 4),
+                    'endog_ammonia_green_path': round(endog, 4),
+                    'endog_ammonia_green_path_MWh_nh3': round(endog * AMMONIA_LHV_MWH_PER_TON, 4),
+                })
+
+    df = pd.DataFrame(rows)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / 'ammonia_volumes.csv'
+    try:
+        df.to_csv(output_path, index=False)
+        print(f"✓ Written → {output_path}")
+    except PermissionError:
+        fallback_path = output_dir / 'ammonia_volumes.generated.csv'
+        df.to_csv(fallback_path, index=False)
+        print(f"⚠ Could not overwrite locked file: {output_path}")
+        print(f"✓ Written fallback → {fallback_path}")
     
     print(f"✓ Generated {len(df):,} rows")
-    print(f"✓ Scenarios: {df['path'].unique().tolist()}")
-    print(f"✓ Countries: {df['country'].nunique()}")
-    print(f"✓ Year range: {df['year'].min()} - {df['year'].max()}")
+    if not df.empty:
+        print(f"✓ Scenarios: {df['path'].unique().tolist()}")
+        print(f"✓ Countries: {df['country'].nunique()}")
+        print(f"✓ Year range: {df['year'].min()} - {df['year'].max()}")
+    else:
+        print("⚠ No rows generated from config filters; check scenario/year labels in config")
     
     return df
 
@@ -751,10 +877,6 @@ def generate_ammonia_config_rows(
     )
     print(f"  ✓ Generated {len(df_intensity_cagr)} intensity CAGR rows")
     
-    # Step 10: Generate ammonia_volumes.csv
-    print("\n10. Generating ammonia_volumes.csv...")
-    build_ammonia_volumes_csv()
-    
     # Concatenate all rows
     df_all = pd.concat(
         [
@@ -772,6 +894,16 @@ def generate_ammonia_config_rows(
     
     # Fill NaN values with 0 (matching iron and steel nomenclature)
     df_all = df_all.fillna(0)
+
+    # Step 10: Generate ammonia_volumes.csv from the same config rows (single source of truth)
+    print("\n10. Generating ammonia_volumes.csv from config rows...")
+    build_ammonia_volumes_csv(
+        df_ammonia_config=df_all,
+        countries=countries,
+        base_year=base_year,
+        target_years=target_years,
+        scenarios=scenarios,
+    )
     
     print("\n" + "="*70)
     print(f"✓ AMMONIA CONFIG COMPLETE: {len(df_all)} total rows")

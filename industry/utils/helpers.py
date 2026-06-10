@@ -1696,3 +1696,310 @@ def build_simple_sector_fuel_share_rows(
                     rows.append(row)
     
     return pd.DataFrame(rows)
+
+
+# ==============================================================================
+# SIMPLE SECTOR CONFIG BUILDERS (centralized for food, construction, etc.)
+# ==============================================================================
+
+def build_historical_energy_rows(
+    sector_name: str,
+    unsd_sector_name: str,
+    countries: List[str],
+    base_year: int = 2020
+) -> pd.DataFrame:
+    """
+    Extract historical energy from UNSD and return CONFIG rows.
+    
+    This function provides base year energy consumption for simple sectors.
+    Values are extracted from UNSD "Total Energy" column and converted:
+    TJ (raw) → GWh (intermediate) → MWh (stored in CONFIG)
+    
+    Args:
+        sector_name: Standardized sector name for CONFIG (e.g., 'food and tobacco')
+        unsd_sector_name: UNSD sector name for data lookup (e.g., 'Food and tobacco')
+        countries: List of country codes (e.g., ['MA', 'EG', 'ZA'])
+        base_year: Base year for historical data (default: 2020)
+    
+    Returns:
+        DataFrame with historical_energy_demand rows (one row with all countries)
+    
+    Example output:
+        metric_1: 'food and tobacco'
+        metric_2: 'historical_energy_demand'
+        metric_3: 'Base year energy consumption'
+        metric_4: ''
+        year: 2020
+        scenario: 'all'
+        units: 'MWh'
+        MA: 1234567
+        EG: 5678901
+        ...
+    """
+    from pathlib import Path
+    
+    # Get UNSD data path (centralized location)
+    industry_folder = Path(__file__).parent.parent
+    unsd_path = industry_folder.parent / "data" / "country_specific"
+    
+    # Build single row with all countries
+    row = {
+        'metric_1': sector_name,
+        'metric_2': 'historical_energy_demand',
+        'metric_3': 'Base year energy consumption',
+        'metric_4': '',
+        'year': base_year,
+        'scenario': 'all',
+        'units': 'MWh',
+    }
+    
+    for country in countries:
+        historical_data = get_historical_sector_data(unsd_path, country, unsd_sector_name)
+        
+        if historical_data and base_year in historical_data:
+            energy_gwh = historical_data[base_year]
+            energy_mwh = energy_gwh * 1000
+        else:
+            energy_mwh = 0.0
+            print(f"  Warning: No UNSD data for {country} {unsd_sector_name} in {base_year}")
+        
+        row[country] = energy_mwh
+    
+    return pd.DataFrame([row])
+
+
+def build_simple_sector_cagr_rows(
+    sector_name: str,
+    unsd_sector_name: str,
+    countries: List[str],
+    scenarios: List[str],
+    scenario_multipliers: Dict[str, float] = None
+) -> pd.DataFrame:
+    """
+    Calculate CAGR from UNSD historical trends and return CONFIG rows.
+    
+    Uses centralized CAGR calculator with IQR outlier capping and applies
+    scenario-specific multipliers for activity growth projections.
+    
+    Args:
+        sector_name: Standardized sector name for CONFIG
+        unsd_sector_name: UNSD sector name for data lookup
+        countries: List of country codes
+        scenarios: List of scenario names (e.g., ['BAU', 'Progressive', 'Optimistic'])
+        scenario_multipliers: Optional dict of {scenario: multiplier}
+    
+    Returns:
+        DataFrame with cagr rows (3 rows × N countries for 3 scenarios)
+    
+    Scenario Multipliers (default):
+        BAU: 1.0× - Historical trend continues
+        Progressive: 1.2× - 20% activity acceleration
+        Optimistic: 1.5× - 50% activity acceleration
+    
+    Example output:
+        metric_1: 'food and tobacco'
+        metric_2: 'cagr'
+        metric_3: 'Activity growth rate'
+        metric_4: ''
+        year: '2020-2050'
+        scenario: 'BAU' / 'Progressive' / 'Optimistic'
+        units: 'share'
+        MA: 0.023
+        EG: 0.031
+        ...
+    """
+    from industry.utils.cagr_calculator import get_final_energy_cagr_from_unsd
+    
+    if scenario_multipliers is None:
+        scenario_multipliers = {
+            'BAU': 1.0,
+            'Progressive': 1.2,
+            'Optimistic': 1.5,
+        }
+    
+    rows = []
+    
+    for scenario in scenarios:
+        multiplier = scenario_multipliers.get(scenario, 1.0)
+        
+        row = {
+            'metric_1': sector_name,
+            'metric_2': 'cagr',
+            'metric_3': 'Activity growth rate',
+            'metric_4': '',
+            'year': '2020-2050',
+            'scenario': scenario,
+            'units': 'share',
+        }
+        
+        for country in countries:
+            base_cagr = get_final_energy_cagr_from_unsd(country, unsd_sector_name)
+            adjusted_cagr = base_cagr * multiplier
+            row[country] = adjusted_cagr
+        
+        rows.append(row)
+    
+    return pd.DataFrame(rows)
+
+
+def build_simple_sector_fuel_share_rows_from_unsd(
+    sector_name: str,
+    unsd_sector_name: str,
+    countries: List[str],
+    base_year: int,
+    target_years: List[int],
+    scenarios: List[str],
+) -> pd.DataFrame:
+    """
+    Build fuel share rows for simple sectors using UNSD base year data.
+    
+    METHODOLOGY:
+    - Extracts fuel mix from UNSD 2020 data (actual historical shares)
+    - Applies shares CONSTANT across all future years (no transformation)
+    - All scenarios use same fuel shares (conservative baseline)
+    
+    TODO: Enhance with transformation logic
+    - Add scenario-specific fuel transitions (electrification, hydrogen adoption)
+    - Implement interpolation between anchor years (2020 → 2030 → 2050)
+    - Consider technology diffusion models (S-curves for new carriers)
+    - Align with IEA/IRENA decarbonization pathways
+    
+    Potential transformation approaches:
+    1. Linear interpolation with expert target shares (2030, 2050)
+    2. Exponential decay for fossil fuels, logistic growth for renewables
+    3. Technology diffusion models (Bass model, Fisher-Pry substitution)
+    4. Pathway alignment (match IEA NZE or IRENA 1.5°C scenarios)
+    
+    Args:
+        sector_name: Standardized sector name for CONFIG
+        unsd_sector_name: UNSD sector name for data lookup
+        countries: List of country codes
+        base_year: Base year for fuel share extraction (default: 2020)
+        target_years: Future years to project (e.g., [2030, 2035, 2040, 2045, 2050])
+        scenarios: List of scenario names
+    
+    Returns:
+        DataFrame with fuel_share rows (N fuels × M scenarios × P years × Q countries)
+    
+    Note: Currently shares are CONSTANT (2020 values used for all years).
+          This is a conservative baseline pending transformation methodology.
+    """
+    import pandas as pd
+    from pathlib import Path
+    
+    # Import _clean_val for UNSD data cleaning
+    try:
+        from industry.scripts.food_and_tobacco.build_food_and_tobacco_energy import _clean_val
+    except:
+        # Fallback if import fails
+        def _clean_val(val):
+            try:
+                s_val = str(val).strip()
+                if pd.isna(val) or s_val == "---" or s_val == "":
+                    return 0.0
+                clean_s = s_val.replace('*', '').replace('-', '')
+                return float(clean_s) if clean_s else 0.0
+            except:
+                return 0.0
+    
+    # Get UNSD data path
+    industry_folder = Path(__file__).parent.parent
+    unsd_path = industry_folder.parent / "data" / "country_specific"
+    
+    # Fuel mapping from UNSD columns to carrier names
+    fuel_mapping = {
+        'oil': ['Primary Oil', 'Oil Products'],
+        'gas': ['Natural Gas'],
+        'electricity': ['Nuclear', 'Electricity'],
+        'coal': ['Primary Coal and Peat', 'Coal and Peat Products'],
+        'biomass': ['Biofuels and Waste'],
+        'hydrogen': [],  # Future carrier, not in UNSD
+        'ammonia': [],   # Future carrier, not in UNSD
+        'methanol': [],  # Future carrier, not in UNSD
+        'steel': [],     # Endogenous carrier, not in UNSD
+    }
+    
+    rows = []
+    
+    for country in countries:
+        # Extract base year fuel shares from UNSD
+        base_shares = {}
+        
+        # Try to find UNSD file for base year
+        file_path = unsd_path / f"UNSD_{country}-{base_year}.csv"
+        
+        if file_path.exists():
+            try:
+                df = pd.read_csv(file_path)
+                sector_col = "Transactions(down)/Commodity(right)"
+                
+                # Find sector row
+                if sector_col in df.columns and "Total Energy" in df.columns:
+                    row_data = df[df[sector_col].astype(str).str.strip().str.lower() == unsd_sector_name.lower()]
+                    
+                    if not row_data.empty:
+                        total_tj = _clean_val(row_data["Total Energy"].iloc[0])
+                        
+                        if total_tj > 0:
+                            # Extract fuel values and calculate shares
+                            for fuel, columns in fuel_mapping.items():
+                                fuel_sum = sum([_clean_val(row_data[col].iloc[0]) 
+                                              for col in columns if col in df.columns])
+                                share = fuel_sum / total_tj if total_tj > 0 else 0.0
+                                base_shares[fuel] = share
+                        else:
+                            # No energy data - use default shares
+                            base_shares = _get_default_fuel_shares()
+                    else:
+                        # Sector not found - use default shares
+                        base_shares = _get_default_fuel_shares()
+                else:
+                    # Malformed file - use defaults
+                    base_shares = _get_default_fuel_shares()
+                    
+            except Exception as e:
+                print(f"  Warning: Error reading UNSD for {country}: {e}")
+                base_shares = _get_default_fuel_shares()
+        else:
+            print(f"  Warning: No UNSD file for {country} {base_year}")
+            base_shares = _get_default_fuel_shares()
+        
+        # Normalize shares to sum to 1.0
+        total_share = sum(base_shares.values())
+        if total_share > 0:
+            base_shares = {f: v / total_share for f, v in base_shares.items()}
+        else:
+            base_shares = _get_default_fuel_shares()
+        
+        # Apply shares to all years and scenarios (CONSTANT - no transformation)
+        for scenario in scenarios:
+            for year in target_years:
+                for fuel, share_value in base_shares.items():
+                    if share_value > 0:  # Only add non-zero shares
+                        rows.append({
+                            'metric_1': sector_name,
+                            'metric_2': 'fuel_share',
+                            'metric_3': f'unspecified {sector_name}',
+                            'metric_4': fuel,
+                            'year': year,
+                            'scenario': scenario,
+                            'units': 'share',
+                            country: share_value
+                        })
+    
+    return pd.DataFrame(rows)
+
+
+def _get_default_fuel_shares() -> Dict[str, float]:
+    """Return default fuel shares for simple sectors when UNSD data unavailable."""
+    return {
+        'oil': 0.4,
+        'gas': 0.25,
+        'electricity': 0.2,
+        'coal': 0.15,
+        'biomass': 0.0,
+        'hydrogen': 0.0,
+        'ammonia': 0.0,
+        'methanol': 0.0,
+        'steel': 0.0,
+    }

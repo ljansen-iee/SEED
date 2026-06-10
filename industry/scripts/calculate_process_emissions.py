@@ -30,19 +30,27 @@ from industry.utils.process_emission_factors import get_emission_factor, PROCESS
 class ProcessEmissionCalculator:
     """Calculate process emissions from production data."""
     
-    def __init__(self, config_path: Optional[Path] = None):
+    def __init__(self, config_path: Optional[Path] = None, config_df: Optional[pd.DataFrame] = None):
         """
         Initialize calculator with INDUSTRY_CONFIG.csv.
         
         Args:
             config_path: Path to INDUSTRY_CONFIG.csv. If None, uses default location.
         """
-        if config_path is None:
-            industry_dir = Path(__file__).resolve().parents[1]  # Go up from scripts/ to industry/
-            config_path = industry_dir / "output_data" / "CONFIG" / "INDUSTRY_CONFIG.csv"
-        
-        print(f"Loading configuration from: {config_path}")
-        self.config = pd.read_csv(config_path)
+        if config_df is not None:
+            print("Loading configuration from in-memory DataFrame")
+            self.config = config_df.copy()
+        else:
+            if config_path is None:
+                industry_dir = Path(__file__).resolve().parents[1]  # Go up from scripts/ to industry/
+                config_path = industry_dir / "output_data" / "CONFIG" / "INDUSTRY_CONFIG.csv"
+
+            print(f"Loading configuration from: {config_path}")
+            self.config = pd.read_csv(config_path)
+
+        # Normalize year dtype to avoid mismatches between in-memory (int/object)
+        # and file-loaded (string/object) config data paths.
+        self.config['year'] = self.config['year'].astype(str)
         print(f"✓ Loaded {len(self.config)} rows")
         
         # Get available countries from config columns
@@ -717,6 +725,42 @@ class ProcessEmissionCalculator:
         print("="*80)
         
         return combined
+
+
+def generate_process_emissions_reports(
+    df_config: pd.DataFrame,
+    output_dir: Path,
+    years: list = [2030, 2035, 2040, 2045, 2050],
+    scenarios: list = ['BAU', 'Progressive', 'Optimistic'],
+) -> dict:
+    """Generate process emission CSV reports from an in-memory config DataFrame."""
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    calc = ProcessEmissionCalculator(config_df=df_config)
+    emissions_df = calc.calculate_all_emissions(years=years, scenarios=scenarios)
+
+    if emissions_df.empty:
+        print("No process emissions generated.")
+        return {}
+
+    output_long = output_dir / "process_emissions.csv"
+    emissions_df.to_csv(output_long, index=False)
+    print(f"✓ Written → {output_long}")
+
+    summary = emissions_df.groupby(
+        ['country', 'sector', 'scenario', 'year'],
+        as_index=False,
+    )['emissions_MtCO2'].sum()
+
+    output_summary = output_dir / "process_emissions_summary.csv"
+    summary.to_csv(output_summary, index=False)
+    print(f"✓ Written → {output_summary}")
+
+    return {
+        'detailed': output_long,
+        'summary': output_summary,
+    }
 
 
 def main():

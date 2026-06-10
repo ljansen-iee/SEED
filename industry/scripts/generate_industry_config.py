@@ -63,9 +63,11 @@ from industry.scripts.textile_and_leather.generate_textile_leather_config import
 from industry.scripts.transport_equipment.generate_transport_equipment_config import generate_transport_equipment_config_rows
 from industry.scripts.wood_and_wood_products.generate_wood_products_config import generate_wood_products_config_rows
 from industry.scripts.other_industries.generate_other_industries_config import generate_other_industries_config_rows
+from industry.scripts.calculate_process_emissions import generate_process_emissions_reports
 
 # === Import helpers ===
 from industry.utils.helpers import DEFAULT_TARGET_YEARS
+from industry.utils.cagr_reporting import export_cagr_reports
 
 # === Module-level constants ===
 BASE_YEAR = 2020
@@ -143,16 +145,23 @@ def generate_industry_config_csv(
     df_hvc = generate_hvc_config_rows(
         countries, base_year, target_years, scenarios
     )
+    print(f"✓ HVC configuration complete: {len(df_hvc)} rows")
     
     # Cement (Non-metallic Minerals)
     df_cement = generate_cement_config_rows(
         countries, base_year, target_years, scenarios
     )
+    print(f"✓ Cement configuration complete: {len(df_cement)} rows")
     
     # Paper & Pulp
     df_paper_pulp = generate_paper_pulp_config_rows(
         countries, base_year, target_years, scenarios
     )
+    print(f"✓ Paper & pulp configuration complete: {len(df_paper_pulp)} rows")
+    
+    # Aluminium (Non-ferrous Metals)
+    df_aluminium = generate_aluminium_config(countries)
+    print(f"✓ Aluminium configuration complete: {len(df_aluminium)} rows")
     
     # === Simple sectors (fuel shares only) ===
     print("\n" + "="*60)
@@ -179,9 +188,6 @@ def generate_industry_config_csv(
     )
     print(f"✓ Mining and quarrying: {len(df_mining)} rows")
     
-    df_aluminium = generate_aluminium_config(countries)
-    print(f"✓ Non-ferrous metals (aluminium + other): {len(df_aluminium)} rows")
-    
     df_textile = generate_textile_leather_config_rows(
         countries, base_year, target_years, scenarios
     )
@@ -203,7 +209,6 @@ def generate_industry_config_csv(
     print(f"✓ Other industries (Industry n.e.s): {len(df_other_industries)} rows")
     
     # === Concatenate all sectors ===
-    print("\nConcatenating all sectors...")
     df_all = pd.concat(
         [
             df_steel,
@@ -225,10 +230,6 @@ def generate_industry_config_csv(
     )
     
     # === Apply standardization FIRST (before projection files) ===
-    print(f"\n{'='*60}")
-    print("STANDARDIZING METRICS AND UNITS")
-    print(f"{'='*60}")
-    
     # 1. Make all metric_1 lowercase
     df_all['metric_1'] = df_all['metric_1'].str.lower()
     
@@ -259,8 +260,6 @@ def generate_industry_config_csv(
     
     df_all['units'] = df_all['units'].replace(unit_mapping)
     
-    print("✓ Standardization complete")
-    
     # === Auto-generate derivative files (AFTER standardization) ===
     # Create interim_data folder for auto-generated files
     interim_dir = BASE_DIR / "output_data" / "interim_data"
@@ -288,6 +287,22 @@ def generate_industry_config_csv(
     volumes_path = interim_dir / "steel_volumes.csv"
     build_steel_volumes(
         df_all, countries, base_year, target_years, scenarios, volumes_path
+    )
+    
+    export_cagr_reports(
+        df_config=df_all,
+        output_dir=interim_dir,
+        countries=countries,
+    )
+    
+    print(f"\n{'='*60}")
+    print(f"AUTO-GENERATING PROCESS EMISSIONS")
+    print(f"{'='*60}")
+    generate_process_emissions_reports(
+        df_config=df_all,
+        output_dir=interim_dir,
+        years=target_years,
+        scenarios=scenarios,
     )
     
     # === Write to CSV ===

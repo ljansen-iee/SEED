@@ -8,7 +8,7 @@ and proper chemical sector aggregation (ammonia + HVC).
 import pandas as pd
 import numpy as np
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, cast
 import warnings
 
 warnings.filterwarnings('ignore')
@@ -342,16 +342,19 @@ class FinalEnergyCalculator:
                             })
                     
                     # === ENDOGENOUS STEEL DEMAND ===
-                    # Only PRIMARY steel creates new steel demand (from iron ore)
-                    # Secondary steel (scrap) is recycling existing steel → no endogenous demand
-                    if primary_share > 0:
-                        primary_production = production * primary_share
+                    # Endogenous = DR+EAF (green primary) + secondary scrap EAF
+                    # Exogenous  = BF+BOF (conventional) only
+                    dr_eaf_production = (production * primary_share * dr_eaf_share
+                                         if primary_share > 0 and dr_eaf_share > 0 else 0.0)
+                    sec_production = production * secondary_share if secondary_share > 0 else 0.0
+                    endog_steel = dr_eaf_production + sec_production
+                    if endog_steel > 0:
                         results.append({
                             'country': country,
                             'scenario': scenario,
                             'year': year,
                             'carrier': 'steel',
-                            'energy_MWh': primary_production  # tonnes (only primary)
+                            'energy_MWh': endog_steel  # tonnes (DR+EAF primary + secondary scrap)
                         })
         
         df = pd.DataFrame(results)
@@ -447,11 +450,35 @@ class FinalEnergyCalculator:
                                 })
                     
                     # === ENDOGENOUS AMMONIA DEMAND ===
-                    total_ammonia_tonnes = production + imports
-                    
-                    if total_ammonia_tonnes > 0:
-                        ammonia_energy_mwh = total_ammonia_tonnes * AMMONIA_LHV
-                        
+                    # Endogenous ammonia is computed from config values:
+                    #   local green share + green-reallocated imports, then converted to MWh with LHV
+                    renewable_mask = ((sector_data['metric_2'] == 'technology_route') &
+                                      (sector_data['metric_3'] == 'renewable synthesis') &
+                                      (sector_data['scenario'] == scenario) &
+                                      (sector_data['year'] == year_str))
+                    import_realloc_mask = ((sector_data['metric_2'] == 'technology_route') &
+                                           (sector_data['metric_3'] == 'import reallocation') &
+                                           (sector_data['scenario'] == scenario) &
+                                           (sector_data['year'] == year_str))
+
+                    renewable_share = sector_data.loc[renewable_mask, country].iloc[0] if renewable_mask.any() else 0.0
+                    import_realloc_share = sector_data.loc[import_realloc_mask, country].iloc[0] if import_realloc_mask.any() else 0.0
+
+                    # Validate local production route shares: smr+hb + renewable synthesis == 1.0
+                    smr_mask = ((sector_data['metric_2'] == 'technology_route') &
+                                (sector_data['metric_3'] == 'smr+hb') &
+                                (sector_data['scenario'] == scenario) &
+                                (sector_data['year'] == year_str))
+                    smr_share = sector_data.loc[smr_mask, country].iloc[0] if smr_mask.any() else 0.0
+                    if abs((smr_share + renewable_share) - 1.0) > 0.01:
+                        print(f"  WARNING: {country} {scenario} {year}: smr+hb ({smr_share:.3f}) + "
+                              f"renewable synthesis ({renewable_share:.3f}) = {smr_share + renewable_share:.3f} "
+                              f"(expected 1.0).")
+
+                    endog_ammonia_tonnes = production * renewable_share + imports * import_realloc_share
+                    ammonia_energy_mwh = endog_ammonia_tonnes * AMMONIA_LHV
+
+                    if ammonia_energy_mwh > 0:
                         results.append({
                             'country': country,
                             'scenario': scenario,
@@ -762,7 +789,7 @@ class FinalEnergyCalculator:
         Historical UNSD energy trends reflect: Total Energy = Activity × Efficiency
         
         For projections, we decompose into:
-        1. ACTIVITY GROWTH: From UNSD historical CAGR (with IQR outlier capping)
+        1. ACTIVITY GROWTH: From config-stored CAGR values generated from UNSD
         2. EFFICIENCY GAINS: Scenario-based storyline assumptions
         
         Formula:
@@ -772,7 +799,7 @@ class FinalEnergyCalculator:
                                × FuelShare(carrier, year)
         
         Where:
-        - activity_cagr = UNSD_CAGR × scenario_multiplier
+        - activity_cagr = config CAGR for the scenario
         - efficiency_rate = scenario-dependent (negative for improvements)
         
         Scenario Parameters:
@@ -794,7 +821,6 @@ class FinalEnergyCalculator:
             DataFrame with columns: country, scenario, year, carrier, energy_MWh
         """
         from industry.utils.helpers import get_historical_sector_data
-        from industry.utils.cagr_calculator import get_final_energy_cagr_from_unsd
         
         print(f"\nCalculating {sector_output_name} sector...")
         
@@ -803,9 +829,18 @@ class FinalEnergyCalculator:
             (self.config['metric_1'] == sector_config_name) &
             (self.config['metric_2'] == 'fuel_share')
         ].copy()
+        activity_cagr_rows = self.config[
+            (self.config['metric_1'] == sector_config_name) &
+            (self.config['metric_2'] == 'cagr') &
+            (self.config['metric_3'] == 'activity growth rate') &
+            (self.config['year'].astype(str) == '2020-2050')
+        ].copy()
         
         if fuel_shares.empty:
             print(f"  Warning: No fuel shares found for {sector_config_name}")
+            return pd.DataFrame()
+        if activity_cagr_rows.empty:
+            print(f"  Warning: No activity CAGR rows found for {sector_config_name}")
             return pd.DataFrame()
         
         # CENTRALIZED UNSD DATA PATH
@@ -813,18 +848,15 @@ class FinalEnergyCalculator:
         industry_folder = Path(__file__).resolve().parents[1]  # industry/
         unsd_path = industry_folder.parent / "data" / "country_specific"
         
-        # Scenario parameters - ACTIVITY GROWTH and EFFICIENCY GAINS
+        # Scenario parameters - EFFICIENCY GAINS
         scenario_params = {
             'BAU': {
-                'activity_multiplier': 1.0,    # Historical activity trend continues
                 'efficiency_rate': -0.010      # -1.0%/year efficiency improvement
             },
             'Progressive': {
-                'activity_multiplier': 1.2,    # 20% faster activity growth
                 'efficiency_rate': -0.020      # -2.0%/year efficiency improvement
             },
             'Optimistic': {
-                'activity_multiplier': 1.5,    # 50% faster activity growth
                 'efficiency_rate': -0.030      # -3.0%/year efficiency improvement
             }
         }
@@ -856,16 +888,20 @@ class FinalEnergyCalculator:
             # Convert GWh → MWh
             base_energy_mwh = base_energy_gwh * 1000
             
-            # 3. Get ACTIVITY CAGR from UNSD historical trends (with IQR capping)
-            # NOTE: This represents historical activity/volume growth (net of past efficiency)
-            historical_cagr = get_final_energy_cagr_from_unsd(country, unsd_sector_name)
-            
+            # 3. Read ACTIVITY CAGR from config rows generated during config build
             # 4. Calculate for each scenario and year
             for scenario in scenarios:
                 params = scenario_params.get(scenario, scenario_params['BAU'])
-                
-                # ACTIVITY growth = historical CAGR × scenario multiplier
-                activity_cagr = historical_cagr * params['activity_multiplier']
+                scenario_cagr = activity_cagr_rows[
+                    activity_cagr_rows['scenario'] == scenario
+                ]
+                if scenario_cagr.empty:
+                    print(f"  Warning: Missing activity CAGR for {sector_config_name} / {scenario}")
+                    continue
+                activity_cagr = scenario_cagr.iloc[0].get(country)
+                if pd.isna(activity_cagr):
+                    print(f"  Warning: Missing activity CAGR for {sector_config_name} / {scenario} / {country}")
+                    continue
                 
                 # EFFICIENCY improvement (negative rate = improvement)
                 efficiency_rate = params['efficiency_rate']
@@ -913,7 +949,10 @@ class FinalEnergyCalculator:
         df = pd.DataFrame(results)
         if not df.empty:
             # Aggregate by carrier (in case multiple fuels map to same carrier)
-            df = df.groupby(['country', 'scenario', 'year', 'carrier'], as_index=False)['energy_MWh'].sum()
+            df = cast(
+                pd.DataFrame,
+                df.groupby(['country', 'scenario', 'year', 'carrier'], as_index=False)['energy_MWh'].sum(),
+            )
             print(f"  Generated {len(df)} records")
         else:
             print(f"  No data generated")

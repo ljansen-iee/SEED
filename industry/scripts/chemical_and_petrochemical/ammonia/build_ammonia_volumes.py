@@ -132,6 +132,10 @@ CAGR_RATES: Dict[str, Dict[int, float]] = {
 # import_green_reallocation_share (GAIR_ANCHORS for backwards compatibility)
 #   - Share of imports sourced from green/renewable ammonia supply chains
 
+# IMPORTANT CONSTRAINT: smr+hb share + renewable_synthesis share = 1.0  (always)
+# smr+hb = 1 - GALT, renewable_synthesis = GALT  →  sum is exactly 1 by construction.
+# If you edit these anchors, the two local-production routes will still sum to 1.
+# The import reallocation share (GAIR) is independent — it only affects imports, not local production.
 GALT_ANCHORS: Dict[str, Dict[int, float]] = {
     "mid_speed":  {2020: 0.00, 2030: 0.20, 2050: 1.00},
     "fast_track": {2020: 0.00, 2030: 0.30, 2045: 1.00, 2050: 1.00},

@@ -1,15 +1,24 @@
 """
 Generate configuration rows for 'other industries' sector.
 
-This is a "simple" sector with only fuel shares (no production/intensity detail).
-Maps to UNSD sector "Industry n.e.s" (not elsewhere specified) - a catch-all
-category for industrial activities not classified in specific sectors.
+Maps to UNSD sector "Industry n.e.s" (not elsewhere specified) - catch-all
+for industrial activities not classified in specific sectors.
 
-Output format matches: "Share of [fuel] for other industries"
+SIMPLIFIED METHODOLOGY (Phase 1):
+1. Historical Energy: Extract 2020 base year from UNSD
+2. CAGR: Calculate from UNSD trends with scenario multipliers
+3. Fuel Shares: Extract 2020 UNSD shares, keep CONSTANT
+
+TODO: Add fuel share transformation logic for Phase 2
 """
 
-from industry.utils.helpers import build_simple_sector_fuel_share_rows
-from industry.scripts.other_industries.build_shares_other_industries import get_unsd_fuel_shares
+from typing import List
+import pandas as pd
+from industry.utils.helpers import (
+    build_historical_energy_rows,
+    build_simple_sector_cagr_rows,
+    build_simple_sector_fuel_share_rows_from_unsd,
+)
 
 
 def generate_other_industries_config_rows(
@@ -19,33 +28,32 @@ def generate_other_industries_config_rows(
     scenarios: list[str],
 ) -> "pd.DataFrame":
     """
-    Generate config rows for 'other industries' sector (UNSD: Industry n.e.s).
+    Generate config rows for 'other industries' (UNSD: Industry n.e.s).
     
-    Simple sector pattern:
-    - metric_1: "Industry n.e.s" (UNSD sector name - must match exactly)
-    - metric_2: "fuel_share"
-    - metric_3: "other industries" (display name)
-    - metric_4: fuel name (oil, gas, electricity, coal, biomass, hydrogen, ammonia, methanol)
-    
-    Args:
-        countries: List of country codes (e.g., ['MA', 'EG', 'ZA', 'NA'])
-        base_year: Base year for historical data (e.g., 2020)
-        target_years: Future years to project (e.g., [2030, 2035, 2040, 2045, 2050])
-        scenarios: List of scenario names (e.g., ['BAU', 'Progressive', 'Optimistic'])
-    
-    Returns:
-        DataFrame with fuel share rows (8 fuels × 3 scenarios × 5 years × N countries)
+    Returns DataFrame with:
+    1. historical_energy_demand rows
+    2. cagr rows
+    3. fuel_share rows
     """
     
-    return build_simple_sector_fuel_share_rows(
-        sector_display_name="other industries",  # User-friendly name for output
-        unsd_sector_name="Industry n.e.s",      # UNSD sector name (must match CSV exactly)
-        get_fuel_shares_func=get_unsd_fuel_shares,
-        countries=countries,
-        base_year=base_year,
-        target_years=target_years,
-        scenarios=scenarios,
-    )
+    sector_name = "other"
+    unsd_sector_name = "Industry n.e.s"
+    
+    all_dfs = []
+    
+    all_dfs.append(build_historical_energy_rows(
+        sector_name, unsd_sector_name, countries, base_year
+    ))
+    
+    all_dfs.append(build_simple_sector_cagr_rows(
+        sector_name, unsd_sector_name, countries, scenarios
+    ))
+    
+    all_dfs.append(build_simple_sector_fuel_share_rows_from_unsd(
+        sector_name, unsd_sector_name, countries, base_year, target_years, scenarios
+    ))
+    
+    return pd.concat(all_dfs, ignore_index=True)
 
 
 if __name__ == "__main__":
