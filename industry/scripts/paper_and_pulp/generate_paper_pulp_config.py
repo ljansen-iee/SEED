@@ -93,8 +93,6 @@ from industry.scripts.paper_and_pulp.build_share_primary_pulp import (
     share_fuel_secondary_pulp,
     share_fuel_paper,
     share_primary_secondary_pulp,
-    share_fuel_unspecified_paper_pulp,
-    activity_factor_unspecified_paper_pulp,
 )
 from industry.scripts.paper_and_pulp.build_energy_intensities_paper_pulp import (
     intensity_primary_pulp,
@@ -361,68 +359,6 @@ def build_paper_pulp_intensity_cagr_rows(
 
 
 # ============================================================================
-# UNSPECIFIED PAPER & PULP BUILDERS
-# ============================================================================
-
-def build_unspecified_paper_pulp_rows(
-    countries: List[str],
-    base_year: int,
-    target_years: List[int],
-    scenarios: List[str],
-    cagr_dict: Dict[str, Dict[str, float]],
-) -> pd.DataFrame:
-    """
-    Build unspecified paper & pulp activity and fuel share rows.
-    
-    NOTE: Placeholder for miscellaneous processes not explicitly modeled:
-    - Converting operations, coating, specialty treatments
-    - Auxiliary equipment, material handling
-    
-    DEFAULT: Zero activity (to avoid double-counting with detailed pulp/paper)
-    USER CAN ADD: If user adds activity values, they will be included in demand calculation
-    """
-    rows = []
-    all_years = [base_year] + target_years
-    
-    # 1. Activity factor rows - SET TO ZERO (no double-counting)
-    # CAGR is still available in config if user adds values manually
-    
-    for year in all_years:
-        for scenario in scenarios:
-            row = {
-                'metric_1': 'paper, pulp and printing',
-                'metric_2': 'activity_factor',
-                'metric_3': 'Unspecified paper and pulp',
-                'metric_4': '',
-                'year': year,
-                'scenario': scenario,
-                'units': 'dimensionless',
-            }
-            # Set all countries to ZERO
-            for country in countries:
-                row[country] = 0.0
-            rows.append(row)
-    
-    # 2. Fuel share rows for unspecified
-    fuel_shares_unspecified = extract_all_fuels(
-        share_fuel_unspecified_paper_pulp, target_years, scenarios
-    )
-    
-    df_fuel_unspecified = build_fuel_share_rows(
-        industry_sector="paper, pulp and printing",
-        fuel_shares_dict=fuel_shares_unspecified,
-        metric_label="Unspecified paper and pulp",
-        countries=countries,
-        base_year=base_year,
-        target_years=target_years,
-        scenarios=scenarios,
-    )
-    
-    rows_df = pd.DataFrame(rows)
-    return pd.concat([rows_df, df_fuel_unspecified], ignore_index=True)
-
-
-# ============================================================================
 # MAIN PAPER & PULP CONFIG GENERATOR
 # ============================================================================
 
@@ -545,6 +481,7 @@ def generate_paper_pulp_config_rows(
         countries=countries,
         base_year=base_year,
         scenarios=scenarios,
+        intensity_selection='average',
     )
     
     df_intensity_secondary = build_intensity_base_rows(
@@ -554,6 +491,7 @@ def generate_paper_pulp_config_rows(
         countries=countries,
         base_year=base_year,
         scenarios=scenarios,
+        intensity_selection='average',
     )
     
     df_intensity_paper = build_intensity_base_rows(
@@ -563,6 +501,7 @@ def generate_paper_pulp_config_rows(
         countries=countries,
         base_year=base_year,
         scenarios=scenarios,
+        intensity_selection='average',
     )
     
     all_dfs.extend([df_intensity_primary, df_intensity_secondary, df_intensity_paper])
@@ -576,16 +515,8 @@ def generate_paper_pulp_config_rows(
     all_dfs.append(df_intensity_cagr)
     print(f"  ✓ Generated {len(df_intensity_cagr)} intensity CAGR rows")
     
-    # 8. Build unspecified paper & pulp rows
-    print("\n8. Building unspecified paper & pulp rows...")
-    df_unspecified = build_unspecified_paper_pulp_rows(
-        countries, base_year, target_years, scenarios, paper_pulp_cagr_dict
-    )
-    all_dfs.append(df_unspecified)
-    print(f"  ✓ Generated {len(df_unspecified)} unspecified rows")
-    
-    # 9. Concatenate all paper & pulp rows
-    print("\n9. Concatenating all paper & pulp metrics...")
+    # 8. Concatenate all paper & pulp rows
+    print("\n8. Concatenating all paper & pulp metrics...")
     df_paper_pulp_all = pd.concat(all_dfs, ignore_index=True)
     
     # Fill NaN values with 0

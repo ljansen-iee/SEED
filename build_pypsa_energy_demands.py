@@ -194,25 +194,31 @@ def export_industry_totals_by_scenario_year(
 					aggfunc='sum',
 					fill_value=0
 				).reset_index()
+
+				# Normalize sector names between process emissions and industry-wide demand output.
+				pe_sector_aliases = {
+					'paper, pulp and printing': 'paper pulp and print',
+				}
+				pe_pivot = pe_pivot.rename(columns=pe_sector_aliases)
 				
 				# Add carrier column
-			pe_pivot['carrier'] = 'process emissions'
-			
-			# Align columns with energy_data
-			# Get all sector columns from energy_data
-			sector_cols = [col for col in energy_data.columns if col not in ['country', 'carrier']]
-			
-			# Ensure process emissions has all sector columns
-			for col in sector_cols:
-				if col not in pe_pivot.columns:
-					pe_pivot[col] = 0
-			
-			# Reorder columns to match energy_data
-			pe_pivot = pe_pivot[['country', 'carrier'] + sector_cols]
-			
-			# Append process emissions row(s) to energy data
-			energy_data = pd.concat([energy_data, pe_pivot], ignore_index=True)
-			print(f"  Added process emissions: {len(pe_pivot)} rows")
+				pe_pivot['carrier'] = 'process emissions'
+				
+				# Align columns with energy_data
+				# Get all sector columns from energy_data
+				sector_cols = [col for col in energy_data.columns if col not in ['country', 'carrier']]
+				
+				# Ensure process emissions has all sector columns
+				for col in sector_cols:
+					if col not in pe_pivot.columns:
+						pe_pivot[col] = 0
+				
+				# Reorder columns to match energy_data
+				pe_pivot = pe_pivot[['country', 'carrier'] + sector_cols]
+				
+				# Append process emissions row(s) to energy data
+				energy_data = pd.concat([energy_data, pe_pivot], ignore_index=True)
+				print(f"  Added process emissions: {len(pe_pivot)} rows")
 	
 		# Define custom carrier order for PyPSA compatibility
 		carrier_order = ['oil', 'biomass', 'coal', 'electricity', 'gas', 'hydrogen', 
@@ -277,31 +283,27 @@ interim_dir = industry_root / 'output_data' / 'interim_data'
 wide_format_path = industry_root / 'output_data' / 'final_energy_demand_detailed_sectors_wide.csv'
 process_emissions_path = interim_dir / 'process_emissions_summary.csv'
 
-if not wide_format_path.exists():
-	print("  Industry wide format file not found. Running industry calculation...")
-	
-	# Initialize calculator
-	calculator = FinalEnergyCalculator(config_path, interim_dir)
-	
-	# Calculate
-	results_long = calculator.calculate_all_detailed_sectors(
-		years=[2030, 2035, 2040, 2045, 2050],
-		scenarios=['BAU', 'Progressive', 'Optimistic']
-	)
-	
-	if results_long.empty:
-		print("  Error: No industry results generated!")
-		sys.exit(1)
-	
-	# Convert to wide format
-	industry_wide_df = calculator.pivot_to_wide_format(results_long)
-	
-	# Save for future use
-	industry_wide_df.to_csv(wide_format_path, index=False)
-	print(f"  Saved industry wide format: {wide_format_path.name}")
-else:
-	print(f"  Loading existing industry data: {wide_format_path.name}")
-	industry_wide_df = pd.read_csv(wide_format_path)
+print("  Recomputing industry data from config to avoid stale cached wide output...")
+
+# Initialize calculator
+calculator = FinalEnergyCalculator(config_path, interim_dir)
+
+# Calculate
+results_long = calculator.calculate_all_detailed_sectors(
+	years=[2030, 2035, 2040, 2045, 2050],
+	scenarios=['BAU', 'Progressive', 'Optimistic']
+)
+
+if results_long.empty:
+	print("  Error: No industry results generated!")
+	sys.exit(1)
+
+# Convert to wide format
+industry_wide_df = calculator.pivot_to_wide_format(results_long)
+
+# Save for future use
+industry_wide_df.to_csv(wide_format_path, index=False)
+print(f"  Saved industry wide format: {wide_format_path.name}")
 
 # Export industry totals
 industry_files = export_industry_totals_by_scenario_year(

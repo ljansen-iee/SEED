@@ -38,12 +38,14 @@ theme:
     - content.code.copy
     - content.code.annotate
     - toc.integrate
-
+hooks:
+  - hooks/ssl_fix.py
 plugins:
   - search
   - mkdocstrings:
       handlers:
         python:
+          paths: [.]
           options:
             docstring_style: google
             show_source: true
@@ -51,7 +53,7 @@ plugins:
             show_category_heading: true
             members_order: source
   - mkdocs-jupyter:
-      execute: false          # set to true once notebooks are cleaned up
+      execute: false # set to true once notebooks are cleaned up
       include_source: true
 
 markdown_extensions:
@@ -64,7 +66,7 @@ markdown_extensions:
       anchor_linenums: true
   - pymdownx.inlinehilite
   - pymdownx.snippets
-  - pymdownx.arithmatex:      # LaTeX math rendering
+  - pymdownx.arithmatex: # LaTeX math rendering
       generic: true
   - attr_list
   - md_in_html
@@ -99,12 +101,6 @@ nav:
   - Tutorials:
       - Transport: tutorials/transport_tutorial.ipynb
       - Residential: tutorials/residential_tutorial.ipynb
-  - Notebooks:
-      - Sector Plots: notebooks/plots.ipynb
-      - Transport Graphs: notebooks/transport_graphs.ipynb
-      - Residential Graphs: notebooks/residential_graphs.ipynb
-      - Industry Graphs: notebooks/industry_graphs.ipynb
-      - Statistics: notebooks/statistics.ipynb
   - API Reference:
       - Transport: api/transport.md
       - Residential: api/residential.md

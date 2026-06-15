@@ -6,7 +6,7 @@ Generate configuration rows for aluminium subsector in INDUSTRY_CONFIG.csv.
 This script integrates all aluminium-specific data:
 1. Production volumes (from BGS historical data + CAGR projections)
 2. Technology route shares (Primary vs Secondary)
-3. Energy intensities (with efficiency improvements)
+3. Energy intensities (fuel-indexed base assumptions)
 4. Fuel shares (from UNSD or defaults)
 5. Process emissions factors (Primary: 1.5 tCO₂/t, Secondary: 0.0)
 
@@ -22,7 +22,7 @@ Output
 Rows added to INDUSTRY_CONFIG.csv for aluminium subsector:
 - Production [100 tonnes/year]
 - Technology routes [share 0-1]
-- Energy intensities [MWh/100t]
+- Energy intensities [MWh/t] (base rows)
 - Fuel shares [share 0-1]
 - Unspecified other non-ferrous [GWh] (residual from UNSD)
 
@@ -33,15 +33,15 @@ Date: June 2026
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, List
+from typing import List
 import pandas as pd
-import numpy as np
 
 # Import aluminium-specific functions
 from industry.scripts.non_ferrous_metals.build_aluminium_production import (
     load_aluminium_data,
     get_base_production,
     calculate_cagr_factor,
+    CAGR_RATES,
     PROJECTION_YEARS,
     BASE_YEAR,
 )
@@ -49,12 +49,17 @@ from industry.scripts.non_ferrous_metals.build_aluminium_shares import (
     get_aluminium_route_shares,
 )
 from industry.scripts.non_ferrous_metals.build_aluminium_intensities import (
-    get_aluminium_energy_intensities,
+    intensity_primary_aluminium,
+    intensity_secondary_aluminium,
     get_aluminium_fuel_shares,
 )
 
 # Import shared utilities
-from industry.utils.helpers import get_scenarios_from_build_config_industry, country_to_iso2
+from industry.utils.helpers import (
+    get_scenarios_from_build_config_industry,
+    country_to_iso2,
+    build_intensity_base_rows,
+)
 
 # Get scenarios from config
 SCENARIOS = get_scenarios_from_build_config_industry()
@@ -80,9 +85,11 @@ def build_aluminium_production_rows(countries: List[str], target_years: List[int
     
     rows = []
     
+    all_years = [BASE_YEAR] + target_years
+
     for scenario in SCENARIOS:
-        for year in target_years:
-            row = {
+        for year in all_years:
+            row: dict[str, object] = {
                 'metric_1': 'non-ferrous metals',
                 'metric_2': 'production',
                 'metric_3': 'Aluminium production per year',
@@ -110,6 +117,11 @@ def build_aluminium_production_rows(countries: List[str], target_years: List[int
                     row[country] = 0.0
                     continue
                 
+                # Keep the base year anchored to the historical observation.
+                if year == BASE_YEAR:
+                    row[country] = round(base_production * 10, 2)
+                    continue
+
                 # Calculate CAGR factor
                 cagr_factor, _ = calculate_cagr_factor(actual_base_year, year, scenario)
                 
@@ -132,16 +144,17 @@ def build_aluminium_production_rows(countries: List[str], target_years: List[int
 
 def build_aluminium_route_rows(countries: List[str], target_years: List[int]) -> pd.DataFrame:
     """Build technology route share rows (Primary vs Secondary)."""
-    route_shares = get_aluminium_route_shares(target_years, SCENARIOS)
+    all_years = [BASE_YEAR] + target_years
+    route_shares = get_aluminium_route_shares(all_years, SCENARIOS)
     
     rows = []
     
     for route_name, year_scenario_shares in route_shares.items():
-        for year in target_years:
+        for year in all_years:
             for scenario in SCENARIOS:
                 share = year_scenario_shares[year][scenario]
                 
-                row = {
+                row: dict[str, object] = {
                     'metric_1': 'non-ferrous metals',
                     'metric_2': 'technology_route',
                     'metric_3': route_name,
@@ -160,41 +173,122 @@ def build_aluminium_route_rows(countries: List[str], target_years: List[int]) ->
     return pd.DataFrame(rows)
 
 
+def build_aluminium_cagr_rows(
+    countries: List[str],
+    base_year: int,
+    target_years: List[int],
+    scenarios: List[str],
+) -> pd.DataFrame:
+    """Build CAGR rows for aluminium production using exogenous interval rates."""
+    rows = []
+    all_years = [base_year] + target_years
+
+    for i in range(len(all_years) - 1):
+        start_year = all_years[i]
+        end_year = all_years[i + 1]
+        period = f"{start_year}-{end_year}"
+
+        for scenario in scenarios:
+            cagr_value = float(CAGR_RATES.get(scenario, {}).get(end_year, 0.0))
+            row: dict[str, object] = {
+                'metric_1': 'non-ferrous metals',
+                'metric_2': 'cagr',
+                'metric_3': 'Aluminium production per year',
+                'metric_4': '',
+                'year': period,
+                'scenario': scenario,
+                'units': 'share',
+            }
+
+            for country in countries:
+                row[country] = cagr_value
+
+            rows.append(row)
+
+    return pd.DataFrame(rows)
+
+
 # ---------------------------------------------------------------------------
 # Energy Intensity Rows
 # ---------------------------------------------------------------------------
 
-def build_aluminium_intensity_rows(countries: List[str], target_years: List[int]) -> pd.DataFrame:
-    """Build energy intensity rows for each route."""
-    intensities = get_aluminium_energy_intensities(target_years, SCENARIOS)
-    
+def build_aluminium_intensity_rows(
+    countries: List[str],
+    target_years: List[int],
+    intensity_selection: str = 'average',
+) -> pd.DataFrame:
+    """
+    Build energy intensity rows for each route.
+
+    Aluminium intensities are generated via the shared fuel-indexed detailed
+    sector pattern and collapsed to route-level base rows using
+    build_intensity_base_rows.
+    """
+    if intensity_selection not in {'average', 'first_fuel'}:
+        raise ValueError(
+            f"Unsupported intensity_selection='{intensity_selection}'. "
+            "Use 'average' or 'first_fuel'."
+        )
+
+    base_year = 2020
+
+    df_primary = build_intensity_base_rows(
+        industry_sector='non-ferrous metals',
+        intensity_function=intensity_primary_aluminium,
+        metric_label='Primary aluminium',
+        countries=countries,
+        base_year=base_year,
+        scenarios=SCENARIOS,
+        intensity_selection=intensity_selection,
+    )
+
+    df_secondary = build_intensity_base_rows(
+        industry_sector='non-ferrous metals',
+        intensity_function=intensity_secondary_aluminium,
+        metric_label='Secondary aluminium',
+        countries=countries,
+        base_year=base_year,
+        scenarios=SCENARIOS,
+        intensity_selection=intensity_selection,
+    )
+
+    return pd.concat([df_primary, df_secondary], ignore_index=True)
+
+
+def build_aluminium_intensity_cagr_rows(
+    countries: List[str],
+    base_year: int,
+    target_years: List[int],
+    scenarios: List[str],
+) -> pd.DataFrame:
+    """Build CAGR rows for aluminium route intensities.
+
+    Intensities are currently fixed at base value (11.24 MWh/t), so CAGR is 0.0.
+    """
     rows = []
-    
-    for route_name, year_scenario_intensities in intensities.items():
-        for year in target_years:
-            for scenario in SCENARIOS:
-                intensity_mwh_per_t = year_scenario_intensities[year][scenario]
-                
-                # Convert MWh/t → MWh/100t (config uses 100 tonnes as unit)
-                intensity_mwh_per_100t = intensity_mwh_per_t * 100
-                
-                row = {
+    all_years = [base_year] + target_years
+    intensity_metrics = [
+        'Energy intensity of Primary aluminium',
+        'Energy intensity of Secondary aluminium',
+    ]
+
+    for i in range(len(all_years) - 1):
+        period = f"{all_years[i]}-{all_years[i + 1]}"
+        for metric_name in intensity_metrics:
+            for scenario in scenarios:
+                row: dict[str, object] = {
                     'metric_1': 'non-ferrous metals',
-                    'metric_2': 'energy_intensity',
-                    'metric_3': route_name,
+                    'metric_2': 'cagr',
+                    'metric_3': metric_name,
                     'metric_4': '',
-                    'year': str(year),
+                    'year': period,
                     'scenario': scenario,
-                    'units': 'MWh/100t',
+                    'units': 'share',
                 }
-                
-                # Same intensity for all countries (global average)
-                # TODO: Consider country-specific intensities if data available
                 for country in countries:
-                    row[country] = round(intensity_mwh_per_100t, 2)
-                
+                    row[country] = 0.0
                 rows.append(row)
-    
+
     return pd.DataFrame(rows)
 
 
@@ -204,19 +298,33 @@ def build_aluminium_intensity_rows(countries: List[str], target_years: List[int]
 
 def build_aluminium_fuel_share_rows(countries: List[str], target_years: List[int]) -> pd.DataFrame:
     """Build fuel share rows for each route."""
-    fuel_shares = get_aluminium_fuel_shares(target_years, SCENARIOS)
+    all_years = [BASE_YEAR] + target_years
+    fuel_shares = get_aluminium_fuel_shares(all_years, SCENARIOS)
+    fuel_universe = [
+        'diesel',
+        'natural_gas',
+        'electricity',
+        'coal',
+        'heat',
+        'biomass',
+        'hydrogen',
+        'ammonia',
+        'methanol',
+        'steel',
+    ]
     
     rows = []
     
     # Iterate through routes
     for route_name, fuels_dict in fuel_shares.items():
-        # Iterate through fuels
-        for fuel_name, year_scenario_shares in fuels_dict.items():
-            for year in target_years:
+        # Iterate through a fixed fuel universe so zero-share fuels are still exported.
+        for fuel_name in fuel_universe:
+            year_scenario_shares = fuels_dict.get(fuel_name, {})
+            for year in all_years:
                 for scenario in SCENARIOS:
-                    share = year_scenario_shares[year][scenario]
+                    share = year_scenario_shares.get(year, {}).get(scenario, 0.0)
                     
-                    row = {
+                    row: dict[str, object] = {
                         'metric_1': 'non-ferrous metals',
                         'metric_2': 'fuel_share',
                         'metric_3': route_name,
@@ -232,46 +340,6 @@ def build_aluminium_fuel_share_rows(countries: List[str], target_years: List[int
                         row[country] = round(share, 4)
                     
                     rows.append(row)
-    
-    return pd.DataFrame(rows)
-
-
-# ---------------------------------------------------------------------------
-# Unspecified "Other Non-Ferrous" Rows
-# ---------------------------------------------------------------------------
-
-def build_other_non_ferrous_rows(countries: List[str], target_years: List[str]) -> pd.DataFrame:
-    """
-    Build activity_factor rows for other non-ferrous metals (copper, zinc, lead, etc.).
-    
-    This is a PLACEHOLDER - actual implementation should calculate residual:
-        other_non_ferrous = UNSD_total - aluminium_detailed
-    
-    For now, we create empty rows that will be populated by calculate_final_energy_demand.py
-    Changed from 'unspecified' to 'activity_factor' for consistency with simple sectors.
-    """
-    rows = []
-    
-    # Placeholder: will be calculated in calculate_final_energy_demand.py
-    # using get_other_non_ferrous_GWh() function
-    
-    for scenario in SCENARIOS:
-        for year in target_years:
-            row = {
-                'metric_1': 'non-ferrous metals',
-                'metric_2': 'activity_factor',
-                'metric_3': 'other_non_ferrous',
-                'metric_4': '',
-                'year': str(year),
-                'scenario': scenario,
-                'units': 'dimensionless',
-            }
-            
-            # Placeholder zeros - will be calculated dynamically
-            for country in countries:
-                row[country] = 0.0
-            
-            rows.append(row)
     
     return pd.DataFrame(rows)
 
@@ -294,18 +362,29 @@ def generate_aluminium_config(countries: List[str]) -> pd.DataFrame:
     
     # Build all components
     df_production = build_aluminium_production_rows(countries, target_years)
+    df_cagr = build_aluminium_cagr_rows(countries, BASE_YEAR, target_years, SCENARIOS)
     df_routes = build_aluminium_route_rows(countries, target_years)
-    df_intensities = build_aluminium_intensity_rows(countries, target_years)
+    df_intensities = build_aluminium_intensity_rows(
+        countries,
+        target_years,
+        intensity_selection='average',
+    )
+    df_intensity_cagr = build_aluminium_intensity_cagr_rows(
+        countries,
+        BASE_YEAR,
+        target_years,
+        SCENARIOS,
+    )
     df_fuel_shares = build_aluminium_fuel_share_rows(countries, target_years)
-    df_other = build_other_non_ferrous_rows(countries, target_years)
     
     # Combine all rows
     df_all = pd.concat([
         df_production,
+        df_cagr,
         df_routes,
         df_intensities,
+        df_intensity_cagr,
         df_fuel_shares,
-        df_other,
     ], ignore_index=True)
     
     return df_all

@@ -473,22 +473,26 @@ def generate_steel_config_rows(
     df_intensity_bf_bof = build_intensity_base_rows(
         'iron and steel', intensity_bf_bof,
         "BF+BOF",
-        countries, base_year, scenarios
+        countries, base_year, scenarios,
+        intensity_selection='average'
     )
     df_intensity_dr_eaf = build_intensity_base_rows(
         'iron and steel', intensity_dr_eaf,
         "DR+EAF",
-        countries, base_year, scenarios
+        countries, base_year, scenarios,
+        intensity_selection='average'
     )
     df_intensity_scrap_eaf = build_intensity_base_rows(
         'iron and steel', intensity_scrap_eaf,
         "Scrap EAF",
-        countries, base_year, scenarios
+        countries, base_year, scenarios,
+        intensity_selection='average'
     )
     df_intensity_casting_rolling = build_intensity_base_rows(
         'iron and steel', intensity_casting_rolling,
         "Casting, rolling & finishing",
-        countries, base_year, scenarios
+        countries, base_year, scenarios,
+        intensity_selection='average'
     )
     
     # Intensity CAGR

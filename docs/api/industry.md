@@ -7,14 +7,14 @@ Auto-generated from docstrings via
     Add Google-style docstrings to the functions below so this page
     populates automatically. See the [Contributing](../contributing.md) guide.
 
-## `build_config_industry`
+## `generate_industry_config`
 
-::: industry.build_config_industry
+::: industry.scripts.generate_industry_config
 
-## `build_final_energy_demand`
+## `calculate_final_energy_demand`
 
-::: industry.build_final_energy_demand
+::: industry.scripts.calculate_final_energy_demand
 
 ## `helpers`
 
-::: industry.helpers
+::: industry.utils.helpers

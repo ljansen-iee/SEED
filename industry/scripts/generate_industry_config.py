@@ -260,57 +260,72 @@ def generate_industry_config_csv(
     
     df_all['units'] = df_all['units'].replace(unit_mapping)
     
-    # === Auto-generate derivative files (AFTER standardization) ===
-    # Create interim_data folder for auto-generated files
-    interim_dir = BASE_DIR / "output_data" / "interim_data"
-    interim_dir.mkdir(parents=True, exist_ok=True)
-    
-    print(f"\n{'='*60}")
-    print(f"AUTO-GENERATING STEEL INTENSITY PROJECTIONS")
-    print(f"{'='*60}")
-    steel_intensity_proj_path = interim_dir / "steel_intensity_projections.csv"
-    build_steel_intensity_projections(
-        df_all, countries, base_year, target_years, scenarios, steel_intensity_proj_path
-    )
-    
-    print(f"\n{'='*60}")
-    print(f"AUTO-GENERATING AMMONIA INTENSITY PROJECTIONS")
-    print(f"{'='*60}")
-    ammonia_intensity_proj_path = interim_dir / "ammonia_intensity_projections.csv"
-    build_ammonia_intensity_projections(
-        df_all, countries, base_year, target_years, scenarios, ammonia_intensity_proj_path
-    )
-    
-    print(f"\n{'='*60}")
-    print(f"AUTO-GENERATING STEEL VOLUMES")
-    print(f"{'='*60}")
-    volumes_path = interim_dir / "steel_volumes.csv"
-    build_steel_volumes(
-        df_all, countries, base_year, target_years, scenarios, volumes_path
-    )
-    
-    export_cagr_reports(
-        df_config=df_all,
-        output_dir=interim_dir,
-        countries=countries,
-    )
-    
-    print(f"\n{'='*60}")
-    print(f"AUTO-GENERATING PROCESS EMISSIONS")
-    print(f"{'='*60}")
-    generate_process_emissions_reports(
-        df_config=df_all,
-        output_dir=interim_dir,
-        years=target_years,
-        scenarios=scenarios,
-    )
-    
     # === Write to CSV ===
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     
     print(f"\nWriting to: {output_path}")
     df_all.to_csv(output_path, index=False)
+
+    # === Auto-generate derivative files (AFTER standardization) ===
+    # Keep these non-blocking so INDUSTRY_CONFIG is always written.
+    interim_dir = BASE_DIR / "output_data" / "interim_data"
+    interim_dir.mkdir(parents=True, exist_ok=True)
+
+    print(f"\n{'='*60}")
+    print(f"AUTO-GENERATING STEEL INTENSITY PROJECTIONS")
+    print(f"{'='*60}")
+    try:
+        steel_intensity_proj_path = interim_dir / "steel_intensity_projections.csv"
+        build_steel_intensity_projections(
+            df_all, countries, base_year, target_years, scenarios, steel_intensity_proj_path
+        )
+    except Exception as exc:
+        print(f"[WARNING] Skipping steel intensity projections: {exc}")
+
+    print(f"\n{'='*60}")
+    print(f"AUTO-GENERATING AMMONIA INTENSITY PROJECTIONS")
+    print(f"{'='*60}")
+    try:
+        ammonia_intensity_proj_path = interim_dir / "ammonia_intensity_projections.csv"
+        build_ammonia_intensity_projections(
+            df_all, countries, base_year, target_years, scenarios, ammonia_intensity_proj_path
+        )
+    except Exception as exc:
+        print(f"[WARNING] Skipping ammonia intensity projections: {exc}")
+
+    print(f"\n{'='*60}")
+    print(f"AUTO-GENERATING STEEL VOLUMES")
+    print(f"{'='*60}")
+    try:
+        volumes_path = interim_dir / "steel_volumes.csv"
+        build_steel_volumes(
+            df_all, countries, base_year, target_years, scenarios, volumes_path
+        )
+    except Exception as exc:
+        print(f"[WARNING] Skipping steel volumes export: {exc}")
+
+    try:
+        export_cagr_reports(
+            df_config=df_all,
+            output_dir=interim_dir,
+            countries=countries,
+        )
+    except Exception as exc:
+        print(f"[WARNING] Skipping CAGR reports export: {exc}")
+
+    print(f"\n{'='*60}")
+    print(f"AUTO-GENERATING PROCESS EMISSIONS")
+    print(f"{'='*60}")
+    try:
+        generate_process_emissions_reports(
+            df_config=df_all,
+            output_dir=interim_dir,
+            years=target_years,
+            scenarios=scenarios,
+        )
+    except Exception as exc:
+        print(f"[WARNING] Skipping process emissions export: {exc}")
     
     print(f"\n{'='*60}")
     print(f"INDUSTRY_CONFIG.csv GENERATION COMPLETE!")
@@ -440,6 +455,7 @@ def build_steel_intensity_projections(
     ]
     for _, row in sample.iterrows():
         print(f"  {row['year']} | {row['route'][:30]:30s} | {row[countries[0]]:6.2f} MWh/t")
+        return df_projections
 
 
 def build_ammonia_intensity_projections(
@@ -532,6 +548,7 @@ def build_ammonia_intensity_projections(
         ]
         for _, row in sample.iterrows():
             print(f"  {row['year']} | {row['route']:35s} | {row[countries[0]]:6.2f} MWh/t")
+        return df_projections
 
 
 def extract_metric(
@@ -691,6 +708,7 @@ def build_steel_volumes(
         print(f"  {row['year']} | Total: {row['total_steel_production']:,.0f} t | "
               f"Exog: {row['exog_steel_conv_path']:,.0f} t | "
               f"Endog: {row['endog_green_steel_path']:,.0f} t")
+        return df_volumes
 
 
 def main():

@@ -1385,17 +1385,16 @@ def build_fuel_share_rows(
     
     for year in all_years:
         for scenario in scenarios:
-            # Create one row per fuel type
+            # Create one row per fuel type.
+            # If a fuel has no explicit value for this year/scenario,
+            # keep it in CONFIG with a zero share so metric_4 is exhaustive.
             for fuel, year_data in fuel_shares_dict.items():
-                if year not in year_data:
-                    continue
-                
-                scenario_values = year_data[year]
-                
-                if scenario not in scenario_values:
-                    continue
-                
-                value = scenario_values[scenario]
+                value = 0.0
+
+                if year in year_data:
+                    scenario_values = year_data[year]
+                    if scenario in scenario_values:
+                        value = scenario_values[scenario]
                 
                 row = {
                     'metric_1': industry_sector,  # Industry sector
@@ -1423,12 +1422,13 @@ def build_intensity_base_rows(
     countries: List[str],
     base_year: int,
     scenarios: List[str],
+    intensity_selection: str = 'average',
 ) -> pd.DataFrame:
     """
     Generate BASE YEAR energy intensity rows for any sector/process.
     
     Generic pattern that works for steel, ammonia, cement, etc.
-    Creates aggregated intensity values per route for base year only.
+    Creates route-level intensity values for base year only.
     Future projections are calculated separately using CAGR values from config.
     
     Args:
@@ -1438,6 +1438,10 @@ def build_intensity_base_rows(
         countries: List of country names
         base_year: Base year (e.g., 2020)
         scenarios: List of scenario names
+        intensity_selection: How to collapse fuel-level intensity inputs into one
+            route-level value for config export.
+            - 'average': average fuel intensities (default, current workflow)
+            - 'first_fuel': use first available fuel intensity
     
     Returns:
         pd.DataFrame: Base intensity rows (2020 only) in long format
@@ -1447,23 +1451,27 @@ def build_intensity_base_rows(
     # Get base year intensities from function
     intensities = intensity_function([base_year], scenarios)
     
-    # Calculate base intensity
-    # NOTE: For simplified config, all fuels have the same intensity value.
-    # We take the first fuel's value instead of summing (which would be 7× too high).
-    base_intensity = 0.0
-    fuel_count = 0
+    # Collapse fuel-level intensity data to one route-level value for config export.
+    # The downstream demand model multiplies route intensity by fuel shares.
+    fuel_values = []
     for fuel, year_data in intensities.items():
         if base_year in year_data:
             # Use first scenario value (base year same across scenarios)
             scenario_values = year_data[base_year]
             if scenario_values:
-                first_scenario = list(scenario_values.values())[0]
-                base_intensity += first_scenario
-                fuel_count += 1
-    
-    # Average across fuels (or just take first if all same)
-    if fuel_count > 0:
-        base_intensity = base_intensity / fuel_count
+                fuel_values.append(list(scenario_values.values())[0])
+
+    if not fuel_values:
+        base_intensity = 0.0
+    elif intensity_selection == 'average':
+        base_intensity = sum(fuel_values) / len(fuel_values)
+    elif intensity_selection == 'first_fuel':
+        base_intensity = fuel_values[0]
+    else:
+        raise ValueError(
+            f"Unsupported intensity_selection='{intensity_selection}'. "
+            "Use 'average' or 'first_fuel'."
+        )
     
     # Generate row for BASE YEAR only (same for all scenarios)
     for scenario in scenarios:
@@ -1661,39 +1669,39 @@ def build_simple_sector_fuel_share_rows(
     }
     
     rows = []
-    
-    for country_code in countries:
-        country_name = country_map.get(country_code, country_code)
-        
-        # Get base year fuel shares from UNSD
+    base_shares_by_country = {}
+
+    for country in countries:
+        country_name = country_map.get(country, country)
+
+        # Get base year fuel shares from UNSD.
         base_shares = get_fuel_shares_func(unsd_data_dir, country_name, base_year, unsd_sector_name)
-        
-        # If no data found, use zeros
+
         if not base_shares:
             base_shares = {fuel: 0.0 for fuel in fuels}
-        
-        # For simple sectors, replicate base year shares across all scenarios and years
-        # (no complex decarbonization pathways defined yet)
-        for fuel in fuels:
-            share_value = base_shares.get(fuel, 0.0) / 100.0  # Convert from percentage to fraction
-            
-            for year in target_years:
-                for scenario in scenarios:
-                    row = {
-                        'metric_1': unsd_sector_name,  # UNSD sector name
-                        'metric_2': 'fuel_share',  # Type
-                        'metric_3': f'unspecified {sector_display_name}',  # Specific metric
-                        'metric_4': fuel,  # Fuel type
-                        'year': year,
-                        'scenario': scenario,
-                        'units': 'share',
-                    }
-                    
-                    # Set value for this country
-                    for c in countries:
-                        row[c] = share_value if c == country_code else 0.0
-                    
-                    rows.append(row)
+
+        base_shares_by_country[country] = base_shares
+
+    # For simple sectors, replicate base year shares across all scenarios and years
+    # (no complex decarbonization pathways defined yet).
+    for fuel in fuels:
+        for year in target_years:
+            for scenario in scenarios:
+                row = {
+                    'metric_1': unsd_sector_name,
+                    'metric_2': 'fuel_share',
+                    'metric_3': f'unspecified {sector_display_name}',
+                    'metric_4': fuel,
+                    'year': year,
+                    'scenario': scenario,
+                    'units': 'share',
+                }
+
+                for country in countries:
+                    share_value = base_shares_by_country[country].get(fuel, 0.0) / 100.0
+                    row[country] = share_value
+
+                rows.append(row)
     
     return pd.DataFrame(rows)
 
@@ -1920,7 +1928,8 @@ def build_simple_sector_fuel_share_rows_from_unsd(
     }
     
     rows = []
-    
+    base_shares_by_country: Dict[str, Dict[str, float]] = {}
+
     for country in countries:
         # Extract base year fuel shares from UNSD
         base_shares = {}
@@ -1971,21 +1980,27 @@ def build_simple_sector_fuel_share_rows_from_unsd(
         else:
             base_shares = _get_default_fuel_shares()
         
-        # Apply shares to all years and scenarios (CONSTANT - no transformation)
-        for scenario in scenarios:
-            for year in target_years:
-                for fuel, share_value in base_shares.items():
-                    if share_value > 0:  # Only add non-zero shares
-                        rows.append({
-                            'metric_1': sector_name,
-                            'metric_2': 'fuel_share',
-                            'metric_3': f'unspecified {sector_name}',
-                            'metric_4': fuel,
-                            'year': year,
-                            'scenario': scenario,
-                            'units': 'share',
-                            country: share_value
-                        })
+        base_shares_by_country[country] = base_shares
+
+    # Apply shares to all years and scenarios (CONSTANT - no transformation)
+    fuel_order = list(_get_default_fuel_shares().keys())
+    for scenario in scenarios:
+        for year in target_years:
+            for fuel in fuel_order:
+                row = {
+                    'metric_1': sector_name,
+                    'metric_2': 'fuel_share',
+                    'metric_3': f'unspecified {sector_name}',
+                    'metric_4': fuel,
+                    'year': year,
+                    'scenario': scenario,
+                    'units': 'share',
+                }
+
+                for country in countries:
+                    row[country] = base_shares_by_country.get(country, {}).get(fuel, 0.0)
+
+                rows.append(row)
     
     return pd.DataFrame(rows)
 

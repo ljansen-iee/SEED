@@ -1,68 +1,15 @@
-"""
-build_aluminium_intensities.py
--------------------------------
-Generate energy intensity values for aluminium production routes.
+"""Generate aluminium route intensities and fuel shares.
 
-Energy Intensities (MWh/tonne aluminium)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+This module follows the same pattern used by other detailed sectors:
+route-specific intensity functions return fuel-indexed values
+(fuel -> year -> scenario -> MWh/t).
 
-**Primary Aluminium (Hall-Héroult electrolysis):**
-- Baseline (2020): 15.0 MWh/t
-  * Electrolysis: ~13.5 MWh/t (electricity)
-  * Anode production: ~1.0 MWh/t (fossil fuels)
-  * Alumina refining: ~0.5 MWh/t (heat)
+Current modelling assumption agreed for this workflow:
+- Primary aluminium: 11.24 MWh/t for all fuels, years, scenarios
+- Secondary aluminium: 11.24 MWh/t for all fuels, years, scenarios
 
-- Efficiency improvements:
-  * BAU: -0.5%/year → 13.5 MWh/t by 2050
-  * Progressive: -1.0%/year → 11.9 MWh/t by 2050
-  * Optimistic: -1.5%/year → 10.6 MWh/t by 2050 (inert anodes, renewable heat)
-
-**Secondary Aluminium (Scrap recycling):**
-- Baseline (2020): 0.75 MWh/t
-  * Only 5% of primary energy (no electrolysis needed!)
-  * Melting furnaces: ~0.6 MWh/t
-  * Refining & casting: ~0.15 MWh/t
-
-- Efficiency improvements:
-  * BAU: -0.3%/year → 0.68 MWh/t by 2050
-  * Progressive: -0.5%/year → 0.64 MWh/t by 2050
-  * Optimistic: -0.8%/year → 0.59 MWh/t by 2050
-
-Technology Drivers
-~~~~~~~~~~~~~~~~~~
-- **Inert anodes**: Replace carbon anodes → eliminate process CO₂ + reduce electricity
-- **Renewable heat**: Replace fossil fuels in anode/alumina production
-- **Process optimization**: Advanced control systems, waste heat recovery
-- **Efficient furnaces**: Secondary smelting efficiency gains
-
-Fuel Share Breakdown
-~~~~~~~~~~~~~~~~~~~~
-Fuel shares are extracted from UNSD historical data per country.
-Default global averages (if UNSD missing):
-
-**Primary Aluminium:**
-- Electricity: 85% (electrolysis dominates)
-- Natural gas: 10% (anode production, alumina refining heat)
-- Oil products: 5% (transportation, backup fuel)
-
-**Secondary Aluminium:**
-- Electricity: 70% (melting furnaces)
-- Natural gas: 25% (remelting, holding furnaces)
-- Oil products: 5% (process heat, materials handling)
-
-TODO: Validate intensity values against:
-- IEA "Energy Technology Perspectives 2023" - Aluminium sector
-- IAI "Global Aluminium Cycle 2022" - Energy benchmarks
-- JRC-IDEES database - EU industrial energy intensities
-- Energetics Inc. "Energy and Environmental Profile of the U.S. Aluminum Industry"
-
-Placeholder Warning
-~~~~~~~~~~~~~~~~~~~
-⚠️  Current values are ESTIMATES based on typical industry ranges.
-    MUST be validated with authoritative sources before production use!
-
-Author: Automated workflow
-Date: June 2026
+Future intensity evolution is handled through exogenous CAGR assumptions in
+the industry configuration, not in this module.
 """
 
 from __future__ import annotations
@@ -73,33 +20,53 @@ from industry.utils.helpers import get_scenarios_from_build_config_industry
 
 SCENARIOS = get_scenarios_from_build_config_industry()
 
-# ---------------------------------------------------------------------------
-# Energy Intensity Functions
-# ---------------------------------------------------------------------------
+STANDARD_FUELS = [
+    'diesel',
+    'natural_gas',
+    'electricity',
+    'coal',
+    'heat',
+    'biomass',
+    'hydrogen',
+]
 
-def calculate_intensity_from_cagr(
-    base_intensity: float,
-    base_year: int,
-    target_year: int,
-    efficiency_cagr: float
-) -> float:
-    """
-    Calculate future intensity using efficiency CAGR.
-    
-    Efficiency CAGR is NEGATIVE (improvement reduces intensity).
-    
-    Args:
-        base_intensity: Starting intensity (MWh/t)
-        base_year: Base year
-        target_year: Target year
-        efficiency_cagr: Annual efficiency improvement rate (e.g., -0.01 = -1%/year)
-    
-    Returns:
-        Future intensity (MWh/t)
-    """
-    years_elapsed = target_year - base_year
-    future_intensity = base_intensity * ((1 + efficiency_cagr) ** years_elapsed)
-    return future_intensity
+ALUMINIUM_INTENSITY_MWH_PER_T = 11.24
+
+
+def _build_constant_intensity(
+    target_years: List[int],
+    scenarios: List[str],
+    value: float,
+) -> Dict[str, Dict[int, Dict[str, float]]]:
+    """Build fuel-indexed constant intensity data for all fuels/scenarios/years."""
+    years_with_base = sorted(set([2020] + target_years))
+    return {
+        fuel: {
+            year: {scenario: value for scenario in scenarios}
+            for year in years_with_base
+        }
+        for fuel in STANDARD_FUELS
+    }
+
+
+def intensity_primary_aluminium(
+    target_years: List[int],
+    scenarios: Optional[List[str]] = None,
+) -> Dict[str, Dict[int, Dict[str, float]]]:
+    """Fuel-indexed intensities for primary aluminium (MWh/t)."""
+    if scenarios is None:
+        scenarios = SCENARIOS
+    return _build_constant_intensity(target_years, scenarios, ALUMINIUM_INTENSITY_MWH_PER_T)
+
+
+def intensity_secondary_aluminium(
+    target_years: List[int],
+    scenarios: Optional[List[str]] = None,
+) -> Dict[str, Dict[int, Dict[str, float]]]:
+    """Fuel-indexed intensities for secondary aluminium (MWh/t)."""
+    if scenarios is None:
+        scenarios = SCENARIOS
+    return _build_constant_intensity(target_years, scenarios, ALUMINIUM_INTENSITY_MWH_PER_T)
 
 
 def get_aluminium_energy_intensities(
@@ -124,48 +91,27 @@ def get_aluminium_energy_intensities(
     """
     if scenarios is None:
         scenarios = SCENARIOS
-    
-    base_year = 2020
-    
-    # --- Primary Aluminium Intensity ---
-    # TODO: Validate these values with IEA/IAI/JRC-IDEES sources
-    PRIMARY_BASE = 15.0  # MWh/t (placeholder)
-    PRIMARY_EFFICIENCY_CAGR = {
-        'BAU': -0.005,        # -0.5%/year → 13.5 MWh/t by 2050
-        'Progressive': -0.010,  # -1.0%/year → 11.9 MWh/t by 2050
-        'Optimistic': -0.015,   # -1.5%/year → 10.6 MWh/t by 2050
+
+    primary_fuel_data = intensity_primary_aluminium(target_years, scenarios)
+    secondary_fuel_data = intensity_secondary_aluminium(target_years, scenarios)
+
+    years_with_base = sorted(set([2020] + target_years))
+
+    primary_intensities = {
+        year: {
+            scenario: list(primary_fuel_data.values())[0][year][scenario]
+            for scenario in scenarios
+        }
+        for year in years_with_base
     }
-    
-    # --- Secondary Aluminium Intensity ---
-    # TODO: Validate these values with literature
-    SECONDARY_BASE = 0.75  # MWh/t (placeholder)
-    SECONDARY_EFFICIENCY_CAGR = {
-        'BAU': -0.003,        # -0.3%/year → 0.68 MWh/t by 2050
-        'Progressive': -0.005,  # -0.5%/year → 0.64 MWh/t by 2050
-        'Optimistic': -0.008,   # -0.8%/year → 0.59 MWh/t by 2050
+    secondary_intensities = {
+        year: {
+            scenario: list(secondary_fuel_data.values())[0][year][scenario]
+            for scenario in scenarios
+        }
+        for year in years_with_base
     }
-    
-    # --- Calculate intensities for all years/scenarios ---
-    primary_intensities = {}
-    secondary_intensities = {}
-    
-    for year in target_years:
-        primary_intensities[year] = {}
-        secondary_intensities[year] = {}
-        
-        for scenario in scenarios:
-            # Primary intensity
-            primary_intensities[year][scenario] = calculate_intensity_from_cagr(
-                PRIMARY_BASE, base_year, year, 
-                PRIMARY_EFFICIENCY_CAGR.get(scenario, PRIMARY_EFFICIENCY_CAGR['BAU'])
-            )
-            
-            # Secondary intensity
-            secondary_intensities[year][scenario] = calculate_intensity_from_cagr(
-                SECONDARY_BASE, base_year, year,
-                SECONDARY_EFFICIENCY_CAGR.get(scenario, SECONDARY_EFFICIENCY_CAGR['BAU'])
-            )
-    
+
     return {
         'Primary aluminium': primary_intensities,
         'Secondary aluminium': secondary_intensities,
@@ -215,7 +161,7 @@ def get_aluminium_fuel_shares(
             2030: [0.09, 0.08, 0.06],
             2050: [0.08, 0.06, 0.04],
         },
-        'oil': {
+        'diesel': {
             2020: [0.05, 0.05, 0.05],
             2030: [0.04, 0.04, 0.04],
             2050: [0.04, 0.04, 0.04],
@@ -234,7 +180,7 @@ def get_aluminium_fuel_shares(
             2030: [0.23, 0.20, 0.17],
             2050: [0.21, 0.17, 0.13],
         },
-        'oil': {
+        'diesel': {
             2020: [0.05, 0.05, 0.05],
             2030: [0.05, 0.05, 0.05],
             2050: [0.05, 0.05, 0.05],
@@ -313,10 +259,10 @@ if __name__ == "__main__":
     
     print("\nPrimary Aluminium - Optimistic Scenario:")
     print("-" * 80)
-    for fuel in ['electricity', 'natural_gas', 'oil']:
+    for fuel in ['electricity', 'natural_gas', 'diesel']:
         share_2020 = fuel_shares['Primary aluminium'][fuel][2020]['Optimistic']
         share_2050 = fuel_shares['Primary aluminium'][fuel][2050]['Optimistic']
         print(f"  {fuel:15s}: 2020 = {share_2020:5.1%}  →  2050 = {share_2050:5.1%}")
     
-    print("\n⚠️  WARNING: Intensity values are PLACEHOLDERS!")
-    print("   TODO: Validate with IEA/IAI/JRC-IDEES sources\n")
+    print("\n✓ Intensity assumption applied: 11.24 MWh/t for all routes/fuels.")
+    print("   Future changes are controlled by exogenous intensity CAGR assumptions in config.\n")

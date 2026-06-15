@@ -447,6 +447,7 @@ def generate_hvc_config_rows(
         countries=countries,
         base_year=base_year,
         scenarios=scenarios,
+        intensity_selection='average',
     )
     
     df_intensity_lpg = build_intensity_base_rows(
@@ -456,6 +457,7 @@ def generate_hvc_config_rows(
         countries=countries,
         base_year=base_year,
         scenarios=scenarios,
+        intensity_selection='average',
     )
     
     df_intensity_mto = build_intensity_base_rows(
@@ -465,6 +467,7 @@ def generate_hvc_config_rows(
         countries=countries,
         base_year=base_year,
         scenarios=scenarios,
+        intensity_selection='average',
     )
     
     all_dfs.extend([df_intensity_naphtha, df_intensity_lpg, df_intensity_mto])

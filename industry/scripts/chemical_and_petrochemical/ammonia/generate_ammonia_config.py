@@ -416,6 +416,79 @@ def build_ammonia_reallocation_share_rows(
 
 
 # ============================================================================
+# IMPORT REALLOCATED VOLUME ROWS
+# ============================================================================
+
+def _build_ammonia_import_reallocated_rows(
+    df_imports: pd.DataFrame,
+    df_reallocation_shares: pd.DataFrame,
+    countries: List[str],
+    base_year: int,
+    target_years: List[int],
+    scenarios: List[str],
+) -> pd.DataFrame:
+    """
+    Build derived import reallocated volume rows.
+
+    This is the explicit green-import volume used downstream for ammonia energy demand:
+    import_reallocated_volume = import_volumes * import_reallocation_share.
+    """
+    rows = []
+    all_years = [base_year] + target_years
+
+    m2_imports = df_imports['metric_2'].astype(str).str.lower()
+    m3_imports = df_imports['metric_3'].astype(str).str.lower()
+    m2_realloc = df_reallocation_shares['metric_2'].astype(str).str.lower()
+    m3_realloc = df_reallocation_shares['metric_3'].astype(str).str.lower()
+    scen_imports = df_imports['scenario'].astype(str)
+    scen_realloc = df_reallocation_shares['scenario'].astype(str)
+    year_imports = df_imports['year'].astype(str)
+    year_realloc = df_reallocation_shares['year'].astype(str)
+
+    for scenario in scenarios:
+        for year in all_years:
+            year_str = str(year)
+
+            import_mask = (
+                (m2_imports == 'production') &
+                (m3_imports == 'ammonia import volumes per year') &
+                (scen_imports == scenario) &
+                (year_imports == year_str)
+            )
+            realloc_mask = (
+                (m2_realloc == 'technology_route') &
+                (m3_realloc == 'import reallocation') &
+                (scen_realloc == scenario) &
+                (year_realloc == year_str)
+            )
+
+            if not (import_mask.any() and realloc_mask.any()):
+                continue
+
+            import_row = df_imports.loc[import_mask].iloc[0]
+            realloc_row = df_reallocation_shares.loc[realloc_mask].iloc[0]
+
+            row = {
+                "metric_1": "chemical and petrochemical",
+                "metric_2": "production",
+                "metric_3": "ammonia import reallocated volume per year",
+                "metric_4": "",
+                "year": year,
+                "scenario": scenario,
+                "units": "tonnes",
+            }
+
+            for country in countries:
+                imports = float(import_row.get(country, 0.0) or 0.0)
+                realloc_share = float(realloc_row.get(country, 0.0) or 0.0)
+                row[country] = imports * realloc_share
+
+            rows.append(row)
+
+    return pd.DataFrame(rows)
+
+
+# ============================================================================
 # FUEL SHARE ROWS
 # ============================================================================
 
@@ -469,6 +542,7 @@ def build_ammonia_intensity_rows(
     base_year: int,
     target_years: List[int],
     scenarios: List[str],
+    intensity_selection: str = 'average',
 ) -> pd.DataFrame:
     """
     Build energy intensity rows for ammonia pathways (BASE YEAR ONLY).
@@ -480,53 +554,39 @@ def build_ammonia_intensity_rows(
     1. SMR + Haber-Bosch: Conventional ammonia production using steam methane reforming
     2. Renewable synthesis: Green ammonia using renewable electricity + electrolysis
     
-    ASSUMPTION: We aggregate all fuel intensities into a single total intensity value.
-    This assumes the same energy intensity applies regardless of fuel type used.
+    ASSUMPTION: We collapse fuel-level intensities into a single route-level value
+    for config export (same pattern used in iron and steel).
+
+    intensity_selection:
+    - 'average' (default): use average across fuels
+    - 'first_fuel': use first available fuel value
     
     TODO (Future Enhancement): Add fuel-specific intensities to differentiate between:
     - Natural gas vs coal vs biomass for SMR pathway
     - Different electricity sources for renewable pathway
     - Allow model to optimize fuel mix based on cost and availability
     """
-    rows = []
-    
-    # Get intensity data for both pathways
-    intensity_smr = intensity_ammonia_smr_hb(target_years=target_years, scenarios=scenarios)
-    intensity_renewable = intensity_ammonia_renewable(target_years=target_years, scenarios=scenarios)
-    
-    # Map to human-readable metric names (matches steel pattern)
-    pathways = [
-        ("SMR+HB", intensity_smr),
-        ("Renewable synthesis", intensity_renewable),
-    ]
-    
-    for metric_name, intensity_data in pathways:
-        # Only store BASE YEAR in config (projections go to separate CSV)
-        for scenario in scenarios:
-            # Sum intensities across all fuels for base year
-            total_intensity = 0.0
-            for fuel, year_data in intensity_data.items():
-                if base_year in year_data and scenario in year_data[base_year]:
-                    total_intensity += year_data[base_year][scenario]
-            
-            # Create row for base year only
-            row = {
-                "metric_1": "chemical and petrochemical",  # Industry sector
-                "metric_2": "intensity_base",  # Type
-                "metric_3": metric_name,  # Technology route
-                "metric_4": "",  # Not applicable
-                "year": base_year,
-                "scenario": scenario,
-                "units": "MWh/t",
-            }
-            
-            # Same intensity for all countries (not country-specific)
-            for country in countries:
-                row[country] = round(total_intensity, 2)
-            
-            rows.append(row)
-    
-    return pd.DataFrame(rows)
+    df_smr = build_intensity_base_rows(
+        industry_sector="chemical and petrochemical",
+        intensity_function=intensity_ammonia_smr_hb,
+        metric_label="SMR+HB",
+        countries=countries,
+        base_year=base_year,
+        scenarios=scenarios,
+        intensity_selection=intensity_selection,
+    )
+
+    df_renewable = build_intensity_base_rows(
+        industry_sector="chemical and petrochemical",
+        intensity_function=intensity_ammonia_renewable,
+        metric_label="Renewable synthesis",
+        countries=countries,
+        base_year=base_year,
+        scenarios=scenarios,
+        intensity_selection=intensity_selection,
+    )
+
+    return pd.concat([df_smr, df_renewable], ignore_index=True)
 
 
 def build_ammonia_intensity_cagr_rows(
@@ -601,7 +661,7 @@ def build_ammonia_intensity_cagr_rows(
                 else:
                     cagr_value = 0.0
                 
-                row = {
+                row: Dict[str, object] = {
                     'metric_1': 'chemical and petrochemical',  # Industry sector
                     'metric_2': 'cagr',  # Type
                     'metric_3': metric_name,  # Technology route
@@ -689,6 +749,12 @@ def build_ammonia_volumes_csv(
                 (scen_col == scenario) &
                 (year_col == year_str)
             )
+            imp_realloc_mask = (
+                (m2 == 'production') &
+                (m3 == 'ammonia import reallocated volume per year') &
+                (scen_col == scenario) &
+                (year_col == year_str)
+            )
             ren_mask = (
                 (m2 == 'technology_route') &
                 (m3 == 'renewable synthesis') &
@@ -709,15 +775,21 @@ def build_ammonia_volumes_csv(
             imp_row = df_ammonia_config.loc[imp_mask].iloc[0]
             ren_row = df_ammonia_config.loc[ren_mask].iloc[0]
             ir_row = df_ammonia_config.loc[ir_mask].iloc[0]
+            imp_realloc_row = df_ammonia_config.loc[imp_realloc_mask].iloc[0] if imp_realloc_mask.any() else None
 
             for country in countries:
                 local_prod = float(prod_row.get(country, 0.0) or 0.0)
                 imports = float(imp_row.get(country, 0.0) or 0.0)
                 ren_share = float(ren_row.get(country, 0.0) or 0.0)
                 ir_share = float(ir_row.get(country, 0.0) or 0.0)
+                import_reallocated = (
+                    float(imp_realloc_row.get(country, 0.0) or 0.0)
+                    if imp_realloc_row is not None
+                    else imports * ir_share
+                )
 
                 exog = local_prod * (1.0 - ren_share)
-                endog = local_prod * ren_share + imports * ir_share
+                endog = local_prod * ren_share + import_reallocated
                 total = local_prod + imports
 
                 # Convenience diagnostics (not used by final energy demand)
@@ -754,6 +826,7 @@ def build_ammonia_volumes_csv(
                     'year': int(year),
                     'local_production': round(local_prod, 4),
                     'import_volumes': round(imports, 4),
+                    'import_reallocated_volume': round(import_reallocated, 4),
                     'total_demand': round(total, 4),
                     'local_green_transformation_share': round(ren_share, 4),
                     'import_green_reallocation_share': round(ir_share, 4),
@@ -763,6 +836,7 @@ def build_ammonia_volumes_csv(
                     'exog_ammonia_conv_path_MWh_nh3': round(exog * AMMONIA_LHV_MWH_PER_TON, 4),
                     'endog_ammonia_green_path': round(endog, 4),
                     'endog_ammonia_green_path_MWh_nh3': round(endog * AMMONIA_LHV_MWH_PER_TON, 4),
+                    'import_reallocated_volume_MWh_nh3': round(import_reallocated * AMMONIA_LHV_MWH_PER_TON, 4),
                 })
 
     df = pd.DataFrame(rows)
@@ -856,22 +930,38 @@ def generate_ammonia_config_rows(
     )
     print(f"  ✓ Generated {len(df_reallocation_shares)} reallocation share rows")
     
-    # Step 7: Build fuel share rows
-    print("\n7. Building fuel share rows...")
+    # Step 7: Build derived import reallocated volume rows
+    print("\n7. Building import reallocated volume rows...")
+    df_import_reallocated = _build_ammonia_import_reallocated_rows(
+        df_imports=df_imports,
+        df_reallocation_shares=df_reallocation_shares,
+        countries=countries,
+        base_year=base_year,
+        target_years=target_years,
+        scenarios=scenarios,
+    )
+    print(f"  ✓ Generated {len(df_import_reallocated)} import reallocated volume rows")
+    
+    # Step 8: Build fuel share rows
+    print("\n8. Building fuel share rows...")
     df_fuel_shares = build_ammonia_fuel_share_rows(
         countries, base_year, target_years, scenarios
     )
     print(f"  ✓ Generated {len(df_fuel_shares)} fuel share rows")
     
-    # Step 8: Build intensity rows
-    print("\n8. Building intensity rows...")
+    # Step 9: Build intensity rows
+    print("\n9. Building intensity rows...")
     df_intensities = build_ammonia_intensity_rows(
-        countries, base_year, target_years, scenarios
+        countries,
+        base_year,
+        target_years,
+        scenarios,
+        intensity_selection='average',
     )
     print(f"  ✓ Generated {len(df_intensities)} intensity rows")
     
-    # Step 9: Build intensity CAGR rows
-    print("\n9. Building intensity CAGR rows...")
+    # Step 10: Build intensity CAGR rows
+    print("\n10. Building intensity CAGR rows...")
     df_intensity_cagr = build_ammonia_intensity_cagr_rows(
         countries, base_year, target_years, scenarios
     )
@@ -885,6 +975,7 @@ def generate_ammonia_config_rows(
             df_cagr,
             df_pathway_shares,
             df_reallocation_shares,
+            df_import_reallocated,
             df_fuel_shares,
             df_intensities,
             df_intensity_cagr,
@@ -949,7 +1040,11 @@ if __name__ == "__main__":
     print(f"\nTotal rows generated: {len(df)}")
     print(f"\nRow distribution by metric type:")
     metric_counts = df.groupby('metric_2')['metric_3'].value_counts()
-    for (metric_2, metric_3), count in metric_counts.items():
+    for key, count in metric_counts.items():
+        if isinstance(key, tuple) and len(key) == 2:
+            metric_2, metric_3 = str(key[0]), str(key[1])
+        else:
+            metric_2, metric_3 = str(key), ''
         print(f"  {metric_2:20s} | {metric_3:40s} | {count:3d} rows")
     
     # Show CAGR values

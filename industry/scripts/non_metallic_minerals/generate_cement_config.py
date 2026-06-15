@@ -370,6 +370,7 @@ def generate_cement_config_rows(
         countries=countries,
         base_year=base_year,
         scenarios=scenarios,
+        intensity_selection='average',
     )
     all_dfs.append(df_intensity_base)
     print(f"  ✓ Generated {len(df_intensity_base)} intensity base rows")

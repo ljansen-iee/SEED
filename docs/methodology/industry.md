@@ -32,6 +32,7 @@ sector-level CAGRs.
 | **Non-Metallic Minerals** | Cement (dry/wet kiln), Clinker, Unspecified NMM |
 | **Paper, Pulp & Printing** | Primary pulp (kraft/sulfite), Secondary pulp, Paper |
 | **Chemical & Petrochemical** | Ammonia (SMR+Haber-Bosch, Renewable); HVC (naphtha, LPG, methanol cracking) |
+| **Non-Ferrous Metals (Aluminium)** | Primary aluminium (Hall-Heroult), Secondary aluminium (recycling), plus residual other non-ferrous |
 
 For each process the model tracks production volume (t/y), technology/process
 share, energy intensity (MWh/t), and fuel share.
@@ -39,9 +40,13 @@ share, energy intensity (MWh/t), and fuel share.
 ### Other industries (top-down)
 
 The following sub-sectors are projected using historical UNSD energy data and
-sector-level CAGRs: Food & Tobacco, Non-ferrous Metals, Mining & Quarrying,
+sector-level CAGRs: Food & Tobacco, Mining & Quarrying,
 Machinery, Transport Equipment, Textile & Leather, Wood & Wood Products,
 Construction.
+
+For non-ferrous metals, aluminium is modeled bottom-up with route shares and
+intensity assumptions, while residual non-ferrous demand is represented as
+"other non-ferrous".
 
 ## Workflow
 
@@ -80,6 +85,17 @@ This methodology ensures transparency, reproducibility, and country-specific pro
 | **Progressive** | Moderate decarbonisation — gradual technology shifts and efficiency improvements |
 | **Optimistic** | Aggressive decarbonisation — rapid electrification, hydrogen adoption, and fuel switching |
 
+## Aluminium Assumptions
+
+- Base route intensity for both Primary and Secondary aluminium is fixed at
+  **11.24 MWh/t** in the base-year intensity rows.
+- The aluminium intensity builder follows the same fuel-indexed structure used
+  in other detailed sectors (fuel-level values collapsed to route-level base
+  intensity via the shared helper).
+- Any future intensity evolution is controlled through **exogenous CAGR
+  assumptions** in configuration, not inferred endogenously from historical
+  aluminium intensity time series.
+
 ## Data sources
 
 | Dataset | Sub-sector | Variable |
@@ -93,5 +109,6 @@ This methodology ensures transparency, reproducibility, and country-specific pro
 ## Limitations
 
 - Country coverage is currently limited to Morocco, Egypt, and South Africa.
-- Aluminium (primary/secondary) is listed as a planned sub-sector but is not yet modelled.
+- Aluminium route intensities currently use a fixed baseline assumption
+  (11.24 MWh/t) pending further literature calibration.
 - International industrial bunker fuels are not included.

@@ -32,7 +32,7 @@ This workflow adds **detailed aluminium production modeling** to the non-ferrous
    ↓
 3. build_aluminium_shares.py → Primary/Secondary splits
    ↓
-4. build_aluminium_intensities.py → Energy intensities + fuel shares
+4. build_aluminium_intensities.py → Fuel-indexed base intensities + fuel shares
    ↓
 5. generate_aluminium_config.py → INDUSTRY_CONFIG rows
    ↓
@@ -58,7 +58,6 @@ other_metals_energy = max(0, UNSD_total_non_ferrous - aluminium_detailed)
 | `build_aluminium_shares.py` | Primary (64%) vs Secondary (36%) routes |
 | `build_aluminium_intensities.py` | Energy intensities with efficiency improvements |
 | `generate_aluminium_config.py` | Integrate into INDUSTRY_CONFIG format |
-| `test_aluminium_workflow.py` | Test suite for validation |
 
 ### Modified Files
 | File | Changes |
@@ -88,22 +87,22 @@ Based on IAI global data (36% secondary in 2020):
 | **Primary (Optimistic)** | 64% | 57% | 40% |
 | **Secondary** | Inverse of Primary |
 
-### Energy Intensities (CAGR-Driven)
+### Energy Intensities (Base + Exogenous CAGR)
 
 **Primary Aluminium:**
-- Baseline (2020): 15.0 MWh/t ⚠️ *placeholder*
-- Efficiency CAGR: -0.5% to -1.5%/year
-- 2050 range: 10.6 - 13.5 MWh/t
+- Base route intensity: 11.24 MWh/t
+- Fuel-level default intensity assignment: 11.24 MWh/t for all fuels
 
 **Secondary Aluminium:**
-- Baseline (2020): 0.75 MWh/t ⚠️ *placeholder*
-- Efficiency CAGR: -0.3% to -0.8%/year
-- 2050 range: 0.59 - 0.68 MWh/t
+- Base route intensity: 11.24 MWh/t
+- Fuel-level default intensity assignment: 11.24 MWh/t for all fuels
 
-⚠️ **TODO:** Validate these values with:
-- IEA "Energy Technology Perspectives 2023"
-- IAI "Global Aluminium Cycle 2022"
-- JRC-IDEES database
+The intensity builder follows the same structure as steel and paper/pulp:
+fuel-indexed route intensities are generated first, then collapsed to
+route-level base intensity rows by the shared helper.
+
+Future intensity evolution is handled by **exogenous CAGR assumptions** in the
+configuration workflow, not hardcoded in this script.
 
 ### Fuel Shares
 Extracted from UNSD historical data per country.
@@ -133,12 +132,7 @@ python industry/scripts/non_ferrous_metals/build_aluminium_intensities.py
 python industry/scripts/non_ferrous_metals/generate_aluminium_config.py
 ```
 
-### 2. Run Complete Test Suite
-```bash
-python industry/scripts/non_ferrous_metals/test_aluminium_workflow.py
-```
-
-### 3. Integrate into Main Workflow
+### 2. Integrate into Main Workflow
 ```python
 # In your config generation script:
 from industry.scripts.non_ferrous_metals.generate_aluminium_config import generate_aluminium_config
@@ -150,13 +144,13 @@ df_aluminium = generate_aluminium_config(countries)
 # ... (integrate with your existing config assembly)
 ```
 
-### 4. Calculate Final Energy Demand
+### 3. Calculate Final Energy Demand
 ```bash
 python industry/calculate_final_energy_demand.py
 # Now includes aluminium as detailed sector (not simple)
 ```
 
-### 5. Calculate Process Emissions
+### 4. Calculate Process Emissions
 ```bash
 python industry/calculate_process_emissions.py
 # Now includes aluminium emissions by route
@@ -193,9 +187,9 @@ Other metals (residual): 30-40% of non-ferrous energy
 ## ⚠️ Known Limitations & TODOs
 
 ### High Priority
-1. **Energy intensity values are PLACEHOLDERS**
-   - Need validation with IEA/IAI/JRC-IDEES sources
-   - Current values are estimates based on typical ranges
+1. **Energy intensity baseline is a fixed assumption**
+   - Current base value is 11.24 MWh/t for both routes
+   - Future trajectory must come from explicit exogenous CAGR assumptions
 
 2. **Country coverage**
    - Only 40 countries have BGS production data
@@ -228,17 +222,11 @@ Other metals (residual): 30-40% of non-ferrous energy
 
 ## 🔬 Methodology Notes
 
-### Why CAGR-Driven Intensities?
-Unlike cement (constant intensity), aluminium efficiency improvements are scenario-dependent:
-- **BAU:** Limited innovation (conservative industry)
-- **Progressive:** Moderate efficiency gains (waste heat recovery)
-- **Optimistic:** Breakthrough tech (inert anodes, renewable heat)
-
-Formula:
-```python
-intensity(year) = base_intensity × (1 + efficiency_cagr)^(year - base_year)
-# efficiency_cagr is NEGATIVE (improvement reduces intensity)
-```
+### Why Exogenous CAGR for Intensities?
+Aluminium uses fixed base-year route intensities in config. Any future change
+must be introduced explicitly through configuration-level intensity CAGR
+assumptions, keeping the projection mechanism consistent and auditable across
+sectors.
 
 ### Process Emissions Source
 **Primary Aluminium (Hall-Héroult):**
