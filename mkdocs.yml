@@ -1,6 +1,6 @@
-site_name: Sectoral Energy Demands
+site_name: SEED
 site_description: >
-  Bottom-up final energy demand forecasting tool for 30+ countries.
+  The SEED model (Sectoral Energy Demands) is a hydrib bottom-up and top-down final energy demand forecasting tool for 30+ countries.
   Developed at Fraunhofer IEE for the DeV-KopSys-2 and H2Global meets Africa projects.
 site_url: https://gems.gitlab.cc-asp.fraunhofer.de/sectoral-energy-demands/
 repo_url: https://gitlab.cc-asp.fraunhofer.de/gems/sectoral-energy-demands
