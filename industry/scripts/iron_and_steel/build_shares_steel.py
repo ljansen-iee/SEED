@@ -5,10 +5,10 @@ import os
 import sys
 from pathlib import Path
 
-from industry.build_CAGR import interpolate_or_extrapolate
-from industry.helpers import get_scenarios_from_build_config_industry
+from industry.utils.helpers import interpolate_or_extrapolate
+from industry.utils.helpers import get_scenarios
 
-SCENARIOS = get_scenarios_from_build_config_industry()
+SCENARIOS = get_scenarios()
 
 
 # =====================================================================
@@ -405,3 +405,40 @@ def override_steel_routes_positional(
             share_dr_eaf[y][sc] = C
 
     return share_bf_ohf, share_bf_bof, share_dr_eaf, True
+
+
+# =====================================================================
+# === PRIMARY AND SECONDARY STEEL SHARES
+# =====================================================================
+def share_steel_primary_secondary(target_years: List[int], scenarios: Optional[List[str]] = None):
+    """
+    Returns shares for primary and secondary steel production.
+    
+    Primary steel: NEW steel production from iron ore (using BF+BOF or DR+EAF routes)
+    Secondary steel: RECYCLED steel production from scrap (using Scrap EAF)
+    
+    These shares always sum to 100% of total steel production.
+    
+    Returns:
+        Dict with structure: {
+            'primary': {year: {scenario: value}},
+            'secondary': {year: {scenario: value}}
+        }
+    """
+    if scenarios is None:
+        scenarios = SCENARIOS
+    
+    base_data = {
+        "primary": {
+            2020: [80.0, 80.0, 80.0],    # [BAU, Progressive, Optimistic]
+            2030: [80.0, 80.0, 80.0],
+            2050: [80.0, 70.0, 70.0],    # Progressive/Optimistic decline
+        },
+        "secondary": {
+            2020: [20.0, 20.0, 20.0],
+            2030: [20.0, 20.0, 20.0],
+            2050: [20.0, 30.0, 30.0],    # Progressive/Optimistic increase
+        },
+    }
+    
+    return _interpolate_shares(base_data, target_years, scenarios)

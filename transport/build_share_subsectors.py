@@ -1,6 +1,6 @@
 # build_share_subsectors.py
 
-from transport.helpers import clean_column_headers, clean_missing_countries, load_country_specific_data, find_input_folder
+from transport.helpers import clean_column_headers, clean_missing_countries, load_unsdata_historical_data, find_input_folder
 import pandas as pd
 import transport.build_macro_indicators as build_mac
 from transport.build_macro_indicators import process_population_data
@@ -55,13 +55,22 @@ def load_all_files(energy_sector):
     if not os.path.exists(path):
         # Print the path it TRIED to look for, to help debugging
         raise FileNotFoundError(f"The path {path} does not exist. Please ensure 'input_data' is inside the 'transport' folder.")
-    for folder_name in ['country_specific', 'global']:
+    for folder_name in ['unsdata_historical', 'global']:
         folder_path = os.path.join(path, folder_name)
         if os.path.exists(folder_path):
-            if folder_name == "country_specific":
+            if folder_name == "unsdata_historical":
                 dfs_country_spe = load_files_from_folder(folder_path)
             elif folder_name == 'global':
-                dfs_global = load_files_from_folder(folder_path)
+                # Only the raw activity workbook is needed. Do not read a
+                # previously generated bunker aggregate while building shares.
+                workbook = "Supplementary_Material_Khalili2019_Data_final.xlsx"
+                workbook_path = Path(folder_path) / workbook
+                if workbook_path.exists():
+                    dfs_global[workbook] = {
+                        "Transportation Demand": pd.read_excel(
+                            workbook_path, sheet_name="Transportation Demand", engine="openpyxl"
+                        )
+                    }
     return dfs_country_spe, dfs_global
 
 
@@ -539,7 +548,7 @@ def export_final_df_with_mobility(population_scenario="SSP1", population_year="2
 
     If save_csv is True (default), writes to disk; always returns the augmented DataFrame.
     """
-    dfs_country_spe = load_country_specific_data(find_input_folder())
+    dfs_country_spe = load_unsdata_historical_data(find_input_folder())
     df_population = process_population_data(dfs_country_spe)
     df_population = df_population.drop(columns=[c for c in df_population.columns if c.lower() == "unit"], errors="ignore")
 
@@ -610,7 +619,66 @@ def create_country_dfs(df, country_list):
 
 
 
-def calculate_subsectors(country, df_population, country_data):
+def load_subsector_inputs(df_raw):
+    """Build legacy subsector tables and truck lookups from a supplied raw workbook.
+
+    This mirrors the read-only module tables, without borrowing their input root.
+    Domestic fractions, year slices, and activity totals are unchanged.
+    """
+    cleaned = clean_column_headers(clean_missing_countries(df_raw.copy()))
+    year_cols = [f"{year}.0" for year in range(2005, 2051, 5)]
+    sectors = split_by_sector(cleaned)
+    marine = sectors["marine_passenger"].copy()
+    # The workbook embeds activity values in marine passenger column headers.
+    marine.columns = [
+        col.rsplit("_", 1)[-1] if col.rsplit("_", 1)[-1] in year_cols else col
+        for col in marine.columns
+    ]
+    sectors["marine_passenger"] = marine
+    trucks = cleaned.iloc[:, list(range(4)) + list(range(103, 114))].copy()
+    truck_values = trucks[year_cols].apply(pd.to_numeric, errors="coerce")
+    if truck_values.max().max() > 1:
+        truck_values = truck_values / 100.0
+    truck_values.index = trucks["Countries List"]
+
+    domestic_shares = {
+        "Marine Freight": 0.05, "Marine Passenger": 1.0,
+        "Aviation Freight": 0.04, "Aviation Passenger": 0.07,
+    }
+    rows = []
+    for country in cleaned["Countries List"].dropna().unique():
+        country_rows = []
+        for key, sector in sectors.items():
+            name = key.replace("_", " ").title()
+            # Preserve the legacy year selection (e.g. marine '2005' is not
+            # the selected '2005.0' column and was absent before concat).
+            values = sector.loc[sector["Countries List"] == country].reindex(columns=year_cols).apply(
+                pd.to_numeric, errors="coerce"
+            ).sum()
+            country_rows.append({"Country": country, "subsector_transport": f"{country} {name}", **values})
+            if name in domestic_shares:
+                fraction = domestic_shares[name]
+                for suffix, vals in [
+                    ("Domestic %", dict.fromkeys(year_cols, fraction)),
+                    ("Domestic", values * fraction),
+                    ("International", values * (1 - fraction)),
+                ]:
+                    country_rows.append({"Country": country, "subsector_transport": f"{country} {name} {suffix}", **vals})
+        frame = pd.DataFrame(country_rows)
+        totals = {}
+        for kind in ("Passenger", "Freight"):
+            names = [f"{country} Road {kind}", f"{country} Rail {kind}",
+                     f"{country} Marine {kind} Domestic", f"{country} Aviation {kind} Domestic"]
+            totals[kind] = frame.loc[frame["subsector_transport"].isin(names), year_cols].sum()
+            country_rows.append({"Country": country, "subsector_transport": f"Total {kind} {country}", **totals[kind]})
+        country_rows.append({"Country": country, "subsector_transport": f"Total Combined {country}",
+                             **(totals["Passenger"] + totals["Freight"])})
+        rows.extend(country_rows)
+    frame = pd.DataFrame(rows).fillna(0).set_index(["Country", "subsector_transport"])
+    return frame, truck_values, 1.0 - truck_values
+
+
+def calculate_subsectors(country, df_population, country_data, truck_shares=None):
     """
     Performs transport analysis for the given country's data.
     Returns:
@@ -640,10 +708,11 @@ def calculate_subsectors(country, df_population, country_data):
     try:
         # Make sure indices (year labels) match like '2005.0', '2010.0', ...
         road_freight.index = road_freight.index.astype(str)
-        share_hdt = HDT_SHARE_BY_COUNTRY.loc[country]
+        hdt_lookup, ldt_lookup = truck_shares or (HDT_SHARE_BY_COUNTRY, LDT_SHARE_BY_COUNTRY)
+        share_hdt = hdt_lookup.loc[country].copy()
         share_hdt.index = share_hdt.index.astype(str)
         share_hdt = share_hdt.reindex(road_freight.index)
-        share_ldt = LDT_SHARE_BY_COUNTRY.loc[country]
+        share_ldt = ldt_lookup.loc[country].copy()
         share_ldt.index = share_ldt.index.astype(str)
         share_ldt = share_ldt.reindex(road_freight.index)
 
@@ -681,11 +750,11 @@ def calculate_subsectors(country, df_population, country_data):
 
 
 
-def extract_country_transport_data(country_name, scenario, df_population, country_df):
+def extract_country_transport_data(country_name, scenario, df_population, country_df, truck_shares=None):
     # Extract total population for the chosen country under the given scenario
     total_population = df_population.loc[(country_name, scenario), "2018"]
     # Run the analysis (assuming analyze_transport_data is defined)
-    country_results = calculate_subsectors(country_name, df_population, country_df)
+    country_results = calculate_subsectors(country_name, df_population, country_df, truck_shares=truck_shares)
     # Drop the country column for a cleaner output
     country_data = country_results.drop(columns="Country")
     return country_data, total_population

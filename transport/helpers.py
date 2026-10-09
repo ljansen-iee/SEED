@@ -16,13 +16,50 @@ unsd_input_folder = transport_dir / "input_data" / "unsd_country_specific"
 unsd_global_dir = transport_dir / "input_data" / "global"
 unsd_global_output = unsd_global_dir / "international_marine_and_aviation_data.xlsx"
 
-# Ensure the global directory exists immediately upon import
-os.makedirs(unsd_global_dir, exist_ok=True)
-
 # Default target years used across transport scripts when not overridden
 DEFAULT_TARGET_YEARS = [2030,2035,2040,2045,2050]
+DEFAULT_SCENARIOS = ["BAU", "Progressive", "Optimistic"]
 
-def find_input_folder():
+
+def transport_cli_parser(description):
+    """Shared explicit transport CLI paths and model dimensions."""
+    import argparse
+    parser = argparse.ArgumentParser(description=description)
+    parser.add_argument("--config-path", type=Path)
+    parser.add_argument("--output-dir", type=Path)
+    parser.add_argument("--parameter-dir", type=Path)
+    parser.add_argument("--input-dir", type=Path, help="Read-only transport raw input_data directory")
+    parser.add_argument("--countries", nargs="+")
+    parser.add_argument("--years", nargs="+", type=int, choices=DEFAULT_TARGET_YEARS)
+    parser.add_argument("--scenarios", nargs="+", choices=DEFAULT_SCENARIOS)
+    return parser
+
+
+def validate_transport_selection(countries, years, scenarios):
+    for name, values in (("countries", countries), ("years", years), ("scenarios", scenarios)):
+        if not values or len(set(values)) != len(values):
+            raise ValueError(f"Transport {name} must be nonempty and unique")
+    if set(years).difference(DEFAULT_TARGET_YEARS):
+        raise ValueError(f"Unsupported transport years: {years}")
+    if set(scenarios).difference(DEFAULT_SCENARIOS):
+        raise ValueError(f"Unsupported transport scenarios: {scenarios}")
+
+
+def get_bunker_base_values(unsd_df, country, base_year=2020):
+    match = unsd_df.loc[
+        (unsd_df["Country"].astype(str).str.strip() == country.strip()) &
+        (pd.to_numeric(unsd_df["Year"], errors="raise") == int(base_year))
+    ]
+    if len(match) != 1:
+        raise ValueError(f"Expected one fresh UNSD bunker record for {country}-{base_year}; found {len(match)}")
+    return float(match.iloc[0]["Marine_Bunkers_TWh"]), float(match.iloc[0]["Aviation_Bunkers_TWh"])
+
+def find_input_folder(input_dir=None):
+    if input_dir is not None:
+        path = Path(input_dir).resolve()
+        if not path.is_dir():
+            raise FileNotFoundError(f"Transport input directory not found: {path}")
+        return str(path)
     script_dir = Path(__file__).resolve().parent
     project_root = script_dir.parent
 
@@ -48,11 +85,11 @@ def read_excel_file(file_path, sheet_name):
         print(f"Error reading Excel file {file_path}, sheet {sheet_name}: {e}")
         return None
 
-def load_global_transport_data(output_folder="output_data"):
-    input_path = find_input_folder()
+def load_global_transport_data(output_folder="output_data", input_dir=None):
+    # output_folder is retained for API compatibility; this loader only reads.
+    input_path = find_input_folder(input_dir)
     file_path = os.path.join(input_path, "global", "Supplementary_Material_Khalili2019_Data_final.xlsx")
     sheet_name = "Transportation Demand"
-    os.makedirs(output_folder, exist_ok=True)
     df_raw = read_excel_file(file_path, sheet_name)
     if df_raw is None:
         print(f"Failed to load transportation demand data from {file_path}")
@@ -75,8 +112,10 @@ def read_file(file_path):
         print(f"Error reading {file_path}: {e}")
         return None
 
-def load_country_specific_data(input_path):
+def load_unsdata_historical_data(input_path):
     folder_path = os.path.join(input_path, "country_specific")
+    if not os.path.isdir(folder_path):
+        folder_path = os.path.join(input_path, "unsdata_historical")
     dfs_country_spe = {}
     if os.path.exists(folder_path):
         for file_doc in os.listdir(folder_path):
@@ -553,18 +592,18 @@ from pathlib import Path
 
 # ... your path constants here ...
 
-def refresh_unsd_master_data():
-    """Aggregates all country CSVs into one master Excel in the global folder."""
-    # Ensure the global directory exists before trying to save
-    unsd_global_output.parent.mkdir(parents=True, exist_ok=True)
-    
+def refresh_unsd_master_data(input_folder=None, output_path=None, countries=None):
+    """Read fresh UNSD bunker totals (TJ -> TWh); write only if explicitly requested.
+
+    Never refresh the tracked aggregate implicitly. Missing/malformed raw input
+    is an error rather than a reason to reuse a potentially stale workbook.
+    """
+    input_folder = Path(input_folder) if input_folder is not None else unsd_input_folder
     all_data = []
-    # Using the path defined in this same file
-    csv_files = glob.glob(os.path.join(unsd_input_folder, "*.csv"))
+    csv_files = sorted(input_folder.glob("*.csv"))
     
     if not csv_files:
-        print(f" No UNSD CSV files found in {unsd_input_folder}")
-        return
+        raise FileNotFoundError(f"No UNSD CSV files found in {input_folder}")
 
     for file_path in csv_files:
         try:
@@ -572,15 +611,24 @@ def refresh_unsd_master_data():
             name_part = os.path.splitext(filename)[0]
             # Split "Algeria-2021" -> "Algeria", "2021"
             country_name, year = name_part.rsplit('-', 1) if '-' in name_part else (name_part, "2020")
+            if countries is not None and country_name not in countries:
+                continue
             
             df = pd.read_csv(file_path)
+            required = {'Transactions(down)/Commodity(right)', 'Total Energy'}
+            if not required.issubset(df.columns):
+                raise ValueError(f"Missing UNSD columns: {sorted(required.difference(df.columns))}")
             # Process Marine and Aviation
             for trans in ['International marine bunkers', 'International aviation bunkers']:
                 row = df[df['Transactions(down)/Commodity(right)'] == trans]
                 
                 if not row.empty:
                     # Clean the data (TJ to TWh)
-                    raw_val = str(row['Total Energy'].values[0]).replace('*', '').replace('---', '0').strip()
+                    if len(row) != 1:
+                        raise ValueError(f"Duplicate UNSD transaction: {trans}")
+                    raw_val = str(row['Total Energy'].values[0]).replace('*', '').strip()
+                    if raw_val in ('---', '', 'None', '-', 'nan'):
+                        raw_val = '0'
                     val_twh = abs(float(raw_val)) / 3600.0
                 else:
                     val_twh = 0.0
@@ -592,10 +640,13 @@ def refresh_unsd_master_data():
                     'Value_TWh': val_twh
                 })
         except Exception as e:
-            print(f"Error processing {filename}: {e}")
+            raise ValueError(f"Error processing UNSD source {file_path}: {e}") from e
+
+    if not all_data:
+        raise FileNotFoundError(f"No UNSD CSVs for requested countries in {input_folder}")
 
     # Create pivot table: Rows = Country/Year, Columns = Aviation/Marine
-    master_df = pd.DataFrame(all_data).pivot_table(
+    master_df = pd.DataFrame(all_data).pivot(
         index=['Country', 'Year'], 
         columns='Type', 
         values='Value_TWh'
@@ -603,8 +654,11 @@ def refresh_unsd_master_data():
     
     # Finalize columns and save
     master_df.columns = ['Country', 'Year', 'Aviation_Bunkers_TWh', 'Marine_Bunkers_TWh']
-    master_df.to_excel(unsd_global_output, index=False)
-    #print(f" UNSD Master Data Refreshed: {unsd_global_output}")
+    if output_path is not None:
+        output_path = Path(output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        master_df.to_excel(output_path, index=False, engine="openpyxl")
+    return master_df
 
 def check_technology_groups(df, tech_groups, base_year, target_years, scenarios, tolerance=0.01):
 
@@ -741,25 +795,8 @@ def load_transport_config(excel_path: Path, countries: list, scenarios: list):
     if excel_path.suffix == "":
         excel_path = excel_path.with_suffix(".csv")
 
-    # Auto-create a blank config if it is missing to avoid hard failures
     if not excel_path.exists():
-        excel_path.parent.mkdir(parents=True, exist_ok=True)
-        columns = [
-            "Assumption Type",
-            "Metric Name",
-            "Year",
-            "Scenario",
-            "default",
-        ]
-        for country in countries:
-            if country not in columns:
-                columns.append(country)
-
-        df_empty = pd.DataFrame(columns=columns)
-        if excel_path.suffix.lower() == ".csv":
-            df_empty.to_csv(excel_path, index=False)
-        else:
-            df_empty.to_excel(excel_path, index=False)
+        raise FileNotFoundError(f"Transport configuration not found: {excel_path}")
 
     # --- NEW: Handle both CSV and Excel ---
     if excel_path.suffix.lower() == ".csv":
@@ -834,8 +871,9 @@ def load_transport_config(excel_path: Path, countries: list, scenarios: list):
                 target_scenarios = scenarios
             elif scenario_val_lower in SCENARIO_ALIAS_MAP:
                 idx = SCENARIO_ALIAS_MAP[scenario_val_lower]
-                if idx < len(scenarios):
-                    target_scenarios = [scenarios[idx]]
+                canonical = ["BAU", "Progressive", "Optimistic"][idx]
+                if canonical in scenarios:
+                    target_scenarios = [canonical]
                 else:
                     continue
             else:

@@ -1,4 +1,5 @@
 import os
+import argparse
 import re
 import numpy as np
 import pandas as pd
@@ -9,11 +10,6 @@ import build_energy_intensities as build_en_int
 RESIDENTIAL_CONFIG_FILE = "DEFAULT_RESIDENTIAL_CONFIG.csv"
 
 residential_config_path = Path(__file__).resolve().parent / "output_data/CONFIG" / RESIDENTIAL_CONFIG_FILE
-
-
-print("\n===============================")
-print(f"Residential configuration file: {RESIDENTIAL_CONFIG_FILE}")
-print("===============================\n")
 
 
 INTENSITY_SH, INTENSITY_WH, INTENSITY_SC, INTENSITY_COOKING, INTENSITY_APPLIANCES = (
@@ -679,25 +675,70 @@ def build_residential_yearly_summary(final_df: pd.DataFrame, output_dir: Path) -
 	return summary_df
 
 
-def main():
-	if not residential_config_path.exists():
-		raise FileNotFoundError(f"Input file not found: {residential_config_path}")
+def calculate_residential_demand(config_path=None, output_dir=None, countries=None, years=None):
+	config_path = Path(config_path) if config_path is not None else residential_config_path
+	if not config_path.exists():
+		raise FileNotFoundError(f"Input file not found: {config_path}")
 
-	df = pd.read_csv(residential_config_path)
+	df = pd.read_csv(config_path)
+	dimensions = ["type", "metric name", "year", "scenario", "units"]
+	missing = set(dimensions) - set(df.columns)
+	if missing:
+		raise ValueError(f"Residential config missing columns: {sorted(missing)}")
+	if df[dimensions].isna().any().any() or df.duplicated(dimensions[:-1]).any():
+		raise ValueError("Residential configuration dimensions must be populated and unique")
+	df["year"] = pd.to_numeric(df["year"], errors="raise").astype(int)
+	if countries is not None:
+		missing = set(countries) - set(df.columns)
+		if missing:
+			raise ValueError(f"Countries missing from residential configuration: {sorted(missing)}")
+		df = df[dimensions + list(dict.fromkeys(countries))]
+	if years is not None:
+		years = sorted(set(years))
+		missing = set(years) - set(df["year"])
+		if not years or missing:
+			raise ValueError(f"Years missing from residential configuration: {sorted(missing)}")
+		# Compute preceding intervals too: filtering first would change compounding.
+		df = df[df["year"] <= max(years)]
 	df_space_heating = compute_space_heating_demand(df)
 	df_space_cooling = compute_space_cooling_demand(df)
 	df_water_heating = compute_water_heating_demand(df)
 	df_cooking = compute_cooking_demand(df)
 	df_appliances = compute_appliances_demand(df)
 
-	output_dir = Path(__file__).resolve().parent / "output_data"
-	output_dir.mkdir(parents=True, exist_ok=True)
+	output_dir = Path(output_dir) if output_dir is not None else Path(__file__).resolve().parent / "output_data"
 	final_df = pd.concat(
 		[df_space_heating, df_space_cooling, df_water_heating, df_cooking, df_appliances],
 		ignore_index=True,
 	)
+	if years is not None:
+		final_df = final_df[final_df["year"].isin(years)].reset_index(drop=True)
+	keys = ["country", "scenario", "year", "end_use", "tech", "fuel"]
+	if final_df.empty or final_df[keys].isna().any().any() or final_df.duplicated(keys).any():
+		raise ValueError("Residential demand keys must be populated and unique")
+	values = final_df[["final_energy_demand_kwh", "final_energy_demand_twh"]]
+	if not np.isfinite(values.to_numpy()).all() or (values < 0).any().any():
+		raise ValueError("Residential demand must be finite, nonnegative energy")
+	output_dir.mkdir(parents=True, exist_ok=True)
 	final_df.to_csv(output_dir / "final_energy_demand_all_end_uses.csv", index=False)
 	build_residential_yearly_summary(final_df, output_dir)
+	return final_df
+
+
+def main(argv=None):
+	parser = argparse.ArgumentParser(description="Build residential demand from explicit configuration")
+	parser.add_argument("--input-dir", type=Path, help="Directory containing DEFAULT_RESIDENTIAL_CONFIG.csv")
+	parser.add_argument("--config-path", type=Path, help="Explicit residential configuration CSV")
+	parser.add_argument("--output-dir", type=Path)
+	parser.add_argument("--countries", nargs="+")
+	parser.add_argument("--years", nargs="+", type=int)
+	args = parser.parse_args(argv)
+	if args.config_path is not None and args.input_dir is not None:
+		parser.error("Use either --config-path or --input-dir")
+	path = args.config_path
+	if args.input_dir is not None:
+		path = args.input_dir / RESIDENTIAL_CONFIG_FILE
+	return calculate_residential_demand(path, args.output_dir, args.countries, args.years)
 
 
 if __name__ == "__main__":

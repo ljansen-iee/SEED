@@ -7,7 +7,7 @@ availability of both UNSD energy-balance CSVs and SSP population/GDP projections
 
 !!! note "TODO"
     Replace this table with the actual country list from `transport/trans_config.csv`
-    and `data/country_specific/`.
+    and `data/unsdata_historical/`.
 
 | Region | Countries |
 |--------|-----------|

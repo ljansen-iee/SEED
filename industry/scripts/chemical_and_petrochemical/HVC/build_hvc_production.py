@@ -29,6 +29,36 @@ weighted_kt_per_kbd = sum(
 # ==============================
 # CORRECTION FACTORS
 # ==============================
+"""
+IMPORTANT DATA QUALITY NOTE:
+============================
+The industrial_database.csv lists REFINERY CAPACITIES (in bpd) as "HVC" 
+entries, NOT dedicated petrochemical cracker capacities. 
+
+Why correction is needed:
+- Refineries produce primarily fuels (80-85%): gasoline, diesel, jet fuel
+- Only 5-10% of refinery output becomes petrochemical feedstock (naphtha)
+- Database entries are refinery locations (e.g., Alexandria, Suez refineries)
+  not steam cracker facilities
+
+Correction factors represent the PETROCHEMICAL INTEGRATION RATIO:
+= (Actual HVC production from IEA) / (Refinery throughput × theoretical yield)
+
+Country-specific factors reflect infrastructure differences:
+- Egypt (6.1%):     Low integration - refineries export naphtha, limited crackers
+- South Africa (21%): High integration - Sasol coal-to-chemicals (direct CTL)
+- Morocco (8%):      Typical - basic refinery-petrochemical linkage  
+- Global average (8%): Standard refinery integration level
+
+These factors are calibrated against IEA 2020 production statistics to ensure
+model outputs match actual HVC production volumes.
+
+Future improvement: Source dedicated steam cracker capacity data from:
+- ICIS Chemical Business (ethylene capacity database)
+- IHS Markit Petrochemical Planning Service
+- IEA direct petrochemical production statistics
+"""
+
 # The industrial_database.csv records total refinery throughput (bpd)
 # rather than naphtha cracker feed. Only a fraction of refinery output
 # becomes HVC/petrochemicals. These country-specific factors correct

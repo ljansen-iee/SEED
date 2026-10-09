@@ -1,11 +1,23 @@
 # scripts/industry/steel/build_energy_intensities_steel.py
+"""
+Steel energy intensity functions.
+
+Provides energy intensity data (MWh/tonne steel) for each production route.
+
+REFERENCE:
+- IEA Technology Roadmap - Iron and Steel Sector
+  https://iea.blob.core.windows.net/assets/imports/events/64/IEARoadmapseries.pdf
+  Current global average: ~20 GJ/t crude steel (~5.56 MWh/t)
+  Best available technology / energy efficiency slim process: ~10.4 GJ/t (~2.89 MWh/t)
+  Improvement potential: ~50% reduction by 2050 under optimistic scenarios
+"""
 
 from typing import Dict, List, Optional
 import os
 import sys
 from pathlib import Path
 
-from industry.build_CAGR import interpolate_or_extrapolate
+from industry.utils.helpers import interpolate_or_extrapolate
 
 
 def _interpolate_intensities(
@@ -74,42 +86,42 @@ def _resolve_scenarios(
     return [f"Scenario_{i + 1}" for i in range(n)]
 
 
-def intensity_bf_ohf(target_years: List[int], scenarios: Optional[List[str]] = None):
-    # Identical for all scenarios but kept flexible
-    base_data = {
-        "diesel":      {
-            2020: [5.20, 5.20, 5.20], 
-            2030: [5.20, 5.20, 5.20], 
-            2050: [5.20, 5.20, 5.20]},
-        "natural_gas": {
-            2020: [5.20, 5.20, 5.20], 
-            2030: [5.20, 5.20, 5.20], 
-            2050: [5.20, 5.20, 5.20]},
-        "electricity": {
-            2020: [5.20, 5.20, 5.20], 
-            2030: [5.20, 5.20, 5.20], 
-            2050: [5.20, 5.20, 5.20]},
-        "coal":        {
-            2020: [5.20, 5.20, 5.20], 
-            2030: [5.20, 5.20, 5.20], 
-            2050: [5.20, 5.20, 5.20]},
-        "heat":        {
-            2020: [5.20, 5.20, 5.20], 
-            2030: [5.20, 5.20, 5.20], 
-            2050: [5.20, 5.20, 5.20]},
-        "biomass":     {
-            2020: [5.20, 5.20, 5.20], 
-            2030: [5.20, 5.20, 5.20], 
-            2050: [5.20, 5.20, 5.20]},
-        "hydrogen":    {
-            2020: [5.20, 5.20, 5.20], 
-            2030: [5.20, 5.20, 5.20], 
-            2050: [5.20, 5.20, 5.20]},
-    }
+# def intensity_bf_ohf(target_years: List[int], scenarios: Optional[List[str]] = None):
+#     # Identical for all scenarios but kept flexible
+#     base_data = {
+#         "diesel":      {
+#             2020: [5.20, 5.20, 5.20], 
+#             2030: [5.20, 5.20, 5.20], 
+#             2050: [5.20, 5.20, 5.20]},
+#         "natural_gas": {
+#             2020: [5.20, 5.20, 5.20], 
+#             2030: [5.20, 5.20, 5.20], 
+#             2050: [5.20, 5.20, 5.20]},
+#         "electricity": {
+#             2020: [5.20, 5.20, 5.20], 
+#             2030: [5.20, 5.20, 5.20], 
+#             2050: [5.20, 5.20, 5.20]},
+#         "coal":        {
+#             2020: [5.20, 5.20, 5.20], 
+#             2030: [5.20, 5.20, 5.20], 
+#             2050: [5.20, 5.20, 5.20]},
+#         "heat":        {
+#             2020: [5.20, 5.20, 5.20], 
+#             2030: [5.20, 5.20, 5.20], 
+#             2050: [5.20, 5.20, 5.20]},
+#         "biomass":     {
+#             2020: [5.20, 5.20, 5.20], 
+#             2030: [5.20, 5.20, 5.20], 
+#             2050: [5.20, 5.20, 5.20]},
+#         "hydrogen":    {
+#             2020: [5.20, 5.20, 5.20], 
+#             2030: [5.20, 5.20, 5.20], 
+#             2050: [5.20, 5.20, 5.20]},
+#     }
 
-    scenarios = _resolve_scenarios(scenarios, base_data)
+#     scenarios = _resolve_scenarios(scenarios, base_data)
 
-    return _interpolate_intensities(base_data, target_years, scenarios)
+#     return _interpolate_intensities(base_data, target_years, scenarios)
 
 
 def intensity_bf_bof(target_years: List[int], scenarios: Optional[List[str]] = None):
@@ -153,39 +165,39 @@ def intensity_dr_eaf(target_years: List[int], scenarios: Optional[List[str]] = N
     """Energy intensities (MWh/t) for Direct Reduction + Electric Arc Furnace (DR + EAF)."""
     base_data = {
         "diesel":      {
-            2020: [2.87, 2.87, 2.87],
-            2030: [2.87, 2.87, 2.85],
-            2050: [2.87, 2.87, 2.79]
+            2020: [6.06, 6.06, 6.06],
+            2030: [6.06, 6.06, 6.06],
+            2050: [6.06, 6.06, 6.06]
             },
         "natural_gas": {
-            2020: [2.87, 2.87, 2.87],
-            2030: [2.87, 2.87, 2.85],
-            2050: [2.87, 2.87, 2.79]
+            2020: [6.06, 6.06, 6.06],
+            2030: [6.06, 6.06, 6.06],
+            2050: [6.06, 6.06, 6.06]
             },
         "electricity": {
-            2020: [2.87, 2.87, 2.87],
-            2030: [2.87, 2.87, 2.85],
-            2050: [2.87, 2.87, 2.87]
+            2020: [6.06, 6.06, 6.06],
+            2030: [6.06, 6.06, 6.06],
+            2050: [6.06, 6.06, 6.06]
             },
         "coal":        {
-            2020: [2.87, 2.87, 2.87],
-            2030: [2.87, 2.87, 2.85],
-            2050: [2.87, 2.87, 2.79]
+            2020: [6.06, 6.06, 6.06],
+            2030: [6.06, 6.06, 6.06],
+            2050: [6.06, 6.06, 6.06]
             },
         "heat":        {
-            2020: [2.87, 2.87, 2.87],
-            2030: [2.87, 2.87, 2.85],
-            2050: [2.87, 2.87, 2.79]
+            2020: [6.06, 6.06, 6.06],
+            2030: [6.06, 6.06, 6.06],
+            2050: [6.06, 6.06, 6.06]
             },
         "biomass":     {
-            2020: [2.87, 2.87, 2.87],
-            2030: [2.87, 2.87, 2.85],
-            2050: [2.87, 2.87, 2.79]
+            2020: [6.06, 6.06, 6.06],
+            2030: [6.06, 6.06, 6.06],
+            2050: [6.06, 6.06, 6.06]
             },
         "hydrogen":    {
-            2020: [2.87, 2.87, 2.87],
-            2030: [2.87, 2.85, 2.85],
-            2050: [2.87, 2.87, 2.87]},
+            2020: [6.06, 6.06, 6.06],
+            2030: [6.06, 6.06, 6.06],
+            2050: [6.06, 6.06, 6.06]},
     }
 
     scenarios = _resolve_scenarios(scenarios, base_data)

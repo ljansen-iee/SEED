@@ -1,6 +1,6 @@
-site_name: Sectoral Energy Demands
+site_name: SEED
 site_description: >
-  Bottom-up final energy demand forecasting tool for 30+ countries.
+  The SEED model (Sectoral Energy Demands) is a hydrib bottom-up and top-down final energy demand forecasting tool for 30+ countries.
   Developed at Fraunhofer IEE for the DeV-KopSys-2 and H2Global meets Africa projects.
 site_url: https://ljansen-iee.github.io/SEED/
 repo_url: https://github.com/ljansen-iee/SEED
@@ -38,12 +38,12 @@ theme:
     - content.code.copy
     - content.code.annotate
     - toc.integrate
-
 plugins:
   - search
   - mkdocstrings:
       handlers:
         python:
+          paths: [.]
           options:
             docstring_style: google
             show_source: true
@@ -51,7 +51,7 @@ plugins:
             show_category_heading: true
             members_order: source
   - mkdocs-jupyter:
-      execute: false          # set to true once notebooks are cleaned up
+      execute: false # set to true once notebooks are cleaned up
       include_source: true
 
 markdown_extensions:
@@ -64,7 +64,7 @@ markdown_extensions:
       anchor_linenums: true
   - pymdownx.inlinehilite
   - pymdownx.snippets
-  - pymdownx.arithmatex:      # LaTeX math rendering
+  - pymdownx.arithmatex: # LaTeX math rendering
       generic: true
   - attr_list
   - md_in_html
@@ -94,17 +94,12 @@ nav:
   - Data:
       - Input Data: data/input-data.md
       - Output Format: data/output-format.md
+      - PyPSA Output Contract: data/pypsa-output-contract.md
       - Country Coverage: data/country-coverage.md
   - Configuration: configuration.md
   - Tutorials:
       - Transport: tutorials/transport_tutorial.ipynb
       - Residential: tutorials/residential_tutorial.ipynb
-  - Notebooks:
-      - Sector Plots: notebooks/plots.ipynb
-      - Transport Graphs: notebooks/transport_graphs.ipynb
-      - Residential Graphs: notebooks/residential_graphs.ipynb
-      - Industry Graphs: notebooks/industry_graphs.ipynb
-      - Statistics: notebooks/statistics.ipynb
   - API Reference:
       - Transport: api/transport.md
       - Residential: api/residential.md

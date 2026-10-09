@@ -1,4 +1,5 @@
 import os
+import argparse
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -456,7 +457,19 @@ def build_cagr_blocks(
 
 # === create configuration parameters ===
 
-def create_csv_all():
+def create_csv_all(input_dir=None, output_dir=None, countries=None, years=None, shares_csv_path=None):
+    """Generate configuration with explicit source and output isolation."""
+    countries = selected_countries if countries is None else list(dict.fromkeys(countries))
+    years = target_years if years is None else sorted(set(years))
+    if not countries or not years or set(years) - set(helpers.DEFAULT_TARGET_YEARS):
+        raise ValueError("Select countries and standard residential years (2020, 2030, 2035, 2040, 2045, 2050)")
+    input_dir = Path(input_dir) if input_dir is not None else Path(__file__).resolve().parent / "input_data"
+    helpers.validate_residential_sources(input_dir, countries)
+    with helpers.residential_source_paths(input_dir, shares_csv_path):
+        return _create_csv_all(countries, years, output_dir)
+
+
+def _create_csv_all(selected_countries, target_years, output_dir):
     """Run the full residential parameter pipeline and export results.
 
     Orchestrates all build steps:
@@ -479,6 +492,9 @@ def create_csv_all():
     # STEP 2 GENERATE TECHNOLOGY SHARES
     technology_shares = build_tec_share.create_technology_shares_all()
     df_sh_shares, df_cooking_shares_africa, df_cooking_shares_default = technology_shares
+    missing_countries = set(selected_countries) - set(df_sh_shares.index)
+    if missing_countries:
+        raise ValueError(f"Countries missing from shared households shares: {sorted(missing_countries)}")
 
     # STEP 3 GENERATE SATURATION RATES
     df_sh_saturation, df_sc_saturation, df_appliances_saturation, df_cooking_saturation = (
@@ -732,15 +748,33 @@ def create_csv_all():
             ignore_index=True,
         )
 
-        output_dir = Path(__file__).resolve().parent / "output_data/CONFIG"
+        dimensions = ["type", "metric name", "year", "scenario", "units"]
+        if df_all[dimensions].isna().any().any() or df_all.duplicated(dimensions[:-1]).any():
+            raise ValueError("Residential configuration dimensions must be populated and unique")
+        values = df_all[selected_countries].apply(pd.to_numeric, errors="coerce")
+        if not np.isfinite(values.to_numpy()).all():
+            raise ValueError("Residential source data produced missing or nonfinite parameter values")
+        if (values.loc[df_all["type"] != "CAGR"] < 0).any().any():
+            raise ValueError("Residential non-CAGR parameters must be nonnegative")
+        output_dir = Path(output_dir) if output_dir is not None else Path(__file__).resolve().parent / "output_data/CONFIG"
         output_dir.mkdir(parents=True, exist_ok=True)
         df_all.to_csv(output_dir / "DEFAULT_RESIDENTIAL_CONFIG.csv", index=False)
+        return df_all
 
     except Exception as e:
-        import traceback
-        print(f"Error generating macro indicators CSV: {e}")
-        traceback.print_exc()
+        raise RuntimeError(f"Error generating residential configuration: {e}") from e
 
 
-if __name__=="__main__":
-    create_csv_all()
+def main(argv=None):
+    parser = argparse.ArgumentParser(description="Build source-backed residential configuration")
+    parser.add_argument("--input-dir", type=Path, help="Residential raw input directory (country_specific/ and global/)")
+    parser.add_argument("--output-dir", type=Path)
+    parser.add_argument("--countries", nargs="+")
+    parser.add_argument("--years", nargs="+", type=int)
+    parser.add_argument("--shares-csv-path", type=Path, help="External households_shares_all_countries.csv")
+    args = parser.parse_args(argv)
+    create_csv_all(args.input_dir, args.output_dir, args.countries, args.years, args.shares_csv_path)
+
+
+if __name__ == "__main__":
+    main()

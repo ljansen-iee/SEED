@@ -1,9 +1,8 @@
 """
-build_ammonia_from_undata.py
-----------------------------
+build_ammonia_volumes.py
+------------------------
 Processes the UNdata ammonia CSV export (FAO FAOSTAT / UN Comtrade format)
-into scenario CSV files that can supplement or replace
-``ammonia_all_countries_scenarios.xlsx``.
+into scenario CSV files for ammonia volume projections.
 
 Input
 ~~~~~
@@ -22,8 +21,12 @@ A single CSV written to the same folder as this script:
 
 Columns:
     path | country | year | local_production | import_volumes | total_demand |
-    GALT | GAIR | CAGR_rate | CAGR_factor |
-    exog_ammonia_conv_path | endog_ammonia_green_path
+    local_green_transformation_share | import_green_reallocation_share | CAGR_rate | CAGR_factor |
+    exog_ammonia_conv_path | exog_ammonia_conv_path_MWh_nh3 |
+    endog_ammonia_green_path | endog_ammonia_green_path_MWh_nh3
+
+Note: Energy columns (*_MWh_nh3) are calculated using conversion factor:
+    AMMONIA_MWH_PER_TON = 5.166 MWh/tonne
 
 The ``path`` column contains the volume-scenario name (``mid_speed``,
 ``fast_track``, ``slow_mover``).  Use ``SCENARIO_MAPPING`` to translate the
@@ -31,25 +34,25 @@ pipeline scenario names (``BAU``, ``Progressive``, ``Optimistic``) to the
 corresponding volume path before filtering.
 
 Historical rows (up to last available year) contain actual measured values;
-GALT/GAIR/CAGR for those rows are set to 0/0/0 (no transformation applied).
+transformation shares and CAGR for those rows are set to 0/0/0 (no transformation applied).
 Projected rows cover 2025–2050 in 5-year steps, starting from the last
 available base value of each country.
 
 Transformation indicators (defaults, easily overridden per country/year)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-GALT – Green Ammonia Local Transformation  (share of local production going
-       through a green synthesis route)
-GAIR – Green Ammonia Import Reallocation   (share of imports sourced from
-       green / renewable-ammonia supply chains)
+local_green_transformation_share – Share of local production transitioning
+                                   to green synthesis route (renewable pathway)
+import_green_reallocation_share – Share of imports sourced from green/renewable
+                                  ammonia supply chains
 CAGR_rate – compound annual growth rate applied to production/imports.
              Stored as a fraction (e.g. 0.07 = 7 %).
 CAGR_factor – cumulative growth multiplier = (1 + CAGR_rate)^(year − base_year)
 
 Projected demand formulas
 ~~~~~~~~~~~~~~~~~~~~~~~~~
-    exog_ammonia_conv_path  = base_local  × CAGR_factor × (1 − GALT)
-    endog_ammonia_green_path = base_import × CAGR_factor × GAIR
-                              + base_local × CAGR_factor × GALT
+    exog_ammonia_conv_path  = base_local  × CAGR_factor × (1 − local_green_transformation_share)
+    endog_ammonia_green_path = base_import × CAGR_factor × import_green_reallocation_share
+                              + base_local × CAGR_factor × local_green_transformation_share
 where base_local / base_import are the values at the country's last available
 historical year.
 """
@@ -63,12 +66,23 @@ import numpy as np
 import pandas as pd
 
 # ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
+# Energy conversion factor (MWh per tonne of ammonia)
+AMMONIA_MWH_PER_TON = 5.166
+
+# Base year for projections
+BASE_YEAR = 2020
+
+# ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
 
 _SCRIPT_DIR = Path(__file__).resolve()
 _INDUSTRY_ROOT = _SCRIPT_DIR.parents[3]
 
+# Path to UNSD ammonia data
 UNDATA_CSV = (
     _INDUSTRY_ROOT
     / "input_data"
@@ -76,7 +90,14 @@ UNDATA_CSV = (
     / "UNdata_Export_20250709_101100979.csv"
 )
 
-OUTPUT_DIR = Path(__file__).resolve().parent
+# Path to country-specific UNSD data
+unsd_path = _INDUSTRY_ROOT / "input_data" / "unsdata_historical"
+
+# Path to generated volumes CSV (output)
+AMMONIA_VOLUMES_CSV = _INDUSTRY_ROOT / "output_data" / "interim_data" / "ammonia_volumes.csv"
+
+# Default output directory (can be overridden)
+OUTPUT_DIR = _INDUSTRY_ROOT / "output_data" / "interim_data"
 
 # Projected years (5-year steps)
 PROJECTION_YEARS: List[int] = [2025, 2030, 2035, 2040, 2045, 2050]
@@ -99,18 +120,22 @@ CAGR_RATES: Dict[str, Dict[int, float]] = {
 # ---------------------------------------------------------------------------
 # Scenario definitions
 # ---------------------------------------------------------------------------
-# GALT and GAIR are defined in separate public dicts so users can tweak each
-# indicator independently without touching the other.
+# Green transformation shares are defined in separate public dicts so users
+# can tweak each indicator independently without touching the other.
 #
 # Each dict maps:  scenario_name  →  {anchor_year: value}
 # Values for years between anchors are linearly interpolated.
 # Values beyond the last anchor are held flat (np.interp behaviour).
 #
-# GALT – Green Ammonia Local Transformation
-#         share of local production routed through a green synthesis path
-# GAIR – Green Ammonia Import Reallocation
-#         share of imports sourced from green / renewable-ammonia supply chains
+# local_green_transformation_share (GALT_ANCHORS for backwards compatibility)
+#   - Share of local production transitioning to green synthesis pathway
+# import_green_reallocation_share (GAIR_ANCHORS for backwards compatibility)
+#   - Share of imports sourced from green/renewable ammonia supply chains
 
+# IMPORTANT CONSTRAINT: smr+hb share + renewable_synthesis share = 1.0  (always)
+# smr+hb = 1 - GALT, renewable_synthesis = GALT  →  sum is exactly 1 by construction.
+# If you edit these anchors, the two local-production routes will still sum to 1.
+# The import reallocation share (GAIR) is independent — it only affects imports, not local production.
 GALT_ANCHORS: Dict[str, Dict[int, float]] = {
     "mid_speed":  {2020: 0.00, 2030: 0.20, 2050: 1.00},
     "fast_track": {2020: 0.00, 2030: 0.30, 2045: 1.00, 2050: 1.00},
@@ -137,6 +162,9 @@ SCENARIO_MAPPING: Dict[str, str] = {
     "Progressive": "mid_speed",
     "Optimistic":  "fast_track",
 }
+
+# Also export as _PIPELINE_TO_VOLUME_PATH for backwards compatibility
+_PIPELINE_TO_VOLUME_PATH = SCENARIO_MAPPING
 
 
 def _compute_cagr_factor(
@@ -276,7 +304,7 @@ def build_scenario(
     -------
     DataFrame with columns:
         path | country | year | local_production | import_volumes | total_demand |
-        GALT | GAIR | CAGR_rate | CAGR_factor |
+        local_green_transformation_share | import_green_reallocation_share | CAGR_rate | CAGR_factor |
         exog_ammonia_conv_path | endog_ammonia_green_path
     """
     if scenario_name not in _SCENARIOS:
@@ -290,24 +318,26 @@ def build_scenario(
     # --- Historical rows (no transformation) --------------------------------
     hist_out = hist.copy()
     hist_out["path"] = scenario_name
-    hist_out["GALT"] = 0.0
-    hist_out["GAIR"] = 0.0
+    hist_out["local_green_transformation_share"] = 0.0  # Renamed from GALT
+    hist_out["import_green_reallocation_share"] = 0.0   # Renamed from GAIR
     hist_out["CAGR_rate"] = 0.0
     hist_out["CAGR_factor"] = 1.0
     hist_out["exog_ammonia_conv_path"] = hist_out["local_production"]
+    hist_out["exog_ammonia_conv_path_MWh_nh3"] = hist_out["local_production"] * AMMONIA_MWH_PER_TON
     hist_out["endog_ammonia_green_path"] = 0.0
+    hist_out["endog_ammonia_green_path_MWh_nh3"] = 0.0
 
     # --- Projected rows  ---------------------------------------------------
-    galt_values = _interpolate_indicator(GALT_ANCHORS[scenario_name], projection_years)
-    gair_values = _interpolate_indicator(GAIR_ANCHORS[scenario_name], projection_years)
+    local_green_shares = _interpolate_indicator(GALT_ANCHORS[scenario_name], projection_years)
+    import_green_shares = _interpolate_indicator(GAIR_ANCHORS[scenario_name], projection_years)
 
     base = _last_base(hist)  # index = country
 
     proj_rows = []
-    for yr, galt, gair in zip(projection_years, galt_values, gair_values):
+    for yr, local_green_share, import_green_share in zip(projection_years, local_green_shares, import_green_shares):
         yr = int(yr)
-        galt = float(galt)
-        gair = float(gair)
+        local_green_share = float(local_green_share)
+        import_green_share = float(import_green_share)
 
         for country, base_row in base.iterrows():
             base_year = int(base_row["year"])
@@ -320,8 +350,8 @@ def build_scenario(
             proj_local = base_local * cagr_factor
             proj_import = base_import * cagr_factor
 
-            exog = proj_local * (1.0 - galt)
-            endog = proj_import * gair + proj_local * galt
+            exog = proj_local * (1.0 - local_green_share)
+            endog = proj_import * import_green_share + proj_local * local_green_share
 
             proj_rows.append(
                 {
@@ -331,12 +361,14 @@ def build_scenario(
                     "local_production": round(proj_local, 4),
                     "import_volumes": round(proj_import, 4),
                     "total_demand": round(proj_local + proj_import, 4),
-                    "GALT": round(galt, 4),
-                    "GAIR": round(gair, 4),
+                    "local_green_transformation_share": round(local_green_share, 4),      # Renamed from GALT
+                    "import_green_reallocation_share": round(import_green_share, 4),       # Renamed from GAIR
                     "CAGR_rate": interval_rate,
                     "CAGR_factor": round(cagr_factor, 6),
                     "exog_ammonia_conv_path": round(exog, 4),
+                    "exog_ammonia_conv_path_MWh_nh3": round(exog * AMMONIA_MWH_PER_TON, 4),
                     "endog_ammonia_green_path": round(endog, 4),
+                    "endog_ammonia_green_path_MWh_nh3": round(endog * AMMONIA_MWH_PER_TON, 4),
                 }
             )
 
@@ -361,12 +393,14 @@ def build_scenario(
         "local_production",
         "import_volumes",
         "total_demand",
-        "GALT",
-        "GAIR",
+        "local_green_transformation_share",  # Renamed from GALT
+        "import_green_reallocation_share",   # Renamed from GAIR
         "CAGR_rate",
         "CAGR_factor",
         "exog_ammonia_conv_path",
+        "exog_ammonia_conv_path_MWh_nh3",
         "endog_ammonia_green_path",
+        "endog_ammonia_green_path_MWh_nh3",
     ]
     return combined[col_order]
 
@@ -403,6 +437,7 @@ def build_all_scenarios(
         print(f"  [{scenario}] built — {len(df):,} rows")
 
     combined = pd.concat(frames, ignore_index=True)
+    
     out_path = output_dir / "ammonia_volumes.csv"
     combined.to_csv(out_path, index=False)
     print(f"\nWritten → {out_path}  ({len(combined):,} rows total)")

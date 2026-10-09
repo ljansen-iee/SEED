@@ -3,14 +3,103 @@ import pandas as pd
 from pathlib import Path
 import glob
 import build_energy_intensities as build_en_int
+from contextlib import contextmanager
+from contextvars import ContextVar
 
 DEFAULT_TARGET_YEARS = [2020, 2030, 2035, 2040, 2045, 2050]
+_INPUT_DIR = ContextVar("residential_input_dir", default=None)
+
+
+def load_shared_residential_shares(path, share_mode="base_period_2017_2023"):
+    """Read the canonical households shared table without changing factors."""
+    frame = pd.read_csv(path)
+    fuels = ["oil", "gas", "electricity", "coal", "biomass", "ammonia"]
+    missing = set(["country", "share_mode", *fuels]) - set(frame.columns)
+    if missing:
+        raise ValueError(f"{path} is missing columns: {sorted(missing)}")
+    frame = frame[frame["share_mode"].astype(str).str.lower() == share_mode.lower()].copy()
+    if frame.empty or frame["country"].isna().any() or frame.duplicated("country").any():
+        raise ValueError(f"Expected populated, unique countries for {share_mode} in {path}")
+    frame[fuels] = frame[fuels].apply(pd.to_numeric, errors="coerce")
+    if frame[fuels].isna().any().any() or ((frame[fuels] < 0) | (frame[fuels] > 1)).any().any():
+        raise ValueError(f"Invalid fuel shares in {path}")
+    sums = frame[fuels].sum(axis=1)
+    if ((sums > 0) & ((sums - 1).abs() > 1e-3)).any():
+        raise ValueError(f"Fuel shares do not sum to one in {path}")
+    frame = frame.rename(columns={"country": "Country", "oil": "residential oil_share",
+        "gas": "residential gas_share", "biomass": "residential biomass_share",
+        "electricity": "electricity residential_share"})
+    result = frame.set_index("Country")[["residential oil_share", "residential gas_share",
+        "residential biomass_share", "electricity residential_share"]].copy()
+    for name in SH_METRICS:
+        if name not in result:
+            result[name] = 0.0
+    return result
+
+
+@contextmanager
+def residential_source_paths(input_dir=None, shares_csv_path=None):
+    """Scoped source-reader adapters for legacy siblings with no path arguments.
+
+    Only readers are rebound, never factor/calculation functions. Restore them
+    on success and failure; imports alone perform neither reads nor writes.
+    """
+    import build_CAGR as cagr
+    import build_technology_shares as technology
+
+    directory = Path(input_dir) if input_dir is not None else Path(__file__).resolve().parent / "input_data"
+    token = _INPUT_DIR.set(directory)
+    previous_regions = cagr.build_Africa_regions
+    previous_shares = technology.load_centralized_residential_shares
+
+    def read_regions():
+        frame = pd.read_csv(directory / "global" / "UNSD — Methodology.csv")
+        frame = frame[frame["Region Name"] == "Africa"]
+        frame = frame[["Sub-region Name", "Intermediate Region Name", "Country or Area"]].copy()
+        frame["Intermediate Region Name"] = frame["Intermediate Region Name"].fillna(frame["Sub-region Name"])
+        frame = frame.drop(columns="Sub-region Name")
+        frame.columns = ["subregion", "country"]
+        frame = frame.set_index("country")
+        return frame, frame["subregion"].unique()
+
+    def read_shares(share_mode="base_period_2017_2023"):
+        return load_shared_residential_shares(shares_csv_path, share_mode)
+
+    try:
+        cagr.build_Africa_regions = read_regions
+        if shares_csv_path is not None:
+            technology.load_centralized_residential_shares = read_shares
+        yield
+    finally:
+        cagr.build_Africa_regions = previous_regions
+        technology.load_centralized_residential_shares = previous_shares
+        _INPUT_DIR.reset(token)
+
+
+def validate_residential_sources(input_dir, countries):
+    """Fail explicitly for absent raw inputs rather than fabricating parameters."""
+    directory = Path(input_dir)
+    historical = directory / "unsdata_historical"
+    if not historical.is_dir():
+        historical = directory / "country_specific"
+    paths = [historical / f"chart-data_{kind}_{country}.csv"
+             for country in countries for kind in ("pop", "gdp")]
+    paths += [directory / "global" / name for name in (
+        "residential_floor_area_arab_regions.csv", "CLASS_worldbank.xlsx",
+        "gdp-per-capita-worldbank.csv", "undesa_pd_2022_hh-size-composition_ALL_COUNTRIES_raw.xlsx",
+        "wb_acces_ele_2024_all.csv", "wb_acces_cooking_2024_all.csv",
+        "UNSD — Methodology.csv", "98667-WP-P146621-PUBLIC-Box393179B.pdf")]
+    missing = [str(path) for path in paths if not path.is_file()]
+    if missing:
+        raise FileNotFoundError("Missing residential raw inputs:\n" + "\n".join(missing))
 
 
 def open_pdf(file_path, pages="1", multiple_tables=False, encoding="latin1", **kwargs):
     """
     Reads tables from a PDF file using tabula-py.
     """
+    if _INPUT_DIR.get() is not None:
+        file_path = _INPUT_DIR.get() / "global" / Path(file_path).name
     try:
         # Preferred import style for tabula-py
         from tabula.io import read_pdf  # tabula-py
@@ -71,7 +160,7 @@ def load_all_files(energy_sector="residential", base_dir=None):
     """Load country-specific and global input data for a sector.
 
     Scans ``{base_dir}/{energy_sector}/input_data/`` for the
-    ``country_specific`` and ``global`` sub-folders and reads every
+    ``unsdata_historical`` and ``global`` sub-folders and reads every
     file therein.
 
     Args:
@@ -79,7 +168,7 @@ def load_all_files(energy_sector="residential", base_dir=None):
         base_dir: Repository root; auto-detected if ``None``.
 
     Returns:
-        tuple[dict, dict]: ``(country_specific_dfs, global_dfs)``.
+        tuple[dict, dict]: ``(unsdata_historical_dfs, global_dfs)``.
 
     Raises:
         FileNotFoundError: If the resolved path does not exist.
@@ -95,16 +184,19 @@ def load_all_files(energy_sector="residential", base_dir=None):
     else:
         path = os.path.join(base_dir, "input_data")
 
+    if _INPUT_DIR.get() is not None:
+        path = str(_INPUT_DIR.get())
     dfs_country_spe = {}  # Dict to hold df
     dfs_global = {}  # Dict to hold df
 
     if not os.path.exists(path):
         raise FileNotFoundError(f"The path {path} does not exist.")
     
-    for folder_name in ['country_specific', 'global']:
+    historical_folder = "unsdata_historical" if (Path(path) / "unsdata_historical").is_dir() else "country_specific"
+    for folder_name in [historical_folder, 'global']:
         folder_path = os.path.join(path, folder_name)
         if os.path.exists(folder_path):
-            if folder_name == "country_specific":
+            if folder_name == historical_folder:
                 dfs_country_spe = load_files_from_folder(folder_path)
             elif folder_name == 'global':
                 dfs_global = load_files_from_folder(folder_path)
