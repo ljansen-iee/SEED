@@ -1,12 +1,9 @@
 # Industry package initialization
-from pathlib import Path
-
 # Core imports
-from industry.helpers import (
+from industry.utils.helpers import (
     _resolve_industry_dir,
     INDUSTRY_DIR,
-    get_scenarios_from_build_config_industry,
-    get_scenarios_from_main_industry,
+    get_scenarios,
     DEFAULT_TARGET_YEARS,
     extract_capacity_shares,
     extract_all_fuels,
@@ -20,23 +17,15 @@ from industry.helpers import (
     validate_fuel_shares,
     country_to_iso2,
     get_fuel_shares_from_unsd,
+    interpolate_or_extrapolate,
     METRIC_ORDER
 )
-
-from industry.build_CAGR import (
-    load_industry_config,
-    interpolate_or_extrapolate,
-    get_metric_cagr_cfg_from_excel,
-    get_metric_config_entry_from_excel,
-    expand_with_cagr_smooth,
-    generate_industry_config_csv
+from industry.utils.helpers import (
+    SCENARIOS, DEFAULT_COUNTRIES, INDUSTRY_CONFIG_FILE, INDUSTRY_CONFIG_PATH,
+    validate_industry_config,
 )
 
-from industry.build_config_industry import (
-    SCENARIOS,
-    BASE_YEAR,
-    TARGET_YEARS,
-    INDUSTRY_CONFIG_FILE,
-    BASE_DIR,
-    INDUSTRY_CONFIG_PATH
-)
+# Constants (previously from build_config_industry.py)
+BASE_YEAR = 2020
+TARGET_YEARS = DEFAULT_TARGET_YEARS
+BASE_DIR = INDUSTRY_DIR

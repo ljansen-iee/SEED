@@ -9,8 +9,12 @@ from pathlib import Path
 # Import transport-specific functions
 from transport.build_CAGR import expand_with_cagr, get_cagr
 from transport.build_technology_share import get_unsd_bunker_fuel_shares
-from transport.helpers import unsd_global_output, unsd_input_folder, load_transport_config, extract_config_data
-from transport.build_transport_config import SCENARIOS
+from transport.helpers import (
+    load_transport_config, extract_config_data, refresh_unsd_master_data,
+    get_bunker_base_values, find_input_folder, transport_cli_parser,
+    validate_transport_selection, DEFAULT_TARGET_YEARS, DEFAULT_SCENARIOS,
+)
+SCENARIOS = DEFAULT_SCENARIOS
 
 # =============================================================================
 # 1. SETUP & CONFIGURATION
@@ -22,7 +26,6 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 
 # All transport outputs stay within transport/output_data
 results_dir = os.path.join(script_dir, "output_data")
-os.makedirs(results_dir, exist_ok=True)
 
 choose_folder = "interim_parametrisation"
 
@@ -41,21 +44,6 @@ countries = ["Morocco","South Africa","Egypt","Namibia"]
     #"Australia", "Canada", "China", "France", "Germany",  
     #"India", "Indonesia", "Italy", "Japan", "Russia", "Saudi Arabia",
    # "South Korea", "United Kingdom", "United States of America"]
-
-# NOW load transport config after countries is defined
-try:
-    countries_to_load = countries + ["default"]
-    transport_config = load_transport_config(
-        excel_path=transport_config_path,
-        countries=countries_to_load,
-        scenarios=list(SCENARIOS)
-    )
-except Exception as e:
-    print(f" Warning: Could not load transport config: {e}")
-    import traceback
-    traceback.print_exc()
-    transport_config = {}
-
 
 def get_iso2_country_code(c):
     try:
@@ -122,7 +110,8 @@ def generate_transport_indicators(final_df: pd.DataFrame, country: str, metrics_
     aviation_passenger_enduses = ["Passenger Planes"]
     navigation_freight_enduses = ["Freight Ships"]
 
-    road_oil_fuels = ["Gasoline", "Synthetic Gasoline", "Diesel", "Synthetic Diesel", "LPG", "E-Diesel"]
+    # LPG belongs only to road gas, never also to road oil.
+    road_oil_fuels = ["Gasoline", "Synthetic Gasoline", "Diesel", "Synthetic Diesel", "E-Diesel"]
     rail_oil_fuels = ["Diesel", "Synthetic Diesel", "E-Diesel", "Fuel Oil", "LPG"]
     aviation_oil_fuels = ["Kerosene", "Synthetic Kerosene", "E-Kerosene", "Fuel Oil"]
     navigation_oil_fuels = ["Diesel", "Methanol"]
@@ -152,7 +141,7 @@ def generate_transport_indicators(final_df: pd.DataFrame, country: str, metrics_
     result["road electricity"] = road_electricity
     result["road gas"] = road_gas
     result["road oil"] = road_oil
-    result["total road"] = road_oil + road_biomass + road_electricity + road_hydrogen + road_gas
+    result["total road"] = road_total
     result["total road ev"] = road_electricity
     result["total road fcev"] = road_hydrogen
     result["total road ice"] = road_oil + road_biomass
@@ -469,7 +458,7 @@ def calculate_remainders(df):
     return df
 
 # =============================================================================
-# 4. MAIN CALCULATION LOGIC (TWh)
+# 4. MAIN CALCULATION LOGIC (GWh; indicators convert to TWh)
 # =============================================================================
 
 
@@ -856,7 +845,7 @@ def parse_scenario_name(scenario_str):
     return year, scenario
 
 
-def get_country_bunker_series(country: str, scenario_labels, transport_cfg: dict):
+def get_country_bunker_series(country: str, scenario_labels, transport_cfg: dict, unsd_df=None, input_dir=None):
     empty = {'maritime': {}, 'aviation': {}}
     if not transport_cfg:
         return empty
@@ -881,19 +870,11 @@ def get_country_bunker_series(country: str, scenario_labels, transport_cfg: dict
             else:
                 cagr_values[key] = value
 
-        marine_base, aviation_base = 0.0, 0.0
-        if unsd_global_output.exists():
-            unsd_df = pd.read_excel(unsd_global_output)
-            unsd_df['Country_Clean'] = unsd_df['Country'].astype(str).str.strip().str.lower()
-            target_country_clean = country.strip().lower()
-
-            match = unsd_df[
-                (unsd_df['Country_Clean'] == target_country_clean) &
-                (unsd_df['Year'].astype(str) == str(base_year))
-            ]
-            if not match.empty:
-                marine_base = float(match['Marine_Bunkers_TWh'].values[0])
-                aviation_base = float(match['Aviation_Bunkers_TWh'].values[0])
+        if unsd_df is None:
+            unsd_df = refresh_unsd_master_data(
+                Path(find_input_folder(input_dir)) / "unsd_country_specific", countries=[country]
+            )
+        marine_base, aviation_base = get_bunker_base_values(unsd_df, country, base_year)
 
         marine_cagr = get_cagr(cagr_values, "Final Energy - Int. Maritime")
         aviation_cagr = get_cagr(cagr_values, "Final Energy - Int. Aviation")
@@ -918,22 +899,32 @@ def get_country_bunker_series(country: str, scenario_labels, transport_cfg: dict
             'aviation': aviation_expanded,
         }
     except Exception as e:
-        print(f"  [WARNING] Could not compute bunker series for {country}: {e}")
-        return empty
+        raise RuntimeError(f"Could not compute source-backed bunker series for {country}: {e}") from e
 
-def run(country: str, base_dir: str = "output_data") -> None:
+def run(country: str, base_dir=None, *, config_path=None, output_dir=None,
+        parameter_dir=None, years=None, scenarios=None, input_dir=None,
+        transport_cfg=None, unsd_df=None) -> pd.DataFrame:
     country_code = get_iso2_country_code(country)
+    output_root = Path(output_dir) if output_dir is not None else Path(base_dir or results_dir)
+    cfg_path = Path(config_path) if config_path is not None else transport_config_path
+    years = list(DEFAULT_TARGET_YEARS if years is None else years)
+    selected_scenarios = list(SCENARIOS if scenarios is None else scenarios)
+    validate_transport_selection([country], years, selected_scenarios)
+    if transport_cfg is None:
+        transport_cfg = load_transport_config(cfg_path, [country, "default"], selected_scenarios)
 
     # === FOLDER SELECTION LOGIC ===
 
-    if choose_folder:
-        latest_dir = os.path.join(base_dir, choose_folder)
+    if parameter_dir is not None:
+        latest_dir = str(parameter_dir)
+    elif choose_folder:
+        latest_dir = os.path.join(base_dir or output_root, choose_folder)
         if not os.path.exists(latest_dir):
             raise FileNotFoundError(f"The chosen folder does not exist: {latest_dir}")
         print(f" Using folder: {choose_folder}")
 
     else:
-        latest_dir = find_latest_dir(base_dir)
+        latest_dir = find_latest_dir(base_dir or output_root)
         print(f" Latest folder found: {latest_dir}")
 
     available = list_countries(latest_dir)
@@ -948,30 +939,30 @@ def run(country: str, base_dir: str = "output_data") -> None:
     # -----------------------------------------------------------------
     # Use the top-level transport_config_path (set at the top of this file)
 
-    if transport_config_path.exists():
+    if cfg_path.exists():
         print(f"  >>> Found config! Refreshing projections for {country}...")
         # 1. First, apply the growth rates from your config (use the single top-level path)
-        df = apply_cagr_projections(df, transport_config_path, country, base_year="2020")
+        df = apply_cagr_projections(df, cfg_path, country, base_year="2020")
         # 2. Balance the 100% shares
         df = calculate_remainders(df)
 
-        # Persist the refreshed assumptions back to the source CSV so the user can see the applied values
-        df.to_csv(file_path, index=False)
-
         # SAVE THE REFRESHED DATA FOR VERIFICATION
-        debug_dir = os.path.join(results_dir, "country_specific", country)
+        debug_dir = os.path.join(output_root, "unsdata_historical", country)
         os.makedirs(debug_dir, exist_ok=True)
         debug_path = os.path.join(debug_dir, f"output_{country}_updated.csv")
         df.to_csv(debug_path, index=False)
 
     else:
-        print(f"  Warning: trans_config.csv NOT found at {transport_config_path}")
+        raise FileNotFoundError(f"Transport configuration not found: {cfg_path}")
 
     # 3. PROCEED WITH CALCULATIONS (Updated: only one metrics_raw creation)
     metrics_raw = dataframe_to_metrics_raw(df)
-    scenarios = [c for c in df.columns if c not in ["Metric", "Units"]]
+    scenario_columns = ["2020"] + [f"{year}_{scen}" for year in sorted(years) for scen in selected_scenarios]
+    missing = set(scenario_columns).difference(df.columns)
+    if missing:
+        raise ValueError(f"Missing transport parameter keys for {country}: {sorted(missing)}")
     all_results = []
-    for scn in scenarios:
+    for scn in scenario_columns:
         df_scn = calc_for_scenario(metrics_raw, scn)
         if df_scn is not None and not df_scn.empty:
             all_results.append(df_scn)
@@ -983,8 +974,8 @@ def run(country: str, base_dir: str = "output_data") -> None:
     final_df = pd.concat(all_results, ignore_index=True)
     fuel_summary, mode_summary, subsector_summary, enduse_summary = build_summary(final_df, metrics_raw)
 
-    # Save results in output_data/country_specific
-    country_results_dir = os.path.join(results_dir, "country_specific", country)
+    # Save results in output_data/unsdata_historical
+    country_results_dir = os.path.join(output_root, "unsdata_historical", country)
     os.makedirs(country_results_dir, exist_ok=True)
 
     # Save detailed Energy Demand (GWh) as parameters_{country}.csv
@@ -997,7 +988,9 @@ def run(country: str, base_dir: str = "output_data") -> None:
     try:
         indicators_df = generate_transport_indicators(final_df, country, metrics_raw)
 
-        bunker_series = get_country_bunker_series(country, indicators_df["scenario"].tolist(), transport_config)
+        bunker_series = get_country_bunker_series(
+            country, indicators_df["scenario"].tolist(), transport_cfg, unsd_df=unsd_df, input_dir=input_dir
+        )
         indicators_df["total international aviation"] = indicators_df["scenario"].map(
             lambda s: float(bunker_series["aviation"].get(str(s), 0.0))
         )
@@ -1007,7 +1000,7 @@ def run(country: str, base_dir: str = "output_data") -> None:
 
         indicators_df.to_csv(os.path.join(country_results_dir, f"{country_code}_final_energy_demand.csv"), index=False)
     except Exception as e:
-        print(f"  Warning: Could not generate indicators: {e}")
+        raise RuntimeError(f"Could not generate transport indicators for {country}: {e}") from e
 
     # Save Summaries (Excel)
     with pd.ExcelWriter(os.path.join(country_results_dir, f"{country_code}_summary.xlsx")) as writer:
@@ -1019,7 +1012,7 @@ def run(country: str, base_dir: str = "output_data") -> None:
     print(f" Saved results for {country} ({country_code}) in {country_results_dir}")
     return indicators_df
 
-def export_global_energy_totals(all_country_indicators: list, bunker_data_by_country: dict = None):
+def export_global_energy_totals(all_country_indicators: list, bunker_data_by_country: dict = None, output_dir=None):
     """
     Combines indicators from all countries and saves separate CSVs 
     for each scenario/year combination in results/ folder.
@@ -1037,7 +1030,8 @@ def export_global_energy_totals(all_country_indicators: list, bunker_data_by_cou
     master_df = pd.concat(all_country_indicators, ignore_index=True)
     
     # Save directly to results folder (no subfolder)
-    total_dir = results_dir
+    total_dir = Path(output_dir) if output_dir is not None else Path(results_dir)
+    total_dir.mkdir(parents=True, exist_ok=True)
 
     # Group by scenario (e.g., 2030_Baseline, 2030_EL, 2030_RF)
     groups = master_df.groupby("scenario")
@@ -1101,109 +1095,38 @@ def export_global_energy_totals(all_country_indicators: list, bunker_data_by_cou
 
 
 
+def main(config_path=None, output_dir=None, parameter_dir=None,
+         countries_list=None, years=None, scenarios=None, input_dir=None):
+    """Run selected transport demands without modifying input parameter files."""
+    selected_countries = list(countries if countries_list is None else countries_list)
+    years = list(DEFAULT_TARGET_YEARS if years is None else years)
+    scenarios = list(SCENARIOS if scenarios is None else scenarios)
+    validate_transport_selection(selected_countries, years, scenarios)
+    output_root = Path(output_dir) if output_dir is not None else (
+        Path(parameter_dir).parent if parameter_dir is not None else Path(results_dir)
+    )
+    cfg_path = Path(config_path) if config_path is not None else transport_config_path
+    transport_cfg = load_transport_config(cfg_path, selected_countries + ["default"], scenarios)
+    unsd_df = refresh_unsd_master_data(
+        Path(find_input_folder(input_dir)) / "unsd_country_specific", countries=selected_countries
+    )
+    for country in selected_countries:
+        get_bunker_base_values(unsd_df, country, 2020)
+    indicators = [
+        run(country, config_path=cfg_path, output_dir=output_root, parameter_dir=parameter_dir,
+            years=years, scenarios=scenarios, input_dir=input_dir,
+            transport_cfg=transport_cfg, unsd_df=unsd_df)
+        for country in selected_countries
+    ]
+    export_global_energy_totals(indicators, output_dir=output_root)
+    print("All transport tasks complete.")
+    return pd.concat(indicators, ignore_index=True)
+
+
 if __name__ == "__main__":
-    # List to collect indicator dataframes from all countries
-    all_indicators_list = []
-    for country in countries:
-        try:
-            print(f"\n{'='*50}\n Processing country: {country}\n{'='*50}")
-            # Capture the returned dataframe
-            country_indicators = run(country=country, base_dir=results_dir)
-            if not country_indicators.empty:
-                all_indicators_list.append(country_indicators)
-        except Exception as e:
-            print(f" Error processing {country}: {e}")
-
-    # Final step: Calculate bunker data and export global totals
-    print(f"\n{'='*50}\n Generating Global Energy Totals\n{'='*50}")
-    
-    # Extract base_year, target_years, and scenarios from scenario names in the data
-
-    if all_indicators_list and transport_config:
-        master_df = pd.concat(all_indicators_list, ignore_index=True)
-        scenarios_present = master_df["scenario"].unique()
-        years_present = sorted(set(year for year, _ in [parse_scenario_name(s) for s in scenarios_present] if year is not None))
-        base_year = years_present[0] if years_present else 2020
-        target_years = years_present if years_present else [2030, 2035, 2040, 2045, 2050]
-        # Extract scenario types, excluding None (which represents base year without specific scenario)
-        scenario_types = sorted(set(scenario for _, scenario in [parse_scenario_name(s) for s in scenarios_present] if scenario is not None))
-        
-        bunker_data_by_country = {}
-        
-        try:
-            # Extract default CAGR values
-            DEFAULT_VALUES, _ = extract_config_data(transport_config, "default")
-            
-            # Calculate international bunker values for each country
-            for country in countries:
-                try:
-                    # Load country-specific CAGR overrides
-                    country_values, _ = extract_config_data(transport_config, country)
-                    cagr_values = DEFAULT_VALUES.copy()
-                    
-                    # Merge country overrides
-                    for k, v in country_values.items():
-                        if k in cagr_values and isinstance(cagr_values[k], dict) and isinstance(v, dict):
-                            cagr_values[k].update(v)
-                        else:
-                            cagr_values[k] = v
-                    
-                    # Load base year bunker values from UNSD Excel
-                    if unsd_global_output.exists():
-                        unsd_df = pd.read_excel(unsd_global_output)
-                        unsd_df['Country_Clean'] = unsd_df['Country'].astype(str).str.strip().str.lower()
-                        target_country_clean = country.strip().lower()
-                        
-                        match = unsd_df[
-                            (unsd_df['Country_Clean'] == target_country_clean) & 
-                            (unsd_df['Year'].astype(str) == str(base_year))
-                        ]
-                        
-                        if not match.empty:
-                            marine_base = float(match['Marine_Bunkers_TWh'].values[0])
-                            aviation_base = float(match['Aviation_Bunkers_TWh'].values[0])
-                        else:
-                            marine_base, aviation_base = 0.0, 0.0
-                            print(f"    [WARNING] {country} not found in UNSD {unsd_global_output}")
-                    else:
-                        marine_base, aviation_base = 0.0, 0.0
-                        print(f"    [WARNING] UNSD file not found at {unsd_global_output}")
-                    
-                    # Expand bunker values using CAGR for all target years and scenarios
-                    marine_cagr = get_cagr(cagr_values, "Final Energy - Int. Maritime")
-                    aviation_cagr = get_cagr(cagr_values, "Final Energy - Int. Aviation")
-                    
-                    marine_expanded = expand_with_cagr(
-                        marine_base,
-                        marine_cagr,
-                        base_year, target_years, scenario_types
-                    )
-                    
-                    aviation_expanded = expand_with_cagr(
-                        aviation_base,
-                        aviation_cagr,
-                        base_year, target_years, scenario_types
-                    )
-                    
-                    bunker_data_by_country[country] = {
-                        'maritime': marine_expanded,
-                        'aviation': aviation_expanded
-                    }
-                    
-                except Exception as e:
-                    bunker_data_by_country[country] = {'maritime': {}, 'aviation': {}}
-        
-        except Exception as e:
-            bunker_data_by_country = {c: {'maritime': {}, 'aviation': {}} for c in countries}
-        
-        # Export global energy totals with bunker data
-        export_global_energy_totals(all_indicators_list, bunker_data_by_country)
-        
-    elif all_indicators_list:
-        # If config not loaded, still export without bunker data
-        print("  [WARNING] Config not loaded. Exporting without international bunker data.")
-        export_global_energy_totals(all_indicators_list)
-    
-    print("All tasks complete.")
+    args = transport_cli_parser("Calculate transport demand from country parameters").parse_args()
+    main(config_path=args.config_path, output_dir=args.output_dir,
+         parameter_dir=args.parameter_dir, countries_list=args.countries,
+         years=args.years, scenarios=args.scenarios, input_dir=args.input_dir)
 
 

@@ -1,4 +1,150 @@
-# Industry Sector Energy Demand Model
+# Industry energy-demand model
+
+Run the industry package from the repository root in the `sectoral-energy`
+environment defined by [environment.yaml](../environment.yaml). The model uses
+2020 as its base year and preserves the BAU, Progressive, and Optimistic
+storylines and the default target years 2030, 2035, 2040, 2045, and 2050.
+
+## Canonical workflow
+
+1. `python -m industry.scripts.generate_industry_config`
+2. `python -m industry.scripts.calculate_final_energy_demand`
+
+The sole generated configuration is
+[output_data/CONFIG/INDUSTRY_CONFIG.csv](output_data/CONFIG/INDUSTRY_CONFIG.csv).
+The public generator is `generate_industry_config_csv`; the calculator is
+`FinalEnergyCalculator`. There is no old wide-configuration compatibility API.
+Package and script defaults resolve to the same canonical config, with no
+version suffix. Paths derive from the installed script location, not a personal
+filesystem path or an assumed current directory.
+
+## Isolated validation
+
+Choose an **external temporary directory** for smoke checks. Do not regenerate
+tracked sector outputs just to test a change. For example, with `$temp` pointing
+to that directory, pass these arguments to the package modules:
+
+- Generator: `--countries Morocco Egypt "South Africa" Namibia --years 2030 2035 2040 2045 2050 --scenarios BAU Progressive Optimistic --output-path "$temp/CONFIG/INDUSTRY_CONFIG.csv" --interim-dir "$temp/interim_data"`.
+- Calculator: `--config-file "$temp/CONFIG/INDUSTRY_CONFIG.csv" --interim-dir "$temp/interim_data" --output-dir "$temp/demand" --countries Morocco Egypt "South Africa" Namibia --years 2030 2035 2040 2045 2050 --scenarios BAU Progressive Optimistic`.
+
+Quote multiword country names. Both modules expose `--help`. The generator also
+accepts `--config-output` as a spelling of `--output-path`. When omitted,
+`interim_dir` follows the selected config tree: beside the CONFIG directory, or
+beside a custom config file outside CONFIG. The calculator's output directory
+likewise follows the config tree unless explicitly supplied; an explicit output
+directory supplies its default interim directory.
+
+### Python API
+
+`generate_industry_config_csv(countries, base_year=2020, target_years=None,
+scenarios=None, output_path=None, interim_dir=None, generate_derivatives=True)`
+returns the validated config DataFrame. Sector row builders do not write
+derivatives; the central generator owns all derivative paths, including ammonia
+volumes. Derivative exceptions propagate. `--config-only` (or
+`generate_derivatives=False`) explicitly omits every derivative; it is not a
+silent fallback after errors.
+
+`FinalEnergyCalculator(config_path=INDUSTRY_CONFIG_PATH, interim_dir=None,
+output_suffix='', refresh_interim=True, refresh_years=None,
+refresh_scenarios=None, countries=None, unsd_dir=None)` loads the selected config.
+The Python API infers projection dimensions from that config unless supplied.
+CLI dimensions retain the full standard defaults, so pass `--years` and
+`--scenarios` when calculating a subset config.
+
+`calculate_all_detailed_sectors(years=None, scenarios=None)` calculates **all**
+detailed and simple sectors, despite its historical method name. It returns
+long-form demand; `pivot_to_wide_format` produces the sector-column table.
+Country selection restricts config columns. Missing requested country columns,
+required sector rows, intensities, or fuel-share dimensions fail explicitly.
+
+The calculator always regenerates projections from the selected configuration,
+never reads stale cached derivative files. `--no-refresh-interim` (or
+`refresh_interim=False`) means **do not persist derivatives**: temporary files
+are generated in OS temporary storage and removed. It does not create the
+requested interim directory. `--output-suffix` applies only to calculator
+outputs/reports and is normalized to an underscore-prefixed filename suffix.
+
+## Configuration contract and source data
+
+Leading columns are `metric_1`, `metric_2`, `metric_3`, `metric_4`, `year`,
+`scenario`, `units`, followed by full country names. Keys comprise all six
+dimensions excluding units. Duplicate keys, blank required identifiers/units,
+missing country values, invalid scenarios, non-finite values, and inconsistent
+units fail validation. A blank `metric_4` is allowed outside fuel-share rows.
+There is no implicit `default` country column.
+
+- Physical production: `t/a`; aluminium source `100t/a` is explicitly converted.
+- Base route intensity: `MWh/t` (supported `MWh/100t` is explicitly converted).
+- Technology and fuel shares: fractions in `[0, 1]`, not percentages. Nonzero
+  fuel groups and hierarchical route groups must sum to one within rounding
+  tolerance. Genuine zero-consumption fuel groups remain zero.
+- CAGR: decimal annual rates in units `share`, with interval keys such as
+  `2020-2030`; non-CAGR rows use individual four-digit years.
+- Simple-sector historical energy: `MWh`, year 2020, scenario `all`.
+- Unspecified NMM activity placeholders retain production units
+  `activity_factor`; zero placeholders do not become phantom energy demand.
+
+Required production datasets reside under industry input_data: Worldsteel and
+GEM steel, UNdata ammonia, the petrochemical industrial database, FAOSTAT paper
+and pulp, BGS aluminium, and country USGS cement workbooks. Their absence is
+reported before generation writes anything. Simple-sector inputs require the
+exact base-year sector row in root UNSD data named
+`UNSD_{Country}-2020.csv`, including the transaction and Total Energy columns.
+Source placeholders retain the established cleaning convention; missing files
+or missing sector identifiers are not treated as zero consumption. Existing
+documented production/CAGR assumptions and country-data fallbacks in detailed
+sector builders are otherwise unchanged. Generation does not read cached
+industry outputs, alter hosted data sources, or weaken SSL verification.
+
+Simple-sector calculations normally use the historical-energy rows embedded in
+the selected config, so they do not silently re-read another input tree. An
+explicit `--unsd-dir`/`unsd_dir` replaces only their base-energy input with exact
+UNSD base-year rows; it does not regenerate the configured fuel mix or CAGR.
+
+## Covered sectors
+
+Detailed sectors are iron and steel, chemical and petrochemical (ammonia and
+HVC), non-metallic minerals (cement/clinker), paper/pulp/printing, and non-ferrous
+metals (aluminium). Ammonia and HVC use separate route sets within their shared
+sector and aggregate once.
+
+Simple sectors are food and tobacco, construction, machinery, mining and
+quarrying, textile and leather, transport equipment, wood and wood products,
+and other industries. The UNSD/config construction key
+`manufacturing  const. and mining` maps to output `construction`; UNSD Industry
+n.e.s maps to config/output `other`. Simple-sector energy uses base MWh,
+configured activity CAGR, the existing scenario efficiency assumptions
+(-1%, -2%, -3% annually), and configured fuel shares.
+
+## Outputs and units
+
+Generator derivatives include steel/ammonia intensity projections,
+steel/ammonia pathway volumes, CAGR reports, and process-emission review
+reports. All follow `interim_dir`. Process-emission readiness/provenance is
+owned by the process-emissions module; successful demand generation does **not**
+mean those provisional factors are accepted for final export.
+
+Calculator outputs are the detailed-sector long and wide demand CSVs under the
+selected output directory. The long table contains `country`, `scenario`,
+`year`, `carrier`, `energy_MWh`, and `sector`; the wide table uses sector columns.
+Zero-production sectors may have no long records but still appear in wide
+output as zero columns.
+
+**Unit exception:** ordinary carriers and endogenous ammonia are in MWh;
+the endogenous `steel` carrier stores **tonnes**, despite the shared legacy
+`energy_MWh` field name. Never sum this carrier with energy carriers. Steel
+volume derivatives use tonnes; endogenous ammonia uses 5.17 MWh per tonne.
+Root export/aggregation is a separate stage and must enforce its own conversion
+and process-emission acceptance contracts.
+
+## Focused checks
+
+Compile changed Python modules with bytecode redirected outside the repository,
+run both module help commands, then generate one country into an external tree
+and calculate from that exact config. Check dimension uniqueness, all requested
+years/scenarios, finite nonnegative demand, construction/other coverage,
+zero-sector columns, and explicit errors for missing input rows. Broaden to
+the default four countries only after that focused check passes.# Industry Sector Energy Demand Model
 
 This module calculates final energy demand projections for the industrial sector across multiple countries and scenarios (BAU, Progressive, Optimistic) from a base year (2020) to target years (2030-2050).
 
@@ -115,7 +261,7 @@ The model covers the following industrial subsectors:
        ┌─────────────────────────────────────────────────────────────────┐
        │                    OUTPUTS GENERATED                             │
        ├─────────────────────────────────────────────────────────────────┤
-       │  country_specific/{Country}/                                     │
+       │  unsdata_historical/{Country}/                                     │
        │    ├── {ISO}_final_energy_demand.xlsx  (detailed demand)        │
        │    ├── {ISO}_energy_demand_summary.xlsx (summary by carrier)    │
        │    └── output_{Country}_updated.csv    (updated parameters)     │
@@ -230,7 +376,7 @@ available_countries = [
 
 The model requires input data for each country:
 
-1. **UNSD Energy Data** (`input_data/country_specific/{Country}/`)
+1. **UNSD Energy Data** (`input_data/unsdata_historical/{Country}/`)
    - Historical energy consumption by subsector
    - Fuel shares for each sector
 
@@ -315,7 +461,7 @@ The model will use your specified values directly without normalization, so ensu
 
 ## Output Files
 
-### Per-Country Outputs (`output_data/country_specific/{Country}/`)
+### Per-Country Outputs (`output_data/unsdata_historical/{Country}/`)
 
 | File | Description |
 |------|-------------|
@@ -374,7 +520,7 @@ industry/
 │   │       └── build_hvc_production.py
 │   │
 │   ├── food_and_tobacco/
-│   ├── non-ferrous_metals/
+│   ├── non_ferrous_metals/
 │   ├── mining_and_quarrying/
 │   ├── machinery/
 │   ├── transport_equipment/
@@ -384,7 +530,7 @@ industry/
 │   └── other_industries/
 │
 ├── input_data/                    # Input data files
-│   ├── country_specific/          # UNSD data per country
+│   ├── unsdata_historical/          # UNSD data per country
 │   │   ├── Morocco/
 │   │   ├── Egypt/
 │   │   └── ...
@@ -399,7 +545,7 @@ industry/
     │   ├── Egypt_Output_.csv
     │   └── South Africa_Output_.csv
     │
-    ├── country_specific/          # Per-country detailed outputs
+    ├── unsdata_historical/          # Per-country detailed outputs
     │   ├── Morocco/
     │   │   ├── MA_final_energy_demand.xlsx
     │   │   └── MA_energy_demand_summary.xlsx
@@ -426,7 +572,7 @@ python -m industry.build_config_industry
 ```
 
 **2. Missing UNSD data for country**
-- **Cause:** The country doesn't have historical energy data in `input_data/country_specific/`
+- **Cause:** The country doesn't have historical energy data in `input_data/unsdata_historical/`
 - **Solution:** Add UNSD energy balance data for the country, or the model will use defaults/zeros
 
 **3. Steel capacity data not found**

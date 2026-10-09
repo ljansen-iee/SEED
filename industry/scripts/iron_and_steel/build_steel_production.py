@@ -6,16 +6,15 @@ import pandas as pd  # Import pandas for data manipulation
 from pathlib import Path
 from typing import List, Optional
 
-from industry.build_CAGR import interpolate_or_extrapolate
-from industry.helpers import get_scenarios_from_build_config_industry
+from industry.utils.helpers import get_scenarios, interpolate_or_extrapolate
 
-SCENARIOS = get_scenarios_from_build_config_industry()
+SCENARIOS = get_scenarios()
 
 BASE_DIR = Path(__file__).parents[2]   # → industry/
 INPUT_DIR = BASE_DIR / "input_data"
-sector = "steel"
+sector = "iron_and_steel"
 
-def find_input_folder_recursive(base_folder, target_subfolder="steel", max_depth=3):
+def find_input_folder_recursive(base_folder, target_subfolder="iron_and_steel", max_depth=3):
     base_folder = str(base_folder)
 
     for root, dirs, files in os.walk(base_folder):

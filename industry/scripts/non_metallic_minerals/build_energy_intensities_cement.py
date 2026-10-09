@@ -1,14 +1,10 @@
 # scripts/non_metallic_minerals/build_energy_intensities_cement.py
 
 from typing import Dict, List, Optional
-import os
-import sys
-from pathlib import Path
+from industry.utils.helpers import interpolate_or_extrapolate
+from industry.utils.helpers import _build_rate_anchors_indexed, _get_value_by_index, get_scenarios
 
-from industry.build_CAGR import interpolate_or_extrapolate, expand_with_cagr_smooth
-from industry.helpers import _build_rate_anchors_indexed, _get_value_by_index, get_scenarios_from_build_config_industry
-
-SCENARIOS = get_scenarios_from_build_config_industry()
+SCENARIOS = get_scenarios()
 
 def _interpolate_intensities(
     base_data: Dict[str, Dict[int, List[float]]],
@@ -84,7 +80,7 @@ def intensity_cement_production(
 
 # add parent path
 
-from industry.helpers import _build_rate_anchors_indexed, _forecast_from_history_and_sparse_cagr
+from industry.utils.helpers import _build_rate_anchors_indexed, _forecast_from_history_and_sparse_cagr
 
 
 def activity_factor_unspecified_nmm(

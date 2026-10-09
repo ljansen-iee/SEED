@@ -149,14 +149,17 @@ def Share_of_Direct_Electric_Passenger_Train(df):
     Share_of_Direct_Electric_Passenger_Train.loc[:, columns_to_multiply] *= 100
     return Share_of_Direct_Electric_Passenger_Train
 
-def share_technology(country, year):
+def share_technology(country, year, input_dir=None):
     """
     Generate base technology shares from OECD transport dataset
     instead of hardcoded values.
     """
 
     # --- Load OECD file ---
-    df_oecd = load_oecd_transport_file()
+    if input_dir is None:
+        df_oecd = load_oecd_transport_file()
+    else:
+        df_oecd = pd.read_csv(Path(input_dir) / "global" / OECD_TRANSPORT_FILENAME)
 
     # --- Filter for country & year ---
     df = df_oecd[

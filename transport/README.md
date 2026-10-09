@@ -2,6 +2,31 @@
 
 This module calculates final energy demand projections for the transport sector across multiple countries and scenarios (BAU, Progressive, Optimistic) from a base year (2020) to target years (2030-2050).
 
+## Isolated runs and unit contract
+
+Both entry points support `--config-path`, `--output-dir`, `--parameter-dir`,
+`--input-dir`, `--countries`, `--years`, and `--scenarios`. See
+[RUNNING.md](RUNNING.md) for a fresh-source Morocco run that writes only to an
+external temporary directory. The configuration stage honors the requested
+countries rather than processing its default list unconditionally. Importing
+transport modules does not create directories, load/write the demand config,
+or regenerate a tracked UNSD aggregate. Demand never overwrites its input
+parameter CSVs; refreshed parameters are exported under the chosen output root.
+
+Detailed technology/fuel demand and workbook summaries are **GWh**. Per-country
+indicator CSVs and scenario/year aggregate CSVs are **TWh**, converted from
+details by dividing by 1000. International bunker indicators are rebuilt from
+raw UNSD CSVs in memory (TJ / 3600), not read from a stale generated workbook.
+This detailed-GWh/aggregate-TWh distinction supersedes the outdated aggregate
+description in the original generic data-schema guidance.
+
+Road oil excludes LPG, which is counted only in road gas; total road is the
+detailed road sum. Methanol remains navigation oil under the legacy model
+classification. No broader carrier remapping is introduced. Nonzero
+`total navigation biomass` and `total aviation biomass` need separately reviewed
+schema mappings if the energy exporter rejects these fields; retain and report
+their actual TWh values rather than silently dropping or zeroing them.
+
 ---
 
 ## Table of Contents
@@ -48,7 +73,7 @@ The model supports three scenarios:
 
   STEP 1: Generate Configuration
   ══════════════════════════════
-  Run: python -m transport.build_config_transport
+    Run: python -m transport.build_transport_config
   
        ┌──────────────────────┐         ┌─────────────────────────────┐
        │   Input Data         │         │   trans_config.csv          │
@@ -85,7 +110,7 @@ The model supports three scenarios:
        ┌─────────────────────────────────────────────────────────────────┐
        │                    OUTPUTS GENERATED                             │
        ├─────────────────────────────────────────────────────────────────┤
-       │  country_specific/{Country}/                                     │
+       │  unsdata_historical/{Country}/                                     │
        │    ├── {ISO}_final_energy_demand.csv  (detailed demand by fuel) │
        │    ├── {ISO}_summary.xlsx             (summary tables)          │
        │    ├── output_{Country}_updated.csv   (updated parameters)      │
@@ -107,7 +132,7 @@ The model supports three scenarios:
 
 - Python 3.8+
 - Required packages: `pandas`, `numpy`, `pycountry`, `openpyxl`
-- Install dependencies: `pip install -r requirements.txt` (or use `environment.yaml`)
+- Create and activate the `sectoral-energy` environment using `environment.yaml`.
 
 ### Running the Model
 
@@ -115,7 +140,7 @@ The model supports three scenarios:
 
 ```bash
 # Step 1: Generate configuration and country parameters
-python -m transport.build_config_transport
+python -m transport.build_transport_config
 
 # Step 2: Calculate final energy demand
 python -m transport.build_final_energy_demand
@@ -178,7 +203,8 @@ Final Energy Intensity - Gasoline ICE LDV  | 0.57 | 0.51     | 0.49             
 
 ### Step 1: Add Country to the Countries List
 
-Edit `build_config_transport.py` and add the new country to `countries_to_process`:
+Prefer `--countries "NewCountry"` with explicit external paths. Alternatively,
+edit `build_transport_config.py` and add the new country to `countries_to_process`:
 
 ```python
 countries_to_process = [
@@ -216,7 +242,7 @@ If data is missing, the model will use default values or Morocco as a reference.
 
 ```bash
 # Generate configuration for all countries including the new one
-python -m transport.build_config_transport
+python -m transport.build_transport_config
 
 # Calculate energy demand
 python -m transport.build_final_energy_demand
@@ -271,21 +297,21 @@ The model will warn you if shares don't sum to 100%.
 
 ## Output Files
 
-### Per-Country Outputs (`output_data/country_specific/{Country}/`)
+### Per-Country Outputs (`output_data/unsdata_historical/{Country}/`)
 
 | File | Description |
 |------|-------------|
-| `{ISO}_final_energy_demand.csv` | Detailed energy demand by subsector, mode, technology, and fuel type (GWh) |
-| `{ISO}_summary.xlsx` | Summary tables with key indicators and totals |
+| `{ISO}_final_energy_demand.csv` | Carrier/category indicators including bunkers (TWh) |
+| `{ISO}_summary.xlsx` | Fuel, mode, subsector and end-use summaries (GWh) |
 | `output_{Country}_updated.csv` | Updated parameter file with any modifications |
-| `parameters_{Country}.csv` | Final parameters used in the calculation |
+| `parameters_{Country}.csv` | Detailed technology/fuel energy demand (GWh) |
 
 ### Aggregated Outputs (`output_data/`)
 
 | File | Description |
-|------|-------------|
-| `transport_all_2020.csv` | Base year energy demand for all countries |
-| `transport_{Scenario}_{Year}.csv` | Energy demand by scenario and year for all countries |
+| ---- | ----------- |
+| `transport_all_2020.csv` | Base year indicators for all selected countries (TWh) |
+| `transport_{Scenario}_{Year}.csv` | Indicators by scenario and year for all selected countries (TWh) |
 
 **Scenarios:** BAU, Progressive, Optimistic  
 **Years:** 2030, 2035, 2040, 2045, 2050
@@ -299,7 +325,7 @@ transport/
 ├── README.md                      # This file
 ├── RUNNING.md                     # Instructions for running scripts
 │
-├── build_config_transport.py      # MAIN SCRIPT 1: Generate configuration
+├── build_transport_config.py     # MAIN SCRIPT 1: Generate configuration
 ├── build_final_energy_demand.py   # MAIN SCRIPT 2: Calculate energy demand
 │
 ├── trans_config.csv               # Configuration file (CAGR & Target values)
@@ -314,17 +340,18 @@ transport/
 ├── build_technology_share.py      # Technology share calculations
 │
 ├── input_data/                    # Input data files
-│   ├── UNSD/                      # UN Statistics Division energy data
+│   ├── unsd_country_specific/     # Raw country-year UNSD CSVs
+│   ├── country_specific/          # SSP population/GDP CSVs
 │   ├── global/                    # Global transport statistics
 │   └── ...
 │
 └── output_data/                   # Output files
-    ├── country_parameters/        # Per-country parameter files
+    ├── interim_parametrisation/   # Default per-country parameter folder
     │   ├── output_Algeria.csv
     │   ├── output_Argentina.csv
     │   └── ...
     │
-    ├── country_specific/          # Per-country detailed outputs
+    ├── unsdata_historical/          # Per-country detailed outputs
     │   ├── Algeria/
     │   │   ├── DZ_final_energy_demand.csv
     │   │   └── DZ_summary.xlsx
@@ -345,7 +372,7 @@ transport/
 - **Solution:** Run from the repository root, not from inside the `transport/` folder
 ```bash
 cd path/to/sectoral-energy-demands
-python -m transport.build_config_transport
+python -m transport.build_transport_config
 ```
 
 **2. WARNING: Technology shares = 0% (should be 100%)**
@@ -357,7 +384,9 @@ python -m transport.build_config_transport
 - **Solution:** Check spelling and use the exact country name from the input data
 
 **4. trans_config.csv is empty or missing**
-- **Solution:** Delete the file and run `build_config_transport.py` to regenerate it
+- **Solution:** Supply a valid assumptions CSV via `--config-path`; the demand
+    stage does not auto-create a missing file. Default config generation retains
+    its legacy generation behavior, but missing raw data must be resolved first.
 
 ### Validation Warnings
 
@@ -376,4 +405,5 @@ Fix these by editing `trans_config.csv` or the country parameter files.
 ---
 
 
-*Last updated: March 2026*
+*Last updated: October 2026*
+
