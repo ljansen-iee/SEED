@@ -58,7 +58,7 @@ three scenarios. Producer checks also included the residential base year.
 | Real energy exports, Egypt and South Africa | Blocked by nonzero coal measures absent from the example schema |
 | Real industry exports | Blocked for all four countries; 120 of 300 sector-emissions rows have unresolved physical CO2 |
 | Full exporter failure behavior | Blocked industry validation writes no partial final exports |
-| Canonical documentation build | Blocked by the pre-existing missing configured SSL hook |
+| Documentation site build | Passed after removing the stale Windows SSL-hook reference; generated outside the worktree |
 
 Synthetic accepted-factor fixtures are arithmetic tests, not accepted model
 inputs. Hand checks include 152,000 tCO2 for hierarchical steel routes,
@@ -109,9 +109,15 @@ Agriculture coal is already a supported example column.
 
 ### Documentation/hosting
 
-The existing configuration references a missing `hooks/ssl_fix.py`, also absent
-from the main baseline. Fixing it requires a separate hosting/SSL decision;
-this integration does not add a TLS bypass or alter hosting behavior.
+The stale `hooks/ssl_fix.py` reference has been removed. The deleted hook
+replaced `ssl.create_default_context` with a context that disabled both
+certificate verification and hostname checking. That Windows-only workaround
+is unnecessary for the GitHub Pages build, which runs on GitHub Actions'
+`ubuntu-latest` runner; it is also unsafe as a global TLS change. GitHub Pages'
+hosting and HTTPS configuration and the existing repository/site URLs are
+unchanged. Local Windows documentation builds are optional, not a CI acceptance
+requirement. The full MkDocs site build passed with output directed to an
+external temporary directory.
 
 ## Acceptance gate
 

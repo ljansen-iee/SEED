@@ -38,8 +38,6 @@ theme:
     - content.code.copy
     - content.code.annotate
     - toc.integrate
-hooks:
-  - hooks/ssl_fix.py
 plugins:
   - search
   - mkdocstrings:

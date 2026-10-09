@@ -65,7 +65,7 @@ and readiness evidence must fail, not become fabricated zero demand.
 See [Input Data](../data/input-data.md),
 [Configuration](../configuration.md) and the [Quick Start](quickstart.md).
 
-## Building the documentation locally
+## Building the documentation
 
 Documentation dependencies are separate from the model environment. Match
 the pins in `.github/workflows/docs.yml`:
@@ -74,24 +74,20 @@ the pins in `.github/workflows/docs.yml`:
 python -m pip install mkdocs-material==9.6.7 "mkdocstrings[python]==0.29.1" mkdocs-jupyter==0.25.1
 ```
 
-CI copies `plots/*.ipynb` into `docs/notebooks/` before building. For a review
-build, keep the generated **site directory outside the repository**, rather
-than overwriting `public/`. For example, from PowerShell:
+GitHub Pages is the authoritative build and runs in the repository's
+`ubuntu-latest` GitHub Actions job with Python 3.10. It copies `plots/*.ipynb`
+into `docs/notebooks/` before building. Building locally is optional and is
+not required to publish the site. No Windows-specific SSL workaround is
+configured; the docs build does not require patching Python's TLS verification.
+
+To preview locally, keep the generated **site directory outside the repository**
+rather than overwriting `public/`. For example, from PowerShell:
 
 ```powershell
 $site = Join-Path $env:TEMP "sectoral-energy-docs-review"
 python -m mkdocs build --site-dir $site
 ```
 
-!!! warning "Documentation build is BLOCKED by the existing hook reference"
-  `mkdocs.yml` references `hooks/ssl_fix.py`, but that file is absent and
-  `git show main:hooks/ssl_fix.py` has no file to restore. The integration
-  preserves that hook reference, the local GitHub site/repository URLs and
-  the existing hosting/SSL configuration. No TLS bypass, replacement hook or
-  SSL behavior change is introduced. A configured build/serve remains blocked
-  until the owner supplies the intended hook through a separately reviewed
-  restoration. Installing the pinned dependencies alone cannot fix this.
-
-After that blocker is resolved, `python -m mkdocs serve` serves the documentation
-at <http://127.0.0.1:8000>. A successful documentation build would still not
-approve the staged model integration or its blocked emissions for final use.
+The optional local preview can be served with `python -m mkdocs serve` at
+<http://127.0.0.1:8000>. Documentation build success does not approve the
+staged model integration or its blocked emissions for final use.
