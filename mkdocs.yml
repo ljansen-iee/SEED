@@ -2,9 +2,9 @@ site_name: Sectoral Energy Demands
 site_description: >
   Bottom-up final energy demand forecasting tool for 30+ countries.
   Developed at Fraunhofer IEE for the DeV-KopSys-2 and H2Global meets Africa projects.
-site_url: https://gems.gitlab.cc-asp.fraunhofer.de/sectoral-energy-demands/
-repo_url: https://gitlab.cc-asp.fraunhofer.de/gems/sectoral-energy-demands
-repo_name: gems/sectoral-energy-demands
+site_url: https://ljansen-iee.github.io/SEED/
+repo_url: https://github.com/ljansen-iee/SEED
+repo_name: ljansen-iee/SEED
 edit_uri: edit/main/docs/
 
 docs_dir: docs

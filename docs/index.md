@@ -90,6 +90,7 @@ sectoral-energy-demands/
 
 - Estefanía Duque Pérez, Fraunhofer IEE
 - Rakesh Etikala Narendar, Fraunhofer IEE
+- Lukas Jansen, Fraunhofer IEE
 
 ---
 

@@ -66,4 +66,4 @@ Check the output CSVs for implausible values (negative demand, zero shares, etc.
 ## Reporting issues
 
 Open an issue on the
-[GitLab project page](https://gitlab.cc-asp.fraunhofer.de/gems/sectoral-energy-demands/-/issues).
+[GitHub project page](https://github.com/ljansen-iee/SEED/issues).

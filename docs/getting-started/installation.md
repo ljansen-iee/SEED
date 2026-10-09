@@ -9,8 +9,8 @@
 ## 1 — Clone the repository
 
 ```bash
-git clone https://gitlab.cc-asp.fraunhofer.de/gems/sectoral-energy-demands.git
-cd sectoral-energy-demands
+git clone https://github.com/ljansen-iee/SEED.git
+cd SEED
 ```
 
 ## 2 — Create the Conda environment

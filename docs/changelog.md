@@ -10,7 +10,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Added
 
 - MkDocs + Material documentation site (`docs/`, `mkdocs.yml`)
-- GitLab CI/CD pipeline for automatic deployment to GitLab Pages (`.gitlab-ci.yml`)
+- GitHub Actions workflow for automatic deployment to GitHub Pages (`.github/workflows/docs.yml`)
 - Tutorial notebooks for Transport and Residential sectors
 
 ### Known issues
